@@ -76,13 +76,34 @@ a:hover {
 	border-color: var(--COLOR_BORDER_MUTED);
 }
 
-/* background color */
-/* .bg-blue-600 {
-	background-color: var(--IO_DARK_BLUE) !important;
+/* ============================= */
+/* Hero Section Theming          */
+/* ============================= */
+
+/* Hero title glow backgrounds */
+.banner-glow-strong {
+	background: linear-gradient(to right, var(--IO_CYAN), var(--UWA_BLUE));
 }
-.bg-blue-500 {
-	background-color: var(--IO_CYAN) !important;
+
+.banner-glow-soft {
+	background: linear-gradient(to right, var(--IO_CYAN), var(--UWA_BLUE));
 }
-.bg-yellow-500 {
-	background-color: var(--UWA_GOLD) !important;
-} */
+
+/* Stats numbers */
+.stat-highlight {
+	color: var(--IO_CYAN);
+}
+
+/* Decorative dots */
+.dot-cyan {
+	background-color: var(--IO_CYAN);
+}
+.dot-blue {
+	background-color: var(--UWA_BLUE);
+}
+.dot-light {
+	background-color: var(--INFOGRAPHIC_MID_LIGHT_BLUE);
+}
+.dot-mid {
+	background-color: var(--INFOGRAPHIC_MID_BLUE);
+}
