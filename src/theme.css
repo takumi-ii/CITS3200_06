@@ -1,0 +1,109 @@
+/* ========== 1) Design Tokens: Brand Colors ========== */
+
+:root {
+	/* Oceans Institute Branding Colours (2025) */
+	--IO_DARK_BLUE: #1c2e5b;
+	--IO_CYAN: #62d5ff;
+	--IO_EXTRA_DARK_BLUE: #0a1b2e;
+	--UWA_GOLD: #daaa00;
+	--UWA_BLUE: #003087;
+	--INFOGRAPHIC_DARK_BLUE: #002042;
+	--INFOGRAPHIC_MID_BLUE: #52ade1;
+	--INFOGRAPHIC_MID_LIGHT_BLUE: #86c6ea;
+	--INFOGRAPHIC_LIGHT_BLUE: #c9e5f6;
+}
+
+/* ========== 2) Semantic Colors ========== */
+
+:root {
+	--COLOR_LINK: var(--UWA_BLUE);
+	--COLOR_LINK_HOVER: var(--IO_DARK_BLUE);
+
+	--BTN_PRIMARY_BG: var(--UWA_GOLD);
+	--BTN_PRIMARY_TEXT: #ffffff;
+	--BTN_PRIMARY_BG_HOVER: var(--IO_EXTRA_DARK_BLUE);
+
+	--COLOR_BORDER_MUTED: #e5e7eb;
+	--COLOR_TEXT_MUTED: #374151;
+}
+
+/* ========== 3) Base Elements ========== */
+
+html,
+body {
+	color: #111827; /* Tailwind foreground 相当 */
+	background: #ffffff; /* Tailwind background 相当 */
+}
+
+a {
+	color: var(--COLOR_LINK);
+	text-decoration: inherit;
+}
+a:hover {
+	color: var(--COLOR_LINK_HOVER);
+}
+
+/* ========== 4) Components ========== */
+
+/* Navbar */
+.navbar {
+	background: var(--IO_DARK_BLUE);
+	color: #ffffff;
+	border-bottom: 1px solid var(--COLOR_BORDER_MUTED);
+}
+.navbar a {
+	color: var(--COLOR_LINK);
+}
+.navbar a:hover {
+	color: var(--COLOR_LINK_HOVER);
+}
+
+/* Primary Button */
+.btn--primary {
+	background: var(--BTN_PRIMARY_BG);
+	color: var(--BTN_PRIMARY_TEXT);
+}
+.btn--primary:hover {
+	background: var(--BTN_PRIMARY_BG_HOVER);
+}
+
+/* ========== 5) Helpers ========== */
+
+.text-muted {
+	color: var(--COLOR_TEXT_MUTED);
+}
+.border-muted {
+	border-color: var(--COLOR_BORDER_MUTED);
+}
+
+/* ============================= */
+/* Hero Section Theming          */
+/* ============================= */
+
+/* Hero title glow backgrounds */
+.banner-glow-strong {
+	background: linear-gradient(to right, var(--IO_CYAN), var(--UWA_BLUE));
+}
+
+.banner-glow-soft {
+	background: linear-gradient(to right, var(--IO_CYAN), var(--UWA_BLUE));
+}
+
+/* Stats numbers */
+.stat-highlight {
+	color: var(--IO_CYAN);
+}
+
+/* Decorative dots */
+.dot-cyan {
+	background-color: var(--IO_CYAN);
+}
+.dot-blue {
+	background-color: var(--UWA_BLUE);
+}
+.dot-light {
+	background-color: var(--INFOGRAPHIC_MID_LIGHT_BLUE);
+}
+.dot-mid {
+	background-color: var(--INFOGRAPHIC_MID_BLUE);
+}
