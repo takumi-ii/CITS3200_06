@@ -65,11 +65,8 @@ export default function HeroSection() {
 				</div>
 			</div>
 
-			{/* Decorative Dots */}
-			<div className="absolute top-8 left-8 w-4 h-4 rounded-full opacity-60 animate-pulse dot-cyan"></div>
-			<div className="absolute top-16 right-12 w-2 h-2 rounded-full opacity-80 dot-light"></div>
-			<div className="absolute bottom-12 left-16 w-3 h-3 rounded-full opacity-50 animate-pulse dot-mid"></div>
-			<div className="absolute bottom-8 right-8 w-4 h-4 rounded-full opacity-70 dot-blue"></div>
+		
+		
 		</section>
 	);
 }
