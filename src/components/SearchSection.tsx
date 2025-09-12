@@ -12,9 +12,7 @@ export default function SearchSection({ searchQuery, setSearchQuery }: SearchSec
     <section className="bg-gradient-to-b from-blue-50 to-white py-12">
       <div className="max-w-4xl mx-auto px-6">
         <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8">
-          <h2 className="text-2xl font-semibold text-center mb-6 text-gray-800">
-            Search Our Research Database
-          </h2>
+          
           
           <div className="flex gap-4">
             <div className="flex-1 relative">
