@@ -1,75 +1,63 @@
 export default function HeroSection() {
-	return (
-		<section
-			className="relative h-96 bg-cover bg-center"
-			style={{
-				backgroundImage: `
-          linear-gradient(
-            color-mix(in srgb, var(--IO_DARK_BLUE) 50%, transparent),
-            color-mix(in srgb, var(--IO_DARK_BLUE) 50%, transparent)
-          ),
-          url('https://images.unsplash.com/photo-1707314319121-d183468ef006?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx1bmRlcndhdGVyJTIwb2NlYW4lMjBibHVlJTIwcmVzZWFyY2h8ZW58MXx8fHwxNzU2NzE1MDU0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral')`,
-			}}
-		>
-			<div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center px-6">
-				{/* Main Title with Text Effect */}
-				<div className="relative mb-6">
-					<h1 className="text-5xl md:text-6xl font-bold mb-2 relative z-10">
-						Our Research Ventures
-					</h1>
-					{/* Text Glow Effect */}
-					<div className="absolute inset-0 opacity-20 blur-lg transform scale-110 rounded banner-glow-strong"></div>
-					<div className="absolute -inset-1 opacity-30 blur-sm rounded banner-glow-soft"></div>
-				</div>
+  return (
+    <section
+      style={{
+        position: "relative",
+        height: "450px",
+        overflow: "hidden", // <- keeps everything inside the hero
+        backgroundImage: `url('/images/shifaaz-shamoon-sLAk1guBG90-unsplash.jpg')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Left CTA panel */}
+      <div
+        style={{
+          position: "absolute",
+          top: "5%",
+          left: "5%",
+          bottom: "5%",
+          width: "40%",
+          maxWidth: "550px",
+          maxHeight: "90%",     // <- prevents panel from exceeding hero height
+          boxSizing: "border-box",
+          backgroundColor: "rgba(0,0,0,0.9)",
+          color: "white",
+          padding: "2rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          zIndex: 1,
+          borderLeft: "2px solid white"
+        }}
+      >
+        <h1 style={{ fontSize: "2.5rem", fontWeight: 600, marginBottom: "1rem" }}>
+          Explore Our Expertise
+        </h1>
+        <p style={{ fontSize: "1.2rem", marginBottom: "1.5rem", lineHeight: 1.4 }}>
+          Connect with 400+ researchers across marine science, climate,
+          and sustainable ocean management.
+        </p>
 
-				{/* Flavor Text */}
-				<div className="max-w-3xl mb-12">
-					<p className="text-xl md:text-2xl mb-3 opacity-90">
-						Exploring the depths of marine science and ocean
-						conservation
-					</p>
-					<p className="text-lg opacity-80">
-						Discover groundbreaking research from our world-class
-						scientists advancing our understanding of marine
-						ecosystems, climate change impacts, and sustainable
-						ocean management.
-					</p>
-				</div>
-
-				{/* Stats */}
-				<div className="flex flex-wrap justify-center gap-8 md:gap-16">
-					<div className="text-center">
-						<div className="text-3xl md:text-4xl font-bold stat-highlight">
-							280+
-						</div>
-						<div className="text-sm md:text-base uppercase tracking-wide opacity-90">
-							Researchers
-						</div>
-					</div>
-					<div className="text-center">
-						<div className="text-3xl md:text-4xl font-bold stat-highlight">
-							4,300+
-						</div>
-						<div className="text-sm md:text-base uppercase tracking-wide opacity-90">
-							Research Outcomes
-						</div>
-					</div>
-					<div className="text-center">
-						<div className="text-3xl md:text-4xl font-bold stat-highlight">
-							400+
-						</div>
-						<div className="text-sm md:text-base uppercase tracking-wide opacity-90">
-							Grants
-						</div>
-					</div>
-				</div>
-			</div>
-
-			{/* Decorative Dots */}
-			<div className="absolute top-8 left-8 w-4 h-4 rounded-full opacity-60 animate-pulse dot-cyan"></div>
-			<div className="absolute top-16 right-12 w-2 h-2 rounded-full opacity-80 dot-light"></div>
-			<div className="absolute bottom-12 left-16 w-3 h-3 rounded-full opacity-50 animate-pulse dot-mid"></div>
-			<div className="absolute bottom-8 right-8 w-4 h-4 rounded-full opacity-70 dot-blue"></div>
-		</section>
-	);
+          <p style={{ margin: 0, opacity: 0.85, fontSize: "0.95rem" }}>
+               Browse 400+ researchers and filter by theme, skills, methods, or region.
+          </p>
+        <a
+          href="/expertise"
+          style={{
+            alignSelf: "flex-end",
+             marginTop: "3rem",
+            backgroundColor: "#00AEEF",
+            color: "#002042",
+            padding: "0.75rem 1.25rem",
+            fontWeight: "bold",
+            textDecoration: "none",
+          }}
+        >
+          Explore Expertise →
+        </a>
+      </div>
+    </section>
+  );
 }
