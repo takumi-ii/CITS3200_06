@@ -12,26 +12,29 @@ export default function HeroSection() {
       }}
     >
       {/* Left CTA panel */}
-      <div
-        style={{
-          position: "absolute",
-          top: "5%",
-          left: "5%",
-          bottom: "5%",
-          width: "40%",
-          maxWidth: "550px",
-          maxHeight: "90%",     // <- prevents panel from exceeding hero height
-          boxSizing: "border-box",
-          backgroundColor: "rgba(0,0,0,0.9)",
-          color: "white",
-          padding: "2rem",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          zIndex: 1,
-          borderLeft: "2px solid white"
-        }}
-      >
+   <div
+  style={{
+    position: "absolute",
+    top: "5%",
+    bottom: "5%",
+    width: "40%",
+    maxWidth: "550px",
+    maxHeight: "90%", // prevents panel from exceeding hero height
+    boxSizing: "border-box",
+    backgroundColor: "rgba(0,0,0,0.9)",
+    color: "white",
+    padding: "2rem",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    zIndex: 1,
+    borderLeft: "2px solid white",
+
+    /* 👇 New responsive logic */
+    left: "clamp(5%, 50% - 275px, 50%)",
+    transform: "translateX(-50%)",
+  }}
+>
         <h1 style={{ fontSize: "2.5rem", fontWeight: 600, marginBottom: "1rem" }}>
           Explore Our Expertise
         </h1>
