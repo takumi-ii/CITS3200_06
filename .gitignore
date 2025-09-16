@@ -6,3 +6,7 @@ build/
 
 # .gitignore
 .env
+db/persons.json
+
+db/awards.json
+db/projects.json
