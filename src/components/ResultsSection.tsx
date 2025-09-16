@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 
@@ -111,30 +111,81 @@ const mockResearchOutcomes = [
 export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
   const [activeTab, setActiveTab] = useState('researchers');
 
-  // Filter results based on search query and filters
-  const filteredResearchers = mockResearchers.filter(researcher => {
-    const matchesQuery = !searchQuery || 
-      researcher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      researcher.expertise.some(exp => exp.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTags = filters.tags.length === 0 || 
-      filters.tags.some(tag => researcher.expertise.some(exp => exp.includes(tag)));
-    
+  // NEW: live data states (keep mocks above)
+  const [researchers, setResearchers] = useState<any[]>([]);
+  const [outcomes, setOutcomes] = useState<any[]>([]);
+
+  // NEW: fetch from endpoints; if they return empty or error, filters will fall back to mocks
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [rRes, oRes] = await Promise.all([
+          fetch('/api/researchers'),
+          fetch('/api/researchOutcomes'),
+        ]);
+        const rJson = rRes.ok ? await rRes.json() : null;
+        const oJson = oRes.ok ? await oRes.json() : null;
+
+        // support { researchers: [...] } or bare [...]
+        const rData = rJson
+          ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? []))
+          : [];
+        const oData = oJson
+          ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? []))
+          : [];
+
+        if (!alive) return;
+        setResearchers(Array.isArray(rData) ? rData : []);
+        setOutcomes(Array.isArray(oData) ? oData : []);
+      } catch (e) {
+        // swallow errors; fall back happens below
+        if (!alive) return;
+        setResearchers([]);
+        setOutcomes([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // Choose live data if available; otherwise use mocks
+  const sourceResearchers = researchers.length ? researchers : mockResearchers;
+  const sourceOutcomes = outcomes.length ? outcomes : mockResearchOutcomes;
+
+  // Filter results based on search query and filters (now based on chosen source arrays)
+  const filteredResearchers = sourceResearchers.filter(researcher => {
+    const q = (searchQuery || '').toLowerCase();
+    const matchesQuery = !q ||
+      researcher.name.toLowerCase().includes(q) ||
+      (researcher.expertise || []).some((exp: string) => exp.toLowerCase().includes(q));
+
+    const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+      filters.tags.some(tag =>
+        (researcher.expertise || []).some((exp: string) =>
+          (exp || '').toLowerCase().includes((tag || '').toLowerCase())
+        )
+      );
+
     return matchesQuery && matchesTags;
   });
 
-  const filteredOutcomes = mockResearchOutcomes.filter(outcome => {
-    const matchesQuery = !searchQuery || 
-      outcome.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      outcome.keywords.some(keyword => keyword.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTags = filters.tags.length === 0 || 
-      filters.tags.some(tag => outcome.keywords.includes(tag));
-    
-    const matchesYear = outcome.year >= filters.yearRange[0] && outcome.year <= filters.yearRange[1];
-    
+  const filteredOutcomes = sourceOutcomes.filter(outcome => {
+    const q = (searchQuery || '').toLowerCase();
+    const matchesQuery = !q ||
+      (outcome.title || '').toLowerCase().includes(q) ||
+      (outcome.keywords || []).some((k: string) => (k || '').toLowerCase().includes(q));
+
+    const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+      filters.tags.some(tag => (outcome.keywords || []).includes(tag));
+
+    const year = typeof outcome.year === 'number' ? outcome.year : Number(outcome.year) || null;
+    const matchesYear = year !== null
+      ? year >= filters.yearRange[0] && year <= filters.yearRange[1]
+      : false; // change to true if you want to include unknown years
+
     return matchesQuery && matchesTags && matchesYear;
   });
+
 
   return (
     <div className="flex-1">

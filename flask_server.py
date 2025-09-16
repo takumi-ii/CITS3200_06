@@ -6,6 +6,33 @@ from pathlib import Path
 from flask import Flask, send_from_directory, Response
 import sqlite3
 
+# -------------------- NEW: DB helpers --------------------
+DB_PATH = "data.db"
+
+def get_db():
+    """Open a connection with Row access by column name."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def recent_outputs_for(researcher_uuid: str, limit: int = 2):
+    """Return the N most recent outputs (fallback ordering by rowid)."""
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            SELECT
+              name AS title,
+              NULL AS year,                 -- <- replace if you add a year column
+              publisher_name AS journal
+            FROM OIResearchOutputs
+            WHERE researcher_uuid = ?
+            ORDER BY rowid DESC
+            LIMIT ?
+            """,
+            (researcher_uuid, limit),
+        )
+        return [dict(r) for r in cur.fetchall()]
+# ---------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 BUILD_DIR = (BASE_DIR / "build").resolve()
 
@@ -101,6 +128,62 @@ def get_oiresearchoutputs():
     ]
     return {"research_outputs": research_outputs}
     
+# -------------------- NEW: front-end-ready shape --------------------
+@app.route("/api/researchers")
+def api_researchers():
+    """
+    Returns objects shaped like your mockResearchers:
+    {
+      id, name, title, department, expertise[], publications, grants,
+      collaborations, location, bio, recentPublications[{title, year, journal}]
+    }
+    """
+    sql = """
+      SELECT
+        m.uuid,
+        m.name,
+        m.education,
+        m.bio,
+        GROUP_CONCAT(e.field, '||') AS expertise_concat,
+        COALESCE(pub.cnt, 0) AS publications
+      FROM OIMembers m
+      LEFT JOIN OIExpertise e
+        ON e.researcher_uuid = m.uuid
+      LEFT JOIN (
+        SELECT researcher_uuid, COUNT(*) AS cnt
+        FROM OIResearchOutputs
+        GROUP BY researcher_uuid
+      ) AS pub
+        ON pub.researcher_uuid = m.uuid
+      GROUP BY m.uuid, m.name, m.education, m.bio, pub.cnt
+      ORDER BY m.name;
+    """
+
+    with get_db() as conn:
+        rows = conn.execute(sql).fetchall()
+
+    data = []
+    for r in rows:
+        expertise = (r["expertise_concat"] or "").split("||") if r["expertise_concat"] else []
+        recent = recent_outputs_for(r["uuid"], limit=2)
+
+        data.append({
+            "id": r["uuid"],
+            "name": r["name"],
+            "title": "",                # add column/table later if you have it
+            "department": "",           # add column/table later if you have it
+            "expertise": expertise,
+            "publications": r["publications"],
+            "grants": 0,                # join a grants table later
+            "collaborations": 0,        # join a collaborations table later
+            "location": "Perth, Australia",
+            "bio": r["bio"],
+            "recentPublications": recent,
+        })
+
+    return {"researchers": data}
+# --------------------------------------------------------------------
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
