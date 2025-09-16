@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from flask import Flask, send_from_directory, Response
+import sqlite3
 
 BASE_DIR = Path(__file__).resolve().parent
 BUILD_DIR = (BASE_DIR / "build").resolve()
@@ -35,6 +36,27 @@ def serve(path: str):
         return send_from_directory(BUILD_DIR, path)
     return send_from_directory(BUILD_DIR, "index.html")
 
+# API Routes for data to pass Table data from the DB to the front end:
+@app.route("/api/oimembers")
+def get_oimembers():
+    conn = sqlite3.connect('data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM OIMembers")
+    rows = cursor.fetchall()
+    conn.close()
+    members = [
+        {
+            "name": row[0],
+            "position": row[1],
+            "expertise": row[2].split(", ") if row[2] else [],
+            "email": row[3],
+            "phone": row[4],
+            "photo_url": row[5]
+        }
+        for row in rows
+    ]
+    return {"members": members}
+    
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)

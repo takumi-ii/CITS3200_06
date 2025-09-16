@@ -4,7 +4,7 @@ BEGIN;
 
 -- OIMembers
 CREATE TABLE IF NOT EXISTS OIMembers (
-  id INTEGER PRIMARY KEY,
+  uuid TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,  -- serves as FK target
   email TEXT,
   education TEXT,
@@ -15,33 +15,33 @@ CREATE TABLE IF NOT EXISTS OIMembers (
 -- OIExpertise
 CREATE TABLE IF NOT EXISTS OIExpertise (
   id INTEGER PRIMARY KEY,
-  researcher_name TEXT NOT NULL,
+  researcher_uuid TEXT NOT NULL,
   field TEXT NOT NULL,
-  FOREIGN KEY (researcher_name) REFERENCES OIMembers(name)
+  FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
--- DBML: (researcher_name, field) [unique]
+-- DBML: (researcher_uuid, field) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_expertise_researcher_field
-  ON OIExpertise (researcher_name, field);
+  ON OIExpertise (researcher_uuid, field);
 
 -- OIResearchOutputs
 CREATE TABLE IF NOT EXISTS OIResearchOutputs (
-  id INTEGER PRIMARY KEY,
-  researcher_name TEXT NOT NULL,
+  uuid TEXT PRIMARY KEY,
+  researcher_uuid TEXT NOT NULL,
   publisher_name TEXT,
   name TEXT NOT NULL UNIQUE,  -- FK target for grants
-  FOREIGN KEY (researcher_name) REFERENCES OIMembers(name)
+  FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
 -- DBML: (researcher_name, name) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_researcher_name
-  ON OIResearchOutputs (researcher_name, name);
+  ON OIResearchOutputs (researcher_uuid, uuid);
 
 -- OIResearchGrants
 CREATE TABLE IF NOT EXISTS OIResearchGrants (
-  id INTEGER PRIMARY KEY,
+  uuid TEXT PRIMARY KEY,
   ro_name TEXT NOT NULL,
   grant_name TEXT NOT NULL,
   start_date DATE,

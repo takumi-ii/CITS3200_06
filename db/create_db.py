@@ -1,21 +1,27 @@
 """
-OI People + Expertise + Research Outputs loader
+OI People + Expertise + Research Outputs loader (UUID-aware)
 
 - Recreates the SQLite DB from a provided SQL file.
-- Ingests people from an Excel sheet into OIMembers (upsert by full name).
-- Normalizes and inserts expertise into OIExpertise, title-casing each term
-  (capitalizing every word except common connectives) before de-duplication.
-- Ingests research_outputs.json into OIResearchOutputs, associating each work
-  with the first listed author and capturing optional publisher_name.
+- Ingests people from an Excel sheet into OIMembers (upsert by full name),
+  assigning a deterministic UUIDv5 if no canonical UUID is known yet.
+- Normalizes and inserts expertise into OIExpertise (title-cased phrases),
+  keyed by OIMembers.uuid.
+- Ingests research_outputs.json into OIResearchOutputs using the output's own
+  UUID; associates with the first listed author by that author's canonical
+  person UUID from JSON; captures optional publisher_name. If an Excel-created
+  member with the same name exists under a synthetic UUID, it is upgraded to
+  the canonical JSON UUID (cascades to FKs).
 """
 
 import os
 import re
 import json
 import html
+import uuid
 import sqlite3
 import pandas as pd
 from datetime import datetime
+from typing import Optional
 
 # DB setup
 def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
@@ -43,20 +49,24 @@ def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
 # Helpers
 def _norm(val):
     """
-    Normalize a cell value:
-      - Convert to string, strip leading/trailing whitespace,
-      - Collapse internal whitespace.
+    Normalize a value to a single-line, trimmed string. Returns "" for NaN/None.
     """
-    if pd.isna(val):
+    if val is None:
         return ""
+    if isinstance(val, str):
+        return re.sub(r"\s+", " ", val).strip()
+    try:
+        if pd.isna(val):
+            return ""
+    except Exception:
+        pass
     return re.sub(r"\s+", " ", str(val)).strip()
 
 def _parse_date(val):
     """
-    Parse a few common date formats into YYYY-MM-DD.
-    Returns None on failure (so we don't pollute text fields).
+    Parse common formats into YYYY-MM-DD (string). None if not parsable.
     """
-    if not val or pd.isna(val):
+    if not val or (not isinstance(val, str) and pd.isna(val)):
         return None
     if isinstance(val, (pd.Timestamp, datetime)):
         return val.date().isoformat()
@@ -118,7 +128,7 @@ def _build_bio(row):
     if profile: bits.append(f"Profile: {profile}")
     return "; ".join(bits) or None
 
-# Title-casing for Expertise:
+# Expertise title-casing
 _EXPERTISE_SMALL_WORDS = {
     "a","an","the","and","or","nor","but","for","so","yet",
     "as","at","by","in","of","on","per","to","via","vs","v",
@@ -144,8 +154,6 @@ def _is_acronym(token: str) -> bool:
 def _titlecase_word(token: str, is_boundary: bool) -> str:
     """
     Title-case a single token, respecting connectives and acronyms.
-    `is_boundary` is True if token is first or last in the phrase or hyphenated
-    segment, so we always capitalize in that case.
     """
     if not token:
         return token
@@ -170,25 +178,17 @@ def _titlecase_hyphenated(token: str, is_first: bool, is_last: bool) -> str:
 
 def titlecase_expertise(phrase: str) -> str:
     """
-    Title-case an expertise phrase:
-      - Capitalize every significant word.
-      - Keep common connectives lowercase unless at the beginning or end.
-      - Preserve acronyms (e.g., UWA, CSIRO, AI) and alnum like CO2, H2O.
-      - Handle hyphenated tokens (e.g., state-of-the-art -> State-of-the-Art).
+    Title-case an expertise phrase (preserve acronyms, handle hyphens,
+    leave connectives lower unless first/last).
     """
     phrase = _norm(phrase)
     if not phrase:
         return phrase
-
     tokens = phrase.split()
-    if not tokens:
-        return phrase
-
     out = []
     for idx, tok in enumerate(tokens):
         is_first = (idx == 0)
         is_last  = (idx == len(tokens) - 1)
-
         if "-" in tok and len(tok) > 1:
             out.append(_titlecase_hyphenated(tok, is_first, is_last))
         else:
@@ -197,7 +197,7 @@ def titlecase_expertise(phrase: str) -> str:
 
 def _iter_expertise(row):
     """
-    Iterate normalized, title-cased expertise terms from the three columns:
+    Iterate normalized, title-cased expertise terms from three columns:
       - Splits on commas, semicolons, slashes, and the word 'and' (case-insensitive).
       - Applies titlecase_expertise *before* case-insensitive de-duplication.
     """
@@ -212,7 +212,6 @@ def _iter_expertise(row):
             if v:
                 fields.append(titlecase_expertise(v))
 
-    # De-dup preserving order (case-insensitive equality)
     seen = set()
     for f in fields:
         key = f.casefold()
@@ -220,7 +219,50 @@ def _iter_expertise(row):
             seen.add(key)
             yield f
 
-# Ingest: People + Expertise from Excel
+# UUID helpers + member upsert
+def _deterministic_member_uuid(name: str) -> str:
+    """
+    Produce a stable UUIDv5 for a member name (used for Excel-only rows).
+    This allows reproducible FKs until a canonical JSON UUID is known.
+    """
+    base = f"member:{name.casefold()}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, base))
+
+def _ensure_member(conn, name: str, member_uuid: Optional[str], email: Optional[str], bio: Optional[str]) -> str:
+    """
+    Ensure an OIMembers row exists for `name`, returning the member UUID.
+
+    - If no row exists:
+        * Use provided `member_uuid` if given, else create deterministic UUIDv5.
+        * Insert (uuid, name, email, bio).
+    - If a row exists and `member_uuid` is provided but differs:
+        * UPDATE the primary key uuid to the canonical `member_uuid`
+          (ON UPDATE CASCADE will update referencing FKs).
+    - Update email/bio if provided (non-null).
+    """
+    cur = conn.cursor()
+    cur.execute("SELECT uuid FROM OIMembers WHERE name = ?", (name,))
+    row = cur.fetchone()
+    if row is None:
+        if not member_uuid:
+            member_uuid = _deterministic_member_uuid(name)
+        cur.execute(
+            "INSERT INTO OIMembers (uuid, name, email, bio) VALUES (?, ?, ?, ?)",
+            (member_uuid, name, email, bio)
+        )
+        return member_uuid
+    else:
+        current_uuid = row[0]
+        if member_uuid and member_uuid != current_uuid:
+            cur.execute("UPDATE OIMembers SET uuid = ? WHERE name = ?", (member_uuid, name))
+        if email or bio:
+            cur.execute(
+                "UPDATE OIMembers SET email = COALESCE(?, email), bio = COALESCE(?, bio) WHERE name = ?",
+                (email if email else None, bio if bio else None, name)
+            )
+        return member_uuid or current_uuid
+
+# Ingest: People + Expertise from Excel (UUID-based)
 EXPECTED_COLS = [
     "Academic Staff", "Title", "First Name", "Surname", "Gender",
     "Email Address", "Seconday email", "Category", "School/Centre/Organisation",
@@ -244,14 +286,13 @@ def fill_db_from_excel_people(
     sheet_name='DATA- OI Member Listing-sample'
 ):
     """
-    Load people + expertise from Excel into OIMembers and OIExpertise.
+    Load people + expertise from Excel into OIMembers and OIExpertise (UUID schema).
 
-    - Upserts OIMembers on (unique) full name.
+    - Upserts OIMembers on unique name; assigns deterministic UUIDv5 if needed.
     - Builds a compact bio string from relevant fields.
-    - Normalizes and title-cases expertise phrases before dedup + insert.
+    - Inserts expertise into OIExpertise keyed by researcher_uuid.
     """
     df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype=str)
-    # Normalize column names (trim + collapse whitespace)
     df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
 
     missing = [c for c in EXPECTED_COLS if c not in df.columns]
@@ -271,7 +312,7 @@ def fill_db_from_excel_people(
         email = _choose_email(row.get("Email Address"), row.get("Seconday email"))
         bio = _build_bio(row)
 
-        # Optionally append the three date fields to the bio.
+        # Optional: add date fields into bio
         dates = []
         acd = _parse_date(row.get("Adjunct Commencement Date"))
         ard = _parse_date(row.get("Adjunct Renewal Date"))
@@ -282,51 +323,66 @@ def fill_db_from_excel_people(
         if dates:
             bio = (bio + ("; " if bio else "")) + " | ".join(dates)
 
-        # Upsert member
-        cur.execute(
-            """
-            INSERT INTO OIMembers (name, email, bio)
-            VALUES (?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                email = COALESCE(excluded.email, OIMembers.email),
-                bio   = COALESCE(excluded.bio,   OIMembers.bio)
-            """,
-            (name, email, bio)
-        )
-        if cur.rowcount > 0:
-            inserted_members += 1
+        # Ensure member (deterministic uuid if new)
+        member_uuid = _ensure_member(conn, name, None, email, bio)
 
-        # Expertise (already title-cased + deduped in iterator)
+        # Count a new insert roughly by checking if any expertise will insert new rows.
+        # (We skip a precise member-insert counter to keep things lightweight.)
         for field in _iter_expertise(row):
             cur.execute(
-                """INSERT OR IGNORE INTO OIExpertise (researcher_name, field)
+                """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
                    VALUES (?, ?)""",
-                (name, field)
+                (member_uuid, field)
             )
             if cur.rowcount > 0:
                 inserted_expertise += 1
 
     conn.commit()
     conn.close()
-    print(f"[INFO] Members upserted: {inserted_members}")
     print(f"[INFO] Expertise inserted: {inserted_expertise}")
     return True
 
-# Ingest: Research outputs JSON
-def _first_author_name(item):
+# Ingest: Research outputs JSON (UUID-based)
+def _first_author_name_uuid(item):
     """
-    Return the first listed person's full name (First Last) if available.
-    This keeps our FK to OIMembers consistent even when authorship is shared.
+    Return (author_full_name, author_person_uuid) for the first 'Author' role.
+    Fallback: first personAssociation with a person object.
     """
-    people = item.get("personAssociations") or []
-    for p in people:
-        n = p.get("name") or {}
-        first = _norm(n.get("firstName"))
-        last  = _norm(n.get("lastName"))
-        full = " ".join([first, last]).strip()
-        if full:
-            return full
-    return None
+    for assoc in item.get("personAssociations") or []:
+        role = assoc.get("personRole") or {}
+        term = role.get("term") or {}
+        texts = term.get("text") or []
+        role_vals = [t.get("value") for t in texts if isinstance(t, dict)]
+        is_author = any((v or "").lower() == "author" for v in role_vals)
+
+        person = assoc.get("person") or {}
+        puuid = person.get("uuid")
+        n = person.get("name") or {}
+        name_texts = n.get("text") or []
+        fullname = None
+        for t in name_texts:
+            if isinstance(t, dict) and t.get("value"):
+                fullname = t["value"]
+                break
+
+        if is_author and puuid and fullname:
+            return fullname, puuid
+
+    # Fallback
+    for assoc in item.get("personAssociations") or []:
+        person = assoc.get("person") or {}
+        puuid  = person.get("uuid")
+        n = person.get("name") or {}
+        name_texts = n.get("text") or []
+        fullname = None
+        for t in name_texts:
+            if isinstance(t, dict) and t.get("value"):
+                fullname = t["value"]
+                break
+        if puuid and fullname:
+            return fullname, puuid
+
+    return None, None
 
 def _title_from_item(item):
     """
@@ -337,30 +393,20 @@ def _title_from_item(item):
 
 def _publisher_from_item(item):
     """
-    Extract a clean publisher/venue string from the research output JSON.
-    PURE exports often look like:
-        item['publisher'] -> {
-          'name': { 'text': [ {'value': 'Cambridge University Press'} ] }, ... }
-    We drill down to the first available text.value; otherwise fall back to a few
-    simple string fields. Returns None if nothing suitable is present.
+    Extract a clean publisher/venue string from PURE JSON, e.g.:
+      item['publisher']['name']['text'][0]['value'] -> 'Cambridge University Press'
     """
     pub = item.get("publisher")
     if not pub:
         return None
-
-    # Simple string form
     if isinstance(pub, str):
         s = _norm(html.unescape(pub))
         return s or None
-
-    # Dict form (PURE)
     if isinstance(pub, dict):
         name = pub.get("name")
-        # name as plain string
         if isinstance(name, str):
             s = _norm(html.unescape(name))
             return s or None
-        # name as dict with text list: take first non-empty "value"
         if isinstance(name, dict):
             text = name.get("text")
             if isinstance(text, list):
@@ -371,79 +417,99 @@ def _publisher_from_item(item):
                             s = _norm(html.unescape(str(val)))
                             if s:
                                 return s
-        # Fallbacks sometimes seen in exports
         for key in ("value", "title"):
             v = pub.get(key)
             if isinstance(v, str):
                 s = _norm(html.unescape(v))
                 if s:
                     return s
-
     return None
 
 def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\research_outputs.json'):
     """
-    Insert research outputs:
-      - Uses first listed author as the owner (schema uses researcher's name).
-      - Captures optional publisher_name where available.
-      - Creates a stub OIMember if the author doesn't exist yet.
-      - Upserts on unique(name) to avoid duplicates; updates publisher_name if provided.
+    Insert/Upsert research outputs (UUID-based):
+      - Each item provides its own research-output UUID (`uuid`).
+      - We associate the output with the first author's person UUID.
+      - We upgrade any existing Excel-created member UUID to the canonical
+        person UUID (name match) so FKs stay accurate.
+      - We upsert outputs by PK(uuid); if a title uniqueness conflict occurs,
+        we update that row in place with the given uuid/researcher/publisher.
     """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     conn = sqlite3.connect(db_name)
     cur = conn.cursor()
+
     inserted = 0
     updated  = 0
     skipped  = 0
 
     for item in data:
+        ro_uuid = item.get("uuid")
         title = _title_from_item(item)
-        if not title:
+        if not ro_uuid or not title:
+            skipped += 1
             continue
-        author = _first_author_name(item) or "Unknown"
+
+        author_name, author_uuid = _first_author_name_uuid(item)
+        if not author_name:
+            author_name = "Unknown"
+        # Ensure the member exists; this will also "upgrade" the uuid for
+        # name-matched Excel members to the canonical author_uuid (cascade-safe).
+        member_uuid = _ensure_member(conn, author_name, author_uuid, None, None)
+
         publisher = _publisher_from_item(item)
 
-        # Ensure the author exists in OIMembers for FK consistency (name is FK target)
-        cur.execute(
-            """INSERT INTO OIMembers (name) VALUES (?)
-               ON CONFLICT(name) DO NOTHING""",
-            (author,)
-        )
-
-        # Upsert research output by unique(title/name). Only update publisher_name
-        # (and keep existing researcher_name unchanged) to avoid cross-author clobbering.
-        cur.execute(
-            """
-            INSERT INTO OIResearchOutputs (researcher_name, publisher_name, name)
-            VALUES (?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name)
-            """,
-            (author, publisher, title)
-        )
-
-        # crude effect accounting
-        if cur.rowcount == 1 and cur.lastrowid is not None:
-            inserted += 1
-        elif cur.rowcount == 1:
-            updated += 1
-        else:
-            skipped += 1
+        try:
+            cur.execute(
+                """
+                INSERT INTO OIResearchOutputs (uuid, researcher_uuid, publisher_name, name)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name),
+                    researcher_uuid = COALESCE(excluded.researcher_uuid, OIResearchOutputs.researcher_uuid),
+                    name = COALESCE(excluded.name, OIResearchOutputs.name)
+                """,
+                (ro_uuid, member_uuid, publisher, title)
+            )
+            # rowcount semantics: 1 for insert OR update via upsert; we’ll estimate using a probe
+            # Try to detect if the row existed already
+            cur.execute("SELECT changes()")
+            changes = cur.fetchone()[0] or 0
+            if changes > 0:
+                # We don't know if it was new or updated; check presence prior would cost more.
+                updated += 1  # count as updated (safe), adjust below on first-time insert detection if you prefer
+        except sqlite3.IntegrityError:
+            # Likely UNIQUE(name) conflict with a different uuid; update-in-place by name
+            cur.execute(
+                """
+                UPDATE OIResearchOutputs
+                   SET uuid = ?,
+                       researcher_uuid = COALESCE(?, researcher_uuid),
+                       publisher_name = COALESCE(?, publisher_name)
+                 WHERE name = ?
+                """,
+                (ro_uuid, member_uuid, publisher, title)
+            )
+            cur.execute("SELECT changes()")
+            if (cur.fetchone()[0] or 0) > 0:
+                updated += 1
+            else:
+                skipped += 1
 
     conn.commit()
     conn.close()
-    print(f"[INFO] Research outputs -> inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+    print(f"[INFO] Research outputs -> inserted/updated: {inserted + updated}, skipped: {skipped}")
     return True
 
 # Main
 def main():
     """
-    Orchestrate the full pipeline:
+    Orchestrate the full pipeline (UUID schema):
       1) Rebuild DB from SQL.
-      2) Load people + title-cased expertise from Excel.
-      3) Load research outputs from JSON (with optional publisher_name).
+      2) Load people + title-cased expertise from Excel (members get UUIDs).
+      3) Load research outputs from JSON (with canonical output+person UUIDs).
     """
     db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
