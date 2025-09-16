@@ -39,6 +39,9 @@ def serve(path: str):
 # API Routes for data to pass Table data from the DB to the front end:
 @app.route("/api/oimembers")
 def get_oimembers():
+    """
+    Get all members from the OIMembers table.
+    """
     conn = sqlite3.connect('data.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM OIMembers")
@@ -46,16 +49,57 @@ def get_oimembers():
     conn.close()
     members = [
         {
-            "name": row[0],
-            "position": row[1],
-            "expertise": row[2].split(", ") if row[2] else [],
-            "email": row[3],
-            "phone": row[4],
-            "photo_url": row[5]
+            "uuid": row[0],
+            "name": row[1],
+            "email": row[2],
+            "education": row[3],
+            "bio": row[4],
+            "phone": row[5]
         }
         for row in rows
     ]
     return {"members": members}
+
+@app.route("/api/oiexpertise")
+def get_oiexpertise():
+    """
+    Get all expertise entries from the OIExpertise table.
+    """
+    conn = sqlite3.connect('data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM OIExpertise")
+    rows = cursor.fetchall()
+    conn.close()
+    expertise = [
+        {
+            "id": row[0],
+            "researcher_uuid": row[1],
+            "field": row[2]
+        }
+        for row in rows
+    ]
+    return {"expertise": expertise}
+
+@app.route("/api/oiresearchoutputs")
+def get_oiresearchoutputs():
+    """
+    Get all research outputs from the OIResearchOutputs table.
+    """
+    conn = sqlite3.connect('data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM OIResearchOutputs")
+    rows = cursor.fetchall()
+    conn.close()
+    research_outputs = [
+        {
+            "uuid": row[0],
+            "researcher_uuid": row[1],
+            "publisher_name": row[2],
+            "name": row[3]
+        }
+        for row in rows
+    ]
+    return {"research_outputs": research_outputs}
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
