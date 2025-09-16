@@ -15,22 +15,34 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navigation Bar - Reference only */}
-      <nav className="bg-blue-900 text-white px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <div className="text-lg font-medium">University of Western Australia | OCEANS INSTITUTE</div>
-          </div>
-          <div className="hidden md:flex space-x-6">
-            <span>About the OI</span>
-            <span>Research Priorities</span>
-            <span>Partnerships</span>
-            <span>Expeditions</span>
-            <span>Resources</span>
-            <span>Awards</span>
-          </div>
-        </div>
-      </nav>
+   {/* Top Navigation Bar */}
+<nav className="bg-blue-900 text-white px-6 py-4">
+  <div className="flex items-center justify-between max-w-7xl mx-auto">
+    {/* Left side: Logos */}
+    <div className="flex items-center space-x-4">
+      <img
+        src="/images/logo-uwacrest-white.svg"
+        alt="UWA Crest"
+        className="h-12"
+      />
+      <img
+        src="/images/logo_oceans_white.svg"
+        alt="Oceans Institute Logo"
+        className="h-12"
+      />
+    </div>
+
+    {/* Right side: Menu */}
+    <div className="hidden md:flex space-x-6 text-sm font-medium">
+      <span>About the OI</span>
+      <span>Research Priorities</span>
+      <span>Partnerships</span>
+      <span>Expeditions</span>
+      <span>Resources</span>
+      <span>Awards</span>
+    </div>
+  </div>
+</nav>
 
       {/* Hero Section */}
       <HeroSection />
