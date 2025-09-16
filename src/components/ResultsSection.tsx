@@ -124,8 +124,26 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           fetch('/api/researchers'),
           fetch('/api/researchOutcomes'),
         ]);
-        const rJson = rRes.ok ? await rRes.json() : null;
-        const oJson = oRes.ok ? await oRes.json() : null;
+        // --- DEBUG: log HTTP statuses
+console.log('[API] /api/researchers ->', rRes.status, rRes.ok);
+console.log('[API] /api/researchOutcomes ->', oRes.status, oRes.ok);
+
+// --- DEBUG: read + log raw bodies, then parse safely
+const readJsonDebug = async (res: Response, label: string) => {
+  const raw = await res.text();
+  console.log(`${label} raw:`, raw);
+  try { return JSON.parse(raw); }
+  catch (e) { console.error(`${label} JSON parse error:`, e); return null; }
+};
+
+const rJson = await readJsonDebug(rRes, '[API] /api/researchers');
+const oJson = await readJsonDebug(oRes, '[API] /api/researchOutcomes');
+
+// --- DEBUG: show parsed shapes before setting state
+console.log('[API] parsed researchers:', rJson);
+console.log('[API] parsed outcomes:', oJson);
+
+       
 
         // support { researchers: [...] } or bare [...]
         const rData = rJson
@@ -134,6 +152,10 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
         const oData = oJson
           ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? []))
           : [];
+
+        console.log('[STATE] setResearchers ->', Array.isArray(rData) ? rData.length : (rData?.researchers?.length ?? 0), 'items');
+        console.log('[STATE] setOutcomes ->', Array.isArray(oData) ? oData.length : (oData?.outcomes?.length ?? 0), 'items');
+
 
         if (!alive) return;
         setResearchers(Array.isArray(rData) ? rData : []);
@@ -151,6 +173,11 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
   // Choose live data if available; otherwise use mocks
   const sourceResearchers = researchers.length ? researchers : mockResearchers;
   const sourceOutcomes = outcomes.length ? outcomes : mockResearchOutcomes;
+
+  console.log('[DATA] using', researchers.length ? 'LIVE' : 'MOCK', 'researchers');
+  console.log('[DATA] using', outcomes.length ? 'LIVE' : 'MOCK', 'outcomes');
+  
+  
 
   // Filter results based on search query and filters (now based on chosen source arrays)
   const filteredResearchers = sourceResearchers.filter(researcher => {
