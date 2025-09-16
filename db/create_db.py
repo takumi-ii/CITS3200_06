@@ -5,9 +5,8 @@ OI People + Expertise + Research Outputs loader
 - Ingests people from an Excel sheet into OIMembers (upsert by full name).
 - Normalizes and inserts expertise into OIExpertise, title-casing each term
   (capitalizing every word except common connectives) before de-duplication.
-- Ingests research_outputs.json into OIResearchOutputs, associating
-  each work with the first listed author.
-
+- Ingests research_outputs.json into OIResearchOutputs, associating each work
+  with the first listed author and capturing optional publisher_name.
 """
 
 import os
@@ -41,9 +40,7 @@ def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
     finally:
         conn.close()
 
-# ------------------------
 # Helpers
-# ------------------------
 def _norm(val):
     """
     Normalize a cell value:
@@ -121,10 +118,7 @@ def _build_bio(row):
     if profile: bits.append(f"Profile: {profile}")
     return "; ".join(bits) or None
 
-# --- Title-casing for Expertise ---------------------------------------------
-
-# Common “small words” / connectives to keep lowercase unless they’re the
-# first or last token in a phrase or a hyphenated segment.
+# Title-casing for Expertise:
 _EXPERTISE_SMALL_WORDS = {
     "a","an","the","and","or","nor","but","for","so","yet",
     "as","at","by","in","of","on","per","to","via","vs","v",
@@ -143,7 +137,6 @@ def _is_acronym(token: str) -> bool:
         return False
     if token.isupper() and token.isalpha() and len(token) >= 2:
         return True
-    # Mixed alnum (e.g., H2O, CO2) – keep original casing
     if any(ch.isdigit() for ch in token) and any(ch.isalpha() for ch in token):
         return True
     return False
@@ -157,11 +150,10 @@ def _titlecase_word(token: str, is_boundary: bool) -> str:
     if not token:
         return token
     if _is_acronym(token):
-        return token  # keep acronyms as provided
+        return token
     lower = token.lower()
     if not is_boundary and lower in _EXPERTISE_SMALL_WORDS:
         return lower
-    # Regular word: capitalize first letter, keep the rest lower (basic Title Case)
     return lower[:1].upper() + lower[1:]
 
 def _titlecase_hyphenated(token: str, is_first: bool, is_last: bool) -> str:
@@ -343,12 +335,59 @@ def _title_from_item(item):
     t = (item.get("title") or {}).get("value") or ""
     return re.sub(r"<.*?>", "", html.unescape(t)).strip()
 
+def _publisher_from_item(item):
+    """
+    Extract a clean publisher/venue string from the research output JSON.
+    PURE exports often look like:
+        item['publisher'] -> {
+          'name': { 'text': [ {'value': 'Cambridge University Press'} ] }, ... }
+    We drill down to the first available text.value; otherwise fall back to a few
+    simple string fields. Returns None if nothing suitable is present.
+    """
+    pub = item.get("publisher")
+    if not pub:
+        return None
+
+    # Simple string form
+    if isinstance(pub, str):
+        s = _norm(html.unescape(pub))
+        return s or None
+
+    # Dict form (PURE)
+    if isinstance(pub, dict):
+        name = pub.get("name")
+        # name as plain string
+        if isinstance(name, str):
+            s = _norm(html.unescape(name))
+            return s or None
+        # name as dict with text list: take first non-empty "value"
+        if isinstance(name, dict):
+            text = name.get("text")
+            if isinstance(text, list):
+                for entry in text:
+                    if isinstance(entry, dict):
+                        val = entry.get("value")
+                        if val:
+                            s = _norm(html.unescape(str(val)))
+                            if s:
+                                return s
+        # Fallbacks sometimes seen in exports
+        for key in ("value", "title"):
+            v = pub.get(key)
+            if isinstance(v, str):
+                s = _norm(html.unescape(v))
+                if s:
+                    return s
+
+    return None
+
 def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\research_outputs.json'):
     """
     Insert research outputs:
       - Uses first listed author as the owner (schema uses researcher's name).
+      - Captures optional publisher_name where available.
       - Creates a stub OIMember if the author doesn't exist yet.
-      - Skips duplicates based on unique constraints.
+      - Upserts on unique(name) to avoid duplicates; updates publisher_name if provided.
     """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -356,13 +395,15 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
     conn = sqlite3.connect(db_name)
     cur = conn.cursor()
     inserted = 0
-    skipped = 0
+    updated  = 0
+    skipped  = 0
 
     for item in data:
         title = _title_from_item(item)
         if not title:
             continue
         author = _first_author_name(item) or "Unknown"
+        publisher = _publisher_from_item(item)
 
         # Ensure the author exists in OIMembers for FK consistency (name is FK target)
         cur.execute(
@@ -371,22 +412,29 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
             (author,)
         )
 
-        try:
-            cur.execute(
-                """INSERT OR IGNORE INTO OIResearchOutputs (researcher_name, name)
-                   VALUES (?, ?)""",
-                (author, title)
-            )
-            if cur.rowcount > 0:
-                inserted += 1
-            else:
-                skipped += 1
-        except sqlite3.IntegrityError:
+        # Upsert research output by unique(title/name). Only update publisher_name
+        # (and keep existing researcher_name unchanged) to avoid cross-author clobbering.
+        cur.execute(
+            """
+            INSERT INTO OIResearchOutputs (researcher_name, publisher_name, name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name)
+            """,
+            (author, publisher, title)
+        )
+
+        # crude effect accounting
+        if cur.rowcount == 1 and cur.lastrowid is not None:
+            inserted += 1
+        elif cur.rowcount == 1:
+            updated += 1
+        else:
             skipped += 1
 
     conn.commit()
     conn.close()
-    print(f"[INFO] Research outputs inserted: {inserted}; skipped (duplicates/conflicts): {skipped}")
+    print(f"[INFO] Research outputs -> inserted: {inserted}, updated: {updated}, skipped: {skipped}")
     return True
 
 # Main
@@ -395,9 +443,9 @@ def main():
     Orchestrate the full pipeline:
       1) Rebuild DB from SQL.
       2) Load people + title-cased expertise from Excel.
-      3) Load research outputs from JSON.
+      3) Load research outputs from JSON (with optional publisher_name).
     """
-    db_name  = 'db\\data.db'
+    db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
     excel_path = 'db\\OI_members_data.xlsx'
     sheet_name = 'DATA- OI Member Listing-sample'

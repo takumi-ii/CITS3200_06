@@ -29,6 +29,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_expertise_researcher_field
 CREATE TABLE IF NOT EXISTS OIResearchOutputs (
   id INTEGER PRIMARY KEY,
   researcher_name TEXT NOT NULL,
+  publisher_name TEXT,
   name TEXT NOT NULL UNIQUE,  -- FK target for grants
   FOREIGN KEY (researcher_name) REFERENCES OIMembers(name)
     ON UPDATE CASCADE
