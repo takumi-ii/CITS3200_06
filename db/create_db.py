@@ -286,11 +286,7 @@ def fill_db_from_excel_people(
     sheet_name='DATA- OI Member Listing-sample'
 ):
     """
-    Load people + expertise from Excel into OIMembers and OIExpertise (UUID schema).
-
-    - Upserts OIMembers on unique name; assigns deterministic UUIDv5 if needed.
-    - Builds a compact bio string from relevant fields.
-    - Inserts expertise into OIExpertise keyed by researcher_uuid.
+    Load expertise from Excel into OIExpertise (UUID schema). Members should be handled via JSON files.
     """
     df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype=str)
     df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
@@ -301,7 +297,6 @@ def fill_db_from_excel_people(
 
     conn = sqlite3.connect(db_name)
     cur = conn.cursor()
-    inserted_members = 0
     inserted_expertise = 0
 
     for _, row in df.iterrows():
@@ -309,30 +304,12 @@ def fill_db_from_excel_people(
         if not name:
             continue  # Skip rows without any name information
 
-        email = _choose_email(row.get("Email Address"), row.get("Seconday email"))
-        bio = _build_bio(row)
-
-        # Optional: add date fields into bio
-        dates = []
-        acd = _parse_date(row.get("Adjunct Commencement Date"))
-        ard = _parse_date(row.get("Adjunct Renewal Date"))
-        exp = _parse_date(row.get("Expiry Date"))
-        if acd: dates.append(f"Adjunct start: {acd}")
-        if ard: dates.append(f"Adjunct renewal: {ard}")
-        if exp: dates.append(f"Expiry: {exp}")
-        if dates:
-            bio = (bio + ("; " if bio else "")) + " | ".join(dates)
-
-        # Ensure member (deterministic uuid if new)
-        member_uuid = _ensure_member(conn, name, None, email, bio)
-
-        # Count a new insert roughly by checking if any expertise will insert new rows.
-        # (We skip a precise member-insert counter to keep things lightweight.)
+        # Only insert expertise from the Excel data
         for field in _iter_expertise(row):
             cur.execute(
                 """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
                    VALUES (?, ?)""",
-                (member_uuid, field)
+                (name, field)
             )
             if cur.rowcount > 0:
                 inserted_expertise += 1
@@ -425,15 +402,36 @@ def _publisher_from_item(item):
                     return s
     return None
 
+def filter_by_organization(item, org_uuid='b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+    """
+    Checks if the item is associated with the given organization UUID, either in its managingOrganisationalUnit
+    or in any of its organisationalUnits.
+    
+    Args:
+    item (dict): The research output item to check.
+    org_uuid (str): The UUID of the organization to check against.
+    
+    Returns:
+    bool: True if the item is associated with the organization, False otherwise.
+    """
+    # Check the 'organisationalUnits' field for the given UUID
+    orgs = item.get('organisationalUnits', [])
+    
+    # Check if the organisation UUID exists in the organisationalUnits
+    for org in orgs:
+        if org.get('uuid') == org_uuid:
+            return True
+
+    # If we don't find it, check 'managingOrganisationalUnit'
+    managing_org = item.get('managingOrganisationalUnit', {})
+    if managing_org.get('uuid') == org_uuid:
+        return True
+
+    return False
+
 def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\research_outputs.json'):
     """
-    Insert/Upsert research outputs (UUID-based):
-      - Each item provides its own research-output UUID (`uuid`).
-      - We associate the output with the first author's person UUID.
-      - We upgrade any existing Excel-created member UUID to the canonical
-        person UUID (name match) so FKs stay accurate.
-      - We upsert outputs by PK(uuid); if a title uniqueness conflict occurs,
-        we update that row in place with the given uuid/researcher/publisher.
+    Insert/Upsert research outputs (UUID-based) but only those associated with a specific organization.
     """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -446,6 +444,11 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
     skipped  = 0
 
     for item in data:
+        # Only process if the item is associated with the desired organization
+        if not filter_by_organization(item, 'b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+            skipped += 1
+            continue
+        
         ro_uuid = item.get("uuid")
         title = _title_from_item(item)
         if not ro_uuid or not title:
@@ -455,6 +458,7 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         author_name, author_uuid = _first_author_name_uuid(item)
         if not author_name:
             author_name = "Unknown"
+        
         # Ensure the member exists; this will also "upgrade" the uuid for
         # name-matched Excel members to the canonical author_uuid (cascade-safe).
         member_uuid = _ensure_member(conn, author_name, author_uuid, None, None)
@@ -473,15 +477,11 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
                 """,
                 (ro_uuid, member_uuid, publisher, title)
             )
-            # rowcount semantics: 1 for insert OR update via upsert; we’ll estimate using a probe
-            # Try to detect if the row existed already
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
             if changes > 0:
-                # We don't know if it was new or updated; check presence prior would cost more.
-                updated += 1  # count as updated (safe), adjust below on first-time insert detection if you prefer
+                updated += 1
         except sqlite3.IntegrityError:
-            # Likely UNIQUE(name) conflict with a different uuid; update-in-place by name
             cur.execute(
                 """
                 UPDATE OIResearchOutputs
@@ -503,23 +503,483 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
     print(f"[INFO] Research outputs -> inserted/updated: {inserted + updated}, skipped: {skipped}")
     return True
 
-# Main
+def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
+    """
+    Insert/Upsert awards but only those associated with a specific organization.
+    
+    Checks both 'managingOrganisationalUnit' and 'organisationalUnits' for the desired organization UUID.
+    """
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+
+    inserted = 0
+    updated  = 0
+    skipped  = 0
+
+    def filter_by_organization(item, org_uuid='b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+        """
+        Checks if the item is associated with the given organization UUID in either the 
+        'managingOrganisationalUnit' or 'organisationalUnits' fields.
+        """
+        # Check 'managingOrganisationalUnit' for the organization UUID
+        managing_org = item.get('managingOrganisationalUnit', {})
+        if managing_org.get('uuid') == org_uuid:
+            return True
+        
+        # Check 'organisationalUnits' for the organization UUID
+        orgs = item.get('organisationalUnits', [])
+        return any(org.get('uuid') == org_uuid for org in orgs)
+
+    for item in data:
+        # Only process if the item is associated with the desired organization
+        if not filter_by_organization(item, 'b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+            print("Skipping award not associated with target organization")
+            skipped += 1
+            continue
+        # 1) Get the UUID of the grant:
+        award_uuid = item.get("uuid")
+
+        # 2) Get the title of the grant:
+        try:
+            title_obj = item.get("title", {})
+            text = title_obj.get("text",{})
+            if isinstance(text, list):
+                title = text[0].get("value")
+            else:
+                title = text.get("value")
+        except Exception:
+            print(f"Error extracting title from award: {item}")
+            title = None
+        if not award_uuid or not title:
+            print("Skipping award with missing uuid or title")
+            skipped += 1
+            continue
+
+        # 3) Get the school/centre/organisation (if any):
+        try:
+            managing_org = item.get("managingOrganisationalUnit", {})
+            title_obj = managing_org.get("name", {})
+            text = title_obj.get("text",{})
+            if isinstance(text, list):
+                school = text[0].get("value")
+            else:
+                school = text.get("value")
+        except Exception:
+            print(f"Error extracting school/managing org from award: {item}")
+            school = None
+
+        
+        if not school:
+            print("Skipping award with missing school/managing org")
+            skipped += 1
+            continue
+
+        # 4) Funding Source and Amount
+        try:
+            fund_obj = item.get("fundings", {})
+            funder_obj = fund_obj.get("funder", {})
+            name_obj = funder_obj.get("name", {})
+            text = name_obj.get("text",{})
+            # Get the source name
+            if isinstance(text, list):
+                fund_source = text[0].get("value")
+            else:
+                fund_source = text.get("value")
+            # Get the amount (if any)
+            funding_amount = float(fund_obj.get("awardedAmount", "0.00"))
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            fund_source = None
+            funding_amount = 0.00
+
+        # 5) Get start and end dates (if any):
+        try:
+            date_obj = item.get("actualPeriod", {})
+            start_date = _parse_iso_date(date_obj.get("startDate"))
+            end_date = _parse_iso_date(date_obj.get("endDate"))
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            start_date = None
+            end_date = None
+
+        # 6) Get the associated research output uuid
+        try:
+            ro_obj = item.get("relatedProject", {})
+            ro_uuid = ro_obj.get("uuid")
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            ro_uuid = None
+
+
+        try:
+            cur.execute(
+                """
+                INSERT INTO OIResearchGrants (uuid, ro_uuid, grant_name, start_date, end_date, funding, funding_source_name, school)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    grant_name = COALESCE(excluded.grant_name, OIResearchGrants.grant_name),
+                    ro_uuid = COALESCE(excluded.ro_uuid, OIResearchGrants.ro_uuid),
+                    start_date = COALESCE(excluded.start_date, OIResearchGrants.start_date),
+                    end_date = COALESCE(excluded.end_date, OIResearchGrants.end_date),
+                    funding = COALESCE(excluded.funding, OIResearchGrants.funding),
+                    funding_source_name = COALESCE(excluded.funding_source_name, OIResearchGrants.funding_source_name),
+                    school = COALESCE(excluded.school, OIResearchGrants.school)
+                """,
+                (award_uuid, ro_uuid, title, start_date, end_date, funding_amount, fund_source, school)
+            )
+            cur.execute("SELECT changes()")
+            changes = cur.fetchone()[0] or 0
+            if changes > 0:
+                updated += 1
+        except sqlite3.IntegrityError:
+            print("IntegrityError on award insert, attempting update by name")
+            skipped += 1
+
+    conn.commit()
+    conn.close()
+    print(f"[INFO] Awards -> inserted/updated: {inserted + updated}, skipped: {skipped}")
+    return True
+
+# DB setup
+def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
+    """
+    Recreate the SQLite DB from a provided SQL file.
+
+    - Deletes any existing DB at `db_name` to ensure a clean build.
+    - Executes the SQL at `sql_path` using `executescript` (supports multiple SQL statements).
+    
+    Args:
+    db_name (str): The name of the SQLite database to create.
+    sql_path (str): The path to the SQL file used to create the schema.
+    
+    Returns:
+    bool: True if the DB creation was successful, otherwise False.
+    """
+    if os.path.exists(db_name):
+        os.remove(db_name)
+        print(f"[INFO] Existing database '{db_name}' removed.")
+
+    conn = sqlite3.connect(db_name)
+    try:
+        with open(sql_path, 'r', encoding='utf-8') as f:
+            sql_script = f.read()
+        conn.executescript(sql_script)
+        print(f"[INFO] Database '{db_name}' created from '{sql_path}'.")
+        return True
+    finally:
+        conn.close()
+
+# Helpers to process and clean data
+def _norm(val):
+    """
+    Normalize a value to a single-line, trimmed string. Returns an empty string for NaN/None.
+    
+    Args:
+    val (str or None): The value to normalize.
+    
+    Returns:
+    str: The cleaned string or an empty string.
+    """
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return re.sub(r"\s+", " ", val).strip()
+    try:
+        if pd.isna(val):
+            return ""
+    except Exception:
+        pass
+    return re.sub(r"\s+", " ", str(val)).strip()
+from datetime import datetime
+
+def _parse_iso_date(val):
+    """
+    Parse the ISO 8601 date-time format with timezone ('2013-01-01T12:00:00.000+0800') 
+    into 'YYYY-MM-DD' format. Returns None if not parsable.
+    
+    Args:
+    val (str): The date-time value in ISO 8601 format to parse.
+    
+    Returns:
+    str or None: The formatted date string (YYYY-MM-DD) or None.
+    """
+    if not val or not isinstance(val, str):
+        return None
+
+    # Try parsing the ISO 8601 format and extract only the date part
+    try:
+        # Remove the timezone part and parse the date-time string
+        parsed_datetime = datetime.fromisoformat(val.split('+')[0])  # Ignore the timezone
+        return parsed_datetime.date().isoformat()
+    except ValueError:
+        return None
+    
+def _parse_date(val):
+    """
+    Parse common date formats into 'YYYY-MM-DD' format. Returns None if not parsable.
+    
+    Args:
+    val (str or datetime): The date value to parse.
+    
+    Returns:
+    str or None: The formatted date string or None.
+    """
+    if not val or (not isinstance(val, str) and pd.isna(val)):
+        return None
+    if isinstance(val, (pd.Timestamp, datetime)):
+        return val.date().isoformat()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(str(val), fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+def _build_name(row):
+    """
+    Construct a display name from the Excel data: 'Title FirstName Surname' (Title is optional).
+    
+    Args:
+    row (pd.Series): A row from the Excel sheet containing name components.
+    
+    Returns:
+    str: The full name as 'Title FirstName Surname'.
+    """
+    title = _norm(row.get("Title"))
+    first = _norm(row.get("First Name"))
+    last  = _norm(row.get("Surname"))
+    parts = [p for p in [title.rstrip(".")] if p] + [first, last]
+    name = " ".join([p for p in parts if p]).strip()
+    return re.sub(r"\s+", " ", name)
+
+def _choose_email(primary, secondary):
+    """
+    Prefer primary email; fall back to secondary; return None if neither exists.
+    
+    Args:
+    primary (str or None): The primary email address.
+    secondary (str or None): The secondary email address.
+    
+    Returns:
+    str or None: The preferred email address or None.
+    """
+    p = _norm(primary)
+    s = _norm(secondary)
+    return p or s or None
+
+def _build_bio(row):
+    """
+    Compose a compact, readable bio string from the Excel data fields.
+    
+    Args:
+    row (pd.Series): A row from the Excel sheet containing bio-relevant fields.
+    
+    Returns:
+    str: A compact bio string containing relevant information from the Excel sheet.
+    """
+    bits = []
+    pos = _norm(row.get("Position"))
+    org = _norm(row.get("School/Centre/Organisation"))
+    cat = _norm(row.get("Category"))
+    profile = _norm(row.get("UWA Profile"))
+    oi_student = _norm(row.get("OI Student"))
+    oi_adjunct = _norm(row.get("OI Adjunct"))
+    relationship = _norm(row.get("Relationship with the Oceans Institute"))
+    hdr_type = _norm(row.get("UWA HDR Student Type"))
+    affiliations = _norm(row.get("(Non UWA)University/research institution Affiliation"))
+    industry = _norm(row.get("Industry affiliate or partner institute/org"))
+    geo = _norm(row.get("OI geographical focus for research"))
+    priorities = _norm(row.get("Top 3 priorities for OI for next 5 years"))
+
+    if pos or org: bits.append(", ".join([p for p in [pos, org] if p]))
+    if cat: bits.append(f"Category: {cat}")
+    if oi_student: bits.append(f"OI Student: {oi_student}")
+    if oi_adjunct: bits.append(f"OI Adjunct: {oi_adjunct}")
+    if relationship: bits.append(f"Relationship with OI: {relationship}")
+    if hdr_type: bits.append(f"HDR type: {hdr_type}")
+    if affiliations: bits.append(f"Affiliation: {affiliations}")
+    if industry: bits.append(f"Industry partner: {industry}")
+    if geo: bits.append(f"Geographical focus: {geo}")
+    if priorities: bits.append(f"Top priorities: {priorities}")
+    if profile: bits.append(f"Profile: {profile}")
+    return "; ".join(bits) or None
+
+# UUID helpers + member upsert
+def _deterministic_member_uuid(name: str) -> str:
+    """
+    Generate a stable UUIDv5 for a given member name, ensuring reproducibility for matching Excel rows.
+    
+    Args:
+    name (str): The full name of the member.
+    
+    Returns:
+    str: The deterministic UUIDv5 based on the member name.
+    """
+    base = f"member:{name.casefold()}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, base))
+
+def _ensure_member(conn, name: str, member_uuid: Optional[str], email: Optional[str], bio: Optional[str]) -> str:
+    """
+    Ensure an OIMembers row exists for the given name, returning the member UUID.
+    
+    If no row exists:
+        - Uses `member_uuid` if provided, or creates a deterministic UUIDv5.
+        - Inserts (uuid, name, email, bio).
+    
+    If a row exists and `member_uuid` differs:
+        - Updates the primary key to the canonical `member_uuid` (cascade-safe).
+    
+    Args:
+    conn (sqlite3.Connection): The database connection.
+    name (str): The full name of the member.
+    member_uuid (str or None): The canonical member UUID (if available).
+    email (str or None): The email address.
+    bio (str or None): The bio string.
+    
+    Returns:
+    str: The UUID for the member.
+    """
+    cur = conn.cursor()
+    cur.execute("SELECT uuid FROM OIMembers WHERE name = ?", (name,))
+    row = cur.fetchone()
+    if row is None:
+        if not member_uuid:
+            member_uuid = _deterministic_member_uuid(name)
+        cur.execute(
+            "INSERT INTO OIMembers (uuid, name, email, bio) VALUES (?, ?, ?, ?)",
+            (member_uuid, name, email, bio)
+        )
+        return member_uuid
+    else:
+        current_uuid = row[0]
+        if member_uuid and member_uuid != current_uuid:
+            cur.execute("UPDATE OIMembers SET uuid = ? WHERE name = ?", (member_uuid, name))
+        if email or bio:
+            cur.execute(
+                "UPDATE OIMembers SET email = COALESCE(?, email), bio = COALESCE(?, bio) WHERE name = ?",
+                (email if email else None, bio if bio else None, name)
+            )
+        return member_uuid or current_uuid
+
+# Ingest expertise from Excel (UUID-based)
+def fill_db_from_excel_people(
+    db_name='data.db',
+    excel_path='db\\OI_members_data.xlsx',
+    sheet_name='DATA- OI Member Listing-sample'
+):
+    """
+    Load expertise from Excel into OIExpertise, and upsert OIMembers using full names.
+    Merges people from both Excel and OIPersons.json files when names match.
+    
+    Args:
+    db_name (str): The name of the SQLite database.
+    excel_path (str): The path to the Excel file.
+    sheet_name (str): The sheet name in the Excel file.
+    
+    Returns:
+    bool: True if successful, False otherwise.
+    """
+    df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype=str)
+    df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
+
+    missing = [c for c in EXPECTED_COLS if c not in df.columns]
+    if missing:
+        print(f"[WARN] Missing expected columns: {missing}")
+
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    inserted_expertise = 0
+
+    for _, row in df.iterrows():
+        name = _build_name(row)
+        if not name:
+            continue  # Skip rows without any name information
+
+        email = _choose_email(row.get("Email Address"), row.get("Seconday email"))
+        bio = _build_bio(row)
+
+        # Ensure member (deterministic uuid if new)
+        member_uuid = _ensure_member(conn, name, None, email, bio)
+
+        # Count a new insert roughly by checking if any expertise will insert new rows.
+        for field in _iter_expertise(row):
+            cur.execute(
+                """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
+                   VALUES (?, ?)""",
+                (member_uuid, field)
+            )
+            if cur.rowcount > 0:
+                inserted_expertise += 1
+
+    conn.commit()
+    conn.close()
+    print(f"[INFO] Expertise inserted: {inserted_expertise}")
+    return True
+
+# Ingest: People + Expertise from OIPersons.json (UUID-based)
+def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json'):
+    """
+    Ingest OIPersons.json into OIMembers, ensuring data is inserted without any filtering.
+    
+    Args:
+    db_name (str): The name of the SQLite database.
+    json_file (str): The path to the OIPersons.json file.
+    
+    Returns:
+    bool: True if successful, False otherwise.
+    """
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+
+    inserted_members = 0
+
+    for person in data:
+        name = person.get("name", {}).get("value")
+        if not name:
+            continue  # Skip if no name exists (this should not happen if OIPersons.json is well-formed)
+
+        uuid = person.get("uuid")
+        email = _norm(person.get("email"))
+        bio = _norm(person.get("bio"))
+
+        # Ensure member (deterministic uuid if new)
+        member_uuid = _ensure_member(conn, name, uuid, email, bio)
+
+        inserted_members += 1
+
+    conn.commit()
+    conn.close()
+    print(f"[INFO] Members inserted: {inserted_members}")
+    return True
+
+# Main pipeline orchestrator
 def main():
     """
-    Orchestrate the full pipeline (UUID schema):
-      1) Rebuild DB from SQL.
-      2) Load people + title-cased expertise from Excel (members get UUIDs).
-      3) Load research outputs from JSON (with canonical output+person UUIDs).
+    Orchestrates the full pipeline:
+    1) Rebuild the DB from SQL.
+    2) Load expertise from Excel into OIExpertise.
+    3) Merge people from OIPersons.json into OIMembers.
+    4) Process research outputs and awards filtered by organization UUID.
     """
     db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
     excel_path = 'db\\OI_members_data.xlsx'
     sheet_name = 'DATA- OI Member Listing-sample'
-    json_file = 'db\\research_outputs.json'
+    research_outputs_json = 'db\\research_outputs.json'
+    awards_json = 'db\\OIAwards.json'
+    persons_json = 'db\\OIPersons.json'
 
     check_and_create_db(db_name=db_name, sql_path=sql_path)
     fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
-    fill_db_from_json_research_outputs(db_name=db_name, json_file=json_file)
+    fill_db_from_json_persons(db_name=db_name, json_file=persons_json)  # Merging OIPersons.json into OIMembers
+    fill_db_from_json_research_outputs(db_name=db_name, json_file=research_outputs_json)
+    fill_db_from_json_awards(db_name=db_name, json_file=awards_json)
 
 if __name__ == "__main__":
     main()

@@ -42,19 +42,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_researcher_name
 -- OIResearchGrants
 CREATE TABLE IF NOT EXISTS OIResearchGrants (
   uuid TEXT PRIMARY KEY,
-  ro_name TEXT NOT NULL,
+  ro_uuid TEXT NOT NULL,
   grant_name TEXT NOT NULL,
   start_date DATE,
   end_date DATE,
   funding INTEGER,
-  institute TEXT,
+  funding_source_name TEXT,
   school TEXT,
-  FOREIGN KEY (ro_name) REFERENCES OIResearchOutputs(name)
+  FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
 -- DBML: (ro_name, grant_name) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_grants_roname_grantname
-  ON OIResearchGrants (ro_name, grant_name);
+  ON OIResearchGrants (ro_uuid, grant_name);
 
 COMMIT;
