@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 
@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-
+import { useRef } from 'react';
 interface ResultsSectionProps {
   searchQuery: string;
   filters: {
@@ -108,33 +108,143 @@ const mockResearchOutcomes = [
   }
 ];
 
+
+
+
+
+
+
 export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
+  const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
+  const [currentPage,setCurrentPage] = useState(1);
+  const PER_PAGE = 6; // 👈 how many results per page (researchers/outcomes)
 
-  // Filter results based on search query and filters
-  const filteredResearchers = mockResearchers.filter(researcher => {
-    const matchesQuery = !searchQuery || 
-      researcher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      researcher.expertise.some(exp => exp.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTags = filters.tags.length === 0 || 
-      filters.tags.some(tag => researcher.expertise.some(exp => exp.includes(tag)));
-    
+  // NEW: live data states (keep mocks above)
+  const [researchers, setResearchers] = useState<any[]>([]);
+  const [outcomes, setOutcomes] = useState<any[]>([]);
+
+  // NEW: fetch from endpoints; if they return empty or error, filters will fall back to mocks
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [rRes, oRes] = await Promise.all([
+          fetch('/api/researchers'),
+          fetch('/api/researchOutcomes'),
+        ]);
+        // --- DEBUG: log HTTP statuses
+console.log('[API] /api/researchers ->', rRes.status, rRes.ok);
+console.log('[API] /api/researchOutcomes ->', oRes.status, oRes.ok);
+
+// --- DEBUG: read + log raw bodies, then parse safely
+const readJsonDebug = async (res: Response, label: string) => {
+  const raw = await res.text();
+  console.log(`${label} raw:`, raw);
+  try { return JSON.parse(raw); }
+  catch (e) { console.error(`${label} JSON parse error:`, e); return null; }
+};
+
+const rJson = await readJsonDebug(rRes, '[API] /api/researchers');
+const oJson = await readJsonDebug(oRes, '[API] /api/researchOutcomes');
+
+// --- DEBUG: show parsed shapes before setting state
+console.log('[API] parsed researchers:', rJson);
+console.log('[API] parsed outcomes:', oJson);
+
+       
+
+        // support { researchers: [...] } or bare [...]
+        const rData = rJson
+          ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? []))
+          : [];
+        const oData = oJson
+          ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? []))
+          : [];
+
+        console.log('[STATE] setResearchers ->', Array.isArray(rData) ? rData.length : (rData?.researchers?.length ?? 0), 'items');
+        console.log('[STATE] setOutcomes ->', Array.isArray(oData) ? oData.length : (oData?.outcomes?.length ?? 0), 'items');
+
+
+        if (!alive) return;
+        setResearchers(Array.isArray(rData) ? rData : []);
+        setOutcomes(Array.isArray(oData) ? oData : []);
+      } catch (e) {
+        // swallow errors; fall back happens below
+        if (!alive) return;
+        setResearchers([]);
+        setOutcomes([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // Choose live data if available; otherwise use mocks
+  const sourceResearchers = researchers.length ? researchers : mockResearchers;
+  const sourceOutcomes = outcomes.length ? outcomes : mockResearchOutcomes;
+
+  console.log('[DATA] using', researchers.length ? 'LIVE' : 'MOCK', 'researchers');
+  console.log('[DATA] using', outcomes.length ? 'LIVE' : 'MOCK', 'outcomes');
+  
+  
+
+const filteredResearchers = sourceResearchers
+  .filter(researcher => {
+    const q = (searchQuery || '').toLowerCase();
+    const matchesQuery = !q ||
+      researcher.name.toLowerCase().includes(q) ||
+      (researcher.expertise || []).some((exp: string) => exp.toLowerCase().includes(q));
+
+    const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+      filters.tags.some(tag =>
+        (researcher.expertise || []).some((exp: string) =>
+          (exp || '').toLowerCase().includes((tag || '').toLowerCase())
+        )
+      );
+
     return matchesQuery && matchesTags;
-  });
+  })
+  .sort((a, b) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
 
-  const filteredOutcomes = mockResearchOutcomes.filter(outcome => {
-    const matchesQuery = !searchQuery || 
-      outcome.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      outcome.keywords.some(keyword => keyword.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTags = filters.tags.length === 0 || 
-      filters.tags.some(tag => outcome.keywords.includes(tag));
-    
-    const matchesYear = outcome.year >= filters.yearRange[0] && outcome.year <= filters.yearRange[1];
-    
+
+  const filteredOutcomes = sourceOutcomes.filter(outcome => {
+    const q = (searchQuery || '').toLowerCase();
+    const matchesQuery = !q ||
+      (outcome.title || '').toLowerCase().includes(q) ||
+      (outcome.keywords || []).some((k: string) => (k || '').toLowerCase().includes(q));
+
+    const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+      filters.tags.some(tag => (outcome.keywords || []).includes(tag));
+
+    const year = typeof outcome.year === 'number' ? outcome.year : Number(outcome.year) || null;
+    const matchesYear = year !== null
+      ? year >= filters.yearRange[0] && year <= filters.yearRange[1]
+      : false; // change to true if you want to include unknown years
+
     return matchesQuery && matchesTags && matchesYear;
   });
+
+const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
+const totalPagesOutcomes  = Math.max(1, Math.ceil(filteredOutcomes.length / PER_PAGE));
+const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
+
+
+
+const HEADER_OFFSET = 300;
+const scrollToResultsTop = () => {
+  const el = resultsTopRef.current;
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+};
+
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  const endIndex = startIndex + PER_PAGE;
+  const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
+  const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
+
+
+
 
   return (
     <div className="flex-1">
@@ -159,8 +269,11 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           </TabsTrigger>
         </TabsList>
 
+
+        <div ref={resultsTopRef} /> 
+
         <TabsContent value="researchers" className="space-y-6">
-          {filteredResearchers.map(researcher => (
+          {paginatedResearchers.map(researcher => (
             <Card key={researcher.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex gap-4">
@@ -222,7 +335,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
         </TabsContent>
 
         <TabsContent value="outcomes" className="space-y-6">
-          {filteredOutcomes.map(outcome => (
+          {paginatedOutcomes.map(outcome => (
             <Card key={outcome.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-3">
@@ -272,6 +385,41 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           ))}
         </TabsContent>
       </Tabs>
+      <div className="mt-6 flex items-center justify-center gap-4">
+<Button
+  variant="outline"
+  onClick={() => {
+    setCurrentPage((p) => Math.max(1, p - 1));
+    scrollToResultsTop();
+  }}
+  disabled={currentPage === 1}
+  aria-label="Previous page"
+>
+  ‹
+</Button>
+
+<span className="text-sm">
+  Page {currentPage} of {activeTotalPages}
+</span>
+
+<Button
+  variant="outline"
+  onClick={() => {
+    setCurrentPage((p) => Math.min(activeTotalPages, p + 1));
+    scrollToResultsTop();
+  }}
+  disabled={currentPage >= activeTotalPages}
+  aria-label="Next page"
+>
+  ›
+</Button>
+
+
+</div>
+
+
+
+
     </div>
   );
 }
