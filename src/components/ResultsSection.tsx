@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-
+import { useRef } from 'react';
 interface ResultsSectionProps {
   searchQuery: string;
   filters: {
@@ -108,7 +108,14 @@ const mockResearchOutcomes = [
   }
 ];
 
+
+
+
+
+
+
 export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
+  const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
   const [currentPage,setCurrentPage] = useState(1);
   const PER_PAGE = 6; // 👈 how many results per page (researchers/outcomes)
@@ -215,6 +222,20 @@ console.log('[API] parsed outcomes:', oJson);
     return matchesQuery && matchesTags && matchesYear;
   });
 
+const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
+const totalPagesOutcomes  = Math.max(1, Math.ceil(filteredOutcomes.length / PER_PAGE));
+const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
+
+
+
+const HEADER_OFFSET = 300;
+const scrollToResultsTop = () => {
+  const el = resultsTopRef.current;
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+};
+
   const startIndex = (currentPage - 1) * PER_PAGE;
   const endIndex = startIndex + PER_PAGE;
   const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
@@ -245,6 +266,9 @@ console.log('[API] parsed outcomes:', oJson);
             Research Outcomes ({filteredOutcomes.length})
           </TabsTrigger>
         </TabsList>
+
+
+        <div ref={resultsTopRef} /> 
 
         <TabsContent value="researchers" className="space-y-6">
           {paginatedResearchers.map(researcher => (
@@ -360,31 +384,35 @@ console.log('[API] parsed outcomes:', oJson);
         </TabsContent>
       </Tabs>
       <div className="mt-6 flex items-center justify-center gap-4">
-  <Button
-    variant="outline"
-    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-    disabled={currentPage === 1}
-    aria-label="Previous page"
-  >
-    ‹
-  </Button>
+<Button
+  variant="outline"
+  onClick={() => {
+    setCurrentPage((p) => Math.max(1, p - 1));
+    scrollToResultsTop();
+  }}
+  disabled={currentPage === 1}
+  aria-label="Previous page"
+>
+  ‹
+</Button>
 
-  <span className="text-sm">
-    Page {currentPage} of {Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE))}
-  </span>
+<span className="text-sm">
+  Page {currentPage} of {activeTotalPages}
+</span>
 
-  <Button
-    variant="outline"
-    onClick={() =>
-      setCurrentPage((p) =>
-        Math.min(Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE)), p + 1)
-      )
-    }
-    disabled={currentPage >= Math.ceil(filteredResearchers.length / PER_PAGE)}
-    aria-label="Next page"
-  >
-    ›
-  </Button>
+<Button
+  variant="outline"
+  onClick={() => {
+    setCurrentPage((p) => Math.min(activeTotalPages, p + 1));
+    scrollToResultsTop();
+  }}
+  disabled={currentPage >= activeTotalPages}
+  aria-label="Next page"
+>
+  ›
+</Button>
+
+
 </div>
 
 
