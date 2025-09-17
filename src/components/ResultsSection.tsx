@@ -110,6 +110,8 @@ const mockResearchOutcomes = [
 
 export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
   const [activeTab, setActiveTab] = useState('researchers');
+  const [currentPage,setCurrentPage] = useState(1);
+  const PER_PAGE = 6; // 👈 how many results per page (researchers/outcomes)
 
   // NEW: live data states (keep mocks above)
   const [researchers, setResearchers] = useState<any[]>([]);
@@ -213,6 +215,13 @@ console.log('[API] parsed outcomes:', oJson);
     return matchesQuery && matchesTags && matchesYear;
   });
 
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  const endIndex = startIndex + PER_PAGE;
+  const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
+  const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
+
+
+
 
   return (
     <div className="flex-1">
@@ -238,7 +247,7 @@ console.log('[API] parsed outcomes:', oJson);
         </TabsList>
 
         <TabsContent value="researchers" className="space-y-6">
-          {filteredResearchers.map(researcher => (
+          {paginatedResearchers.map(researcher => (
             <Card key={researcher.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex gap-4">
@@ -300,7 +309,7 @@ console.log('[API] parsed outcomes:', oJson);
         </TabsContent>
 
         <TabsContent value="outcomes" className="space-y-6">
-          {filteredOutcomes.map(outcome => (
+          {paginatedOutcomes.map(outcome => (
             <Card key={outcome.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-3">
@@ -350,6 +359,37 @@ console.log('[API] parsed outcomes:', oJson);
           ))}
         </TabsContent>
       </Tabs>
+      <div className="mt-6 flex items-center justify-center gap-4">
+  <Button
+    variant="outline"
+    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+    disabled={currentPage === 1}
+    aria-label="Previous page"
+  >
+    ‹
+  </Button>
+
+  <span className="text-sm">
+    Page {currentPage} of {Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE))}
+  </span>
+
+  <Button
+    variant="outline"
+    onClick={() =>
+      setCurrentPage((p) =>
+        Math.min(Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE)), p + 1)
+      )
+    }
+    disabled={currentPage >= Math.ceil(filteredResearchers.length / PER_PAGE)}
+    aria-label="Next page"
+  >
+    ›
+  </Button>
+</div>
+
+
+
+
     </div>
   );
 }
