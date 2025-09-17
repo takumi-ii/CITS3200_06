@@ -6,7 +6,7 @@ from pathlib import Path
 from flask import Flask, send_from_directory, Response
 import sqlite3
 
-# -------------------- NEW: DB helpers --------------------
+# -------------------- DB helpers --------------------
 DB_PATH = "data.db"
 
 def get_db():
@@ -32,9 +32,10 @@ def recent_outputs_for(researcher_uuid: str, limit: int = 2):
             (researcher_uuid, limit),
         )
         return [dict(r) for r in cur.fetchall()]
-# ---------------------------------------------------------
+# ---------------------------------------------------
+
 BASE_DIR = Path(__file__).resolve().parent
-BUILD_DIR = (BASE_DIR / "build").resolve()
+BUILD_DIR = (BASE_DIR / "build").resolve()   # change to "dist" if you keep Vite default
 
 app = Flask(__name__)
 
@@ -54,21 +55,19 @@ def _no_cache_for_html(resp: Response):
 def healthz():
     return {"status": "ok"}
 
-# Serve static files if present; otherwise fall back to index.html for SPA routing
+# ---------- Static/SPA catch-all: keep exactly ONE of these ----------
 @app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+@app.route("/<path:path>", endpoint="spa_serve")
 def serve(path: str):
     target = BUILD_DIR / path
     if path and target.exists() and target.is_file():
         return send_from_directory(BUILD_DIR, path)
     return send_from_directory(BUILD_DIR, "index.html")
+# --------------------------------------------------------------------
 
-# API Routes for data to pass Table data from the DB to the front end:
+# -------------------- API routes --------------------
 @app.route("/api/oimembers")
 def get_oimembers():
-    """
-    Get all members from the OIMembers table.
-    """
     conn = sqlite3.connect('data.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM OIMembers")
@@ -89,9 +88,6 @@ def get_oimembers():
 
 @app.route("/api/oiexpertise")
 def get_oiexpertise():
-    """
-    Get all expertise entries from the OIExpertise table.
-    """
     conn = sqlite3.connect('data.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM OIExpertise")
@@ -109,9 +105,6 @@ def get_oiexpertise():
 
 @app.route("/api/oiresearchoutputs")
 def get_oiresearchoutputs():
-    """
-    Get all research outputs from the OIResearchOutputs table.
-    """
     conn = sqlite3.connect('data.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM OIResearchOutputs")
@@ -127,18 +120,9 @@ def get_oiresearchoutputs():
         for row in rows
     ]
     return {"research_outputs": research_outputs}
-    
-# -------------------- NEW: front-end-ready shape --------------------
-# -------------------- front-end-ready shape WITH ROBUST FALLBACKS --------------------
+
 @app.route("/api/researchers")
 def api_researchers():
-    """
-    Returns objects shaped like mockResearchers.
-    Falls back to a single TEST record if:
-      - tables are missing, OR
-      - query errors, OR
-      - query returns 0 rows.
-    """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
         "name": "Test Researcher",
@@ -193,8 +177,8 @@ def api_researchers():
         data.append({
             "id": r["uuid"],
             "name": r["name"],
-            "title": "",                # add column/table later if you have it
-            "department": "",           # add column/table later if you have it
+            "title": "",
+            "department": "",
             "expertise": expertise,
             "publications": r["publications"],
             "grants": 0,
@@ -203,19 +187,10 @@ def api_researchers():
             "bio": r["bio"],
             "recentPublications": recent or [{"title": "Test Publication", "year": 2024, "journal": "Test Journal"}],
         })
-
     return {"researchers": data}
-
 
 @app.route("/api/researchOutcomes")
 def api_research_outcomes():
-    """
-    Returns objects shaped like mockResearchOutcomes.
-    Falls back to a single TEST record if:
-      - tables are missing, OR
-      - query errors, OR
-      - query returns 0 rows.
-    """
     TEST_OUTCOME = {
         "id": "test-output-1",
         "title": "Test Publication",
@@ -259,23 +234,14 @@ def api_research_outcomes():
             "type": "Research Output",
             "authors": [r["author_name"]] if r["author_name"] else [],
             "journal": r["journal"] or "",
-            "year": None,          # add a year column later
+            "year": None,
             "citations": 0,
             "abstract": "",
             "keywords": [],
             "grantFunding": "",
         })
-
     return {"outcomes": outcomes}
-
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path: str):
-    target = BUILD_DIR / path
-    if path and target.exists() and target.is_file():
-        return send_from_directory(BUILD_DIR, path)
-    return send_from_directory(BUILD_DIR, "index.html")
-
+# ------------------ end API routes ------------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
