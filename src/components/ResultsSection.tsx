@@ -188,8 +188,8 @@ console.log('[API] parsed outcomes:', oJson);
   
   
 
-  // Filter results based on search query and filters (now based on chosen source arrays)
-  const filteredResearchers = sourceResearchers.filter(researcher => {
+const filteredResearchers = sourceResearchers
+  .filter(researcher => {
     const q = (searchQuery || '').toLowerCase();
     const matchesQuery = !q ||
       researcher.name.toLowerCase().includes(q) ||
@@ -203,7 +203,9 @@ console.log('[API] parsed outcomes:', oJson);
       );
 
     return matchesQuery && matchesTags;
-  });
+  })
+  .sort((a, b) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
+
 
   const filteredOutcomes = sourceOutcomes.filter(outcome => {
     const q = (searchQuery || '').toLowerCase();
