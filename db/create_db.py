@@ -404,10 +404,30 @@ def _publisher_from_item(item):
 
 def filter_by_organization(item, org_uuid='b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
     """
-    Checks if the item has an organizational unit with the given UUID.
+    Checks if the item is associated with the given organization UUID, either in its managingOrganisationalUnit
+    or in any of its organisationalUnits.
+    
+    Args:
+    item (dict): The research output item to check.
+    org_uuid (str): The UUID of the organization to check against.
+    
+    Returns:
+    bool: True if the item is associated with the organization, False otherwise.
     """
+    # Check the 'organisationalUnits' field for the given UUID
     orgs = item.get('organisationalUnits', [])
-    return any(org.get('uuid') == org_uuid for org in orgs)
+    
+    # Check if the organisation UUID exists in the organisationalUnits
+    for org in orgs:
+        if org.get('uuid') == org_uuid:
+            return True
+
+    # If we don't find it, check 'managingOrganisationalUnit'
+    managing_org = item.get('managingOrganisationalUnit', {})
+    if managing_org.get('uuid') == org_uuid:
+        return True
+
+    return False
 
 def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\research_outputs.json'):
     """
@@ -486,6 +506,8 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
 def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
     """
     Insert/Upsert awards but only those associated with a specific organization.
+    
+    Checks both 'managingOrganisationalUnit' and 'organisationalUnits' for the desired organization UUID.
     """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -497,42 +519,129 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
     updated  = 0
     skipped  = 0
 
+    def filter_by_organization(item, org_uuid='b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+        """
+        Checks if the item is associated with the given organization UUID in either the 
+        'managingOrganisationalUnit' or 'organisationalUnits' fields.
+        """
+        # Check 'managingOrganisationalUnit' for the organization UUID
+        managing_org = item.get('managingOrganisationalUnit', {})
+        if managing_org.get('uuid') == org_uuid:
+            return True
+        
+        # Check 'organisationalUnits' for the organization UUID
+        orgs = item.get('organisationalUnits', [])
+        return any(org.get('uuid') == org_uuid for org in orgs)
+
     for item in data:
         # Only process if the item is associated with the desired organization
         if not filter_by_organization(item, 'b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
+            print("Skipping award not associated with target organization")
             skipped += 1
             continue
-        
+        # 1) Get the UUID of the grant:
         award_uuid = item.get("uuid")
-        title = item.get("title", {}).get("value")
+
+        # 2) Get the title of the grant:
+        try:
+            title_obj = item.get("title", {})
+            text = title_obj.get("text",{})
+            if isinstance(text, list):
+                title = text[0].get("value")
+            else:
+                title = text.get("value")
+        except Exception:
+            print(f"Error extracting title from award: {item}")
+            title = None
         if not award_uuid or not title:
+            print("Skipping award with missing uuid or title")
             skipped += 1
             continue
+
+        # 3) Get the school/centre/organisation (if any):
+        try:
+            managing_org = item.get("managingOrganisationalUnit", {})
+            title_obj = managing_org.get("name", {})
+            text = title_obj.get("text",{})
+            if isinstance(text, list):
+                school = text[0].get("value")
+            else:
+                school = text.get("value")
+        except Exception:
+            print(f"Error extracting school/managing org from award: {item}")
+            school = None
+
+        
+        if not school:
+            print("Skipping award with missing school/managing org")
+            skipped += 1
+            continue
+
+        # 4) Funding Source and Amount
+        try:
+            fund_obj = item.get("fundings", {})
+            funder_obj = fund_obj.get("funder", {})
+            name_obj = funder_obj.get("name", {})
+            text = name_obj.get("text",{})
+            # Get the source name
+            if isinstance(text, list):
+                fund_source = text[0].get("value")
+            else:
+                fund_source = text.get("value")
+            # Get the amount (if any)
+            funding_amount = float(fund_obj.get("awardedAmount", "0.00"))
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            fund_source = None
+            funding_amount = 0.00
+
+        # 5) Get start and end dates (if any):
+        try:
+            date_obj = item.get("actualPeriod", {})
+            start_date = _parse_iso_date(date_obj.get("startDate"))
+            end_date = _parse_iso_date(date_obj.get("endDate"))
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            start_date = None
+            end_date = None
+
+        # 6) Get the associated research output uuid
+        try:
+            ro_obj = item.get("relatedProject", {})
+            ro_uuid = ro_obj.get("uuid")
+        except Exception:
+            print(f"Error extracting funding source and amount from award: {item}")
+            ro_uuid = None
+
 
         try:
             cur.execute(
                 """
-                INSERT INTO OIAwards (uuid, name)
-                VALUES (?, ?)
+                INSERT INTO OIResearchGrants (uuid, ro_uuid, grant_name, start_date, end_date, funding, funding_source_name, school)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
-                    name = COALESCE(excluded.name, OIAwards.name)
+                    grant_name = COALESCE(excluded.grant_name, OIResearchGrants.grant_name),
+                    ro_uuid = COALESCE(excluded.ro_uuid, OIResearchGrants.ro_uuid),
+                    start_date = COALESCE(excluded.start_date, OIResearchGrants.start_date),
+                    end_date = COALESCE(excluded.end_date, OIResearchGrants.end_date),
+                    funding = COALESCE(excluded.funding, OIResearchGrants.funding),
+                    funding_source_name = COALESCE(excluded.funding_source_name, OIResearchGrants.funding_source_name),
+                    school = COALESCE(excluded.school, OIResearchGrants.school)
                 """,
-                (award_uuid, title)
+                (award_uuid, ro_uuid, title, start_date, end_date, funding_amount, fund_source, school)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
             if changes > 0:
                 updated += 1
         except sqlite3.IntegrityError:
+            print("IntegrityError on award insert, attempting update by name")
             skipped += 1
 
     conn.commit()
     conn.close()
     print(f"[INFO] Awards -> inserted/updated: {inserted + updated}, skipped: {skipped}")
     return True
-
-
-# Main
 
 # DB setup
 def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
@@ -584,7 +693,30 @@ def _norm(val):
     except Exception:
         pass
     return re.sub(r"\s+", " ", str(val)).strip()
+from datetime import datetime
 
+def _parse_iso_date(val):
+    """
+    Parse the ISO 8601 date-time format with timezone ('2013-01-01T12:00:00.000+0800') 
+    into 'YYYY-MM-DD' format. Returns None if not parsable.
+    
+    Args:
+    val (str): The date-time value in ISO 8601 format to parse.
+    
+    Returns:
+    str or None: The formatted date string (YYYY-MM-DD) or None.
+    """
+    if not val or not isinstance(val, str):
+        return None
+
+    # Try parsing the ISO 8601 format and extract only the date part
+    try:
+        # Remove the timezone part and parse the date-time string
+        parsed_datetime = datetime.fromisoformat(val.split('+')[0])  # Ignore the timezone
+        return parsed_datetime.date().isoformat()
+    except ValueError:
+        return None
+    
 def _parse_date(val):
     """
     Parse common date formats into 'YYYY-MM-DD' format. Returns None if not parsable.
@@ -790,7 +922,7 @@ def fill_db_from_excel_people(
 # Ingest: People + Expertise from OIPersons.json (UUID-based)
 def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json'):
     """
-    Ingest OIPersons.json into OIMembers, ensuring data is merged with the Excel sheet based on full names.
+    Ingest OIPersons.json into OIMembers, ensuring data is inserted without any filtering.
     
     Args:
     db_name (str): The name of the SQLite database.
@@ -810,7 +942,7 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
     for person in data:
         name = person.get("name", {}).get("value")
         if not name:
-            continue  # Skip if no name exists
+            continue  # Skip if no name exists (this should not happen if OIPersons.json is well-formed)
 
         uuid = person.get("uuid")
         email = _norm(person.get("email"))
@@ -845,7 +977,7 @@ def main():
 
     check_and_create_db(db_name=db_name, sql_path=sql_path)
     fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
-    fill_db_from_json_persons(db_name=db_name, json_file=persons_json)
+    fill_db_from_json_persons(db_name=db_name, json_file=persons_json)  # Merging OIPersons.json into OIMembers
     fill_db_from_json_research_outputs(db_name=db_name, json_file=research_outputs_json)
     fill_db_from_json_awards(db_name=db_name, json_file=awards_json)
 
