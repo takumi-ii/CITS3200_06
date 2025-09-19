@@ -464,18 +464,42 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         member_uuid = _ensure_member(conn, author_name, author_uuid, None, None)
 
         publisher = _publisher_from_item(item)
+        # Get the portal link to the paper:
+        info_obj = item.get("info", {})
+        link_to_paper = info_obj.get("portalUrl", None)
 
+        # Get the abstract of the paper:
+        abstract_obj = item.get("abstract", {})
+        abstract_text_obj = abstract_obj.get("text", [{}])
+        abstract = abstract_text_obj[0].get("value", None)
+
+        # Get the number of authors:
+        # print(f"\nPaper: {json.dumps(item)}\n")
+        num_authors = item.get("totalNumberOfAuthors", 0)
+
+        # Get the number of citations:
+        num_citations = item.get("totalScopusCitations", 0)
+
+        # Get the publication year:
+        publisher_obj = item.get("publicationStatuses", [{}])
+        publication_date_obj = publisher_obj[0].get("publicationDate", {})
+        publication_year = publication_date_obj.get("year", 0000)
         try:
             cur.execute(
                 """
-                INSERT INTO OIResearchOutputs (uuid, researcher_uuid, publisher_name, name)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO OIResearchOutputs (uuid, researcher_uuid, publisher_name, name, abstract, num_citations, num_authors, publication_year, link_to_paper)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name),
                     researcher_uuid = COALESCE(excluded.researcher_uuid, OIResearchOutputs.researcher_uuid),
-                    name = COALESCE(excluded.name, OIResearchOutputs.name)
+                    name = COALESCE(excluded.name, OIResearchOutputs.name),
+                    abstract = COALESCE(excluded.abstract, OIResearchOutputs.abstract),
+                    num_citations = COALESCE(excluded.num_citations, OIResearchOutputs.num_citations),
+                    num_authors = COALESCE(excluded.num_authors, OIResearchOutputs.num_authors),
+                    publication_year = COALESCE(excluded.publication_year, OIResearchOutputs.publication_year),
+                    link_to_paper = COALESCE(excluded.link_to_paper, OIResearchOutputs.link_to_paper)
                 """,
-                (ro_uuid, member_uuid, publisher, title)
+                (ro_uuid, member_uuid, publisher, title, abstract, num_citations, num_authors, publication_year, link_to_paper)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
@@ -497,6 +521,62 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
                 updated += 1
             else:
                 skipped += 1
+        # Now we add any tags (keywords):
+        keywordGroups_list = item.get("keywordGroups", [])
+        keywordGroups: list[tuple[str, str, str]] = []  # (ro_uuid, type_name, name)
+        if keywordGroups_list:
+            # Cycle through each keyword group:
+            for keywordGroup in keywordGroups_list:
+                # Get the logical name (type) for this group:
+                type_obj = keywordGroup.get("type", {})
+                type_term = type_obj.get("term", {})
+                type_texts = type_term.get("text", [])
+                type_name = ""
+                if type_texts:
+                    type_name = _norm(type_texts[0].get("value", ""))
+                if not type_name:
+                    type_name = keywordGroup.get("logicalName", "Unknown")
+
+                # Get the container objects (list, default to empty):
+                containers = keywordGroup.get("keywordContainers", [])
+
+                # Cycle through each container:
+                for container in containers:
+                    # Check for free keywords (list of dicts, each with a "freeKeywords" list of strings):
+                    free_keywords_items = container.get("freeKeywords", [])
+                    if free_keywords_items:
+                        for fk_item in free_keywords_items:
+                            free_keywords = fk_item.get("freeKeywords", [])
+                            for free_keyword in free_keywords:
+                                kw = _norm(free_keyword)
+                                if kw:
+                                    keywordGroups.append((ro_uuid, type_name, titlecase_expertise(kw)))
+                        continue  # Skip to next container if free keywords were found
+
+                    # Check for structured keywords (direct "structuredKeyword" dict):
+                    structured_keyword = container.get("structuredKeyword", {})
+                    if structured_keyword:
+                        term = structured_keyword.get("term", {})
+                        texts = term.get("text", [])
+                        for text in texts:
+                            value = text.get("value", "")
+                            kw = _norm(value)
+                            if kw:
+                                keywordGroups.append((ro_uuid, type_name, titlecase_expertise(kw)))
+        # Now we insert the keywords (if any):
+        try:
+            for ro_uuid, type_name, name in keywordGroups:
+                cur.execute(
+                    """INSERT OR IGNORE INTO OIResearchOutputTags (ro_uuid, type_name, name)
+                    VALUES (?, ?, ?)""",
+                    (ro_uuid, type_name, name)
+                )
+        except Exception as e:
+            print(f"Error inserting keyword tag {ro_uuid}, {type_name}, {name}: {e}")
+
+
+
+
 
     conn.commit()
     conn.close()
@@ -580,19 +660,13 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
         # 4) Funding Source(s) and Amount(s) (if any):
         try:
             # Get the funding object : list[dict]
-            print("Got to funding extraction")
             fund_obj = item.get("fundings", [])
-            print("Got funding object")
             funders: list[tuple] = []
             for funder_item in fund_obj:
                 # Get the current funder
-                print(f"Processing a funder: {json.dumps(funder_item)}")
                 funder_obj = funder_item.get("funder", {})
-                print("Got funder object")
                 name_obj = funder_obj.get("name", {})
-                print("Got name object")
                 text = name_obj.get("text",{})
-                print("Got text object")
 
                 # Get the current funder's name
                 if isinstance(text, list):
@@ -601,7 +675,7 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
                     fund_source = text.get("value")
                 # Get the amount (if any)
                 funding_amount = float(fund_obj[0].get("awardedAmount", "0.00"))
-                print(f"Extracted funding source: {fund_obj[0].get('awardedAmount', '0.00')}, amount: {funding_amount}")
+                # print(f"Extracted funding source: {fund_obj[0].get('awardedAmount', '0.00')}, amount: {funding_amount}")
                 funders.append((fund_source, funding_amount))
             # Get the top funder (if any):
             top_funder = sorted(funders, key=lambda x: x[1], reverse=True)[0] if funders else (None, 0.00)

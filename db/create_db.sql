@@ -33,23 +33,28 @@ CREATE TABLE IF NOT EXISTS OIResearchOutputs (
   publisher_name TEXT,
   name TEXT NOT NULL UNIQUE,  -- FK target for grants
   abstract TEXT,
+  num_citations INTEGER,
+  num_authors INTEGER,
+  publication_year INTEGER,
+  link_to_paper TEXT,
   FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
 
--- OIResearchOutputsTags: One to Many relationship between OIResearchOutputs and tags
-CREATE TABLE IF NOT EXISTS OIResearchOutputsTags (
+-- OIResearchOutputTags: One to Many relationship between OIResearchOutputs and tags
+CREATE TABLE IF NOT EXISTS OIResearchOutputTags (
   id INTEGER PRIMARY KEY,
   ro_uuid TEXT NOT NULL,
-  tag TEXT NOT NULL,
+  type_name TEXT NOT NULL,
+  name TEXT NOT NULL,
   FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
 -- DBML: (ro_uuid, tag) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_tags_rouuid_tag
-  ON OIResearchOutputsTags (ro_uuid, tag);
+  ON OIResearchOutputTags (ro_uuid, name);
 
 -- DBML: (researcher_name, name) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_researcher_name
