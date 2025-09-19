@@ -577,23 +577,40 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
             skipped += 1
             continue
 
-        # 4) Funding Source and Amount
+        # 4) Funding Source(s) and Amount(s) (if any):
         try:
-            fund_obj = item.get("fundings", {})
-            funder_obj = fund_obj.get("funder", {})
-            name_obj = funder_obj.get("name", {})
-            text = name_obj.get("text",{})
-            # Get the source name
-            if isinstance(text, list):
-                fund_source = text[0].get("value")
-            else:
-                fund_source = text.get("value")
-            # Get the amount (if any)
-            funding_amount = float(fund_obj.get("awardedAmount", "0.00"))
-        except Exception:
-            print(f"Error extracting funding source and amount from award: {item}")
+            # Get the funding object : list[dict]
+            print("Got to funding extraction")
+            fund_obj = item.get("fundings", [])
+            print("Got funding object")
+            funders: list[tuple] = []
+            for funder_item in fund_obj:
+                # Get the current funder
+                print(f"Processing a funder: {json.dumps(funder_item)}")
+                funder_obj = funder_item.get("funder", {})
+                print("Got funder object")
+                name_obj = funder_obj.get("name", {})
+                print("Got name object")
+                text = name_obj.get("text",{})
+                print("Got text object")
+
+                # Get the current funder's name
+                if isinstance(text, list):
+                    fund_source = text[0].get("value")
+                else:
+                    fund_source = text.get("value")
+                # Get the amount (if any)
+                funding_amount = float(fund_obj[0].get("awardedAmount", "0.00"))
+                print(f"Extracted funding source: {fund_obj[0].get('awardedAmount', '0.00')}, amount: {funding_amount}")
+                funders.append((fund_source, funding_amount))
+            # Get the top funder (if any):
+            top_funder = sorted(funders, key=lambda x: x[1], reverse=True)[0] if funders else (None, 0.00)
+        except Exception as e:
+            print(f"\nError extracting funding source and amount from award: {json.dumps(item)}\nError: {e}\n")
             fund_source = None
             funding_amount = 0.00
+            funders = []
+            top_funder = (None, 0.00)
 
         # 5) Get start and end dates (if any):
         try:
@@ -613,22 +630,22 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
             print(f"Error extracting funding source and amount from award: {item}")
             ro_uuid = None
 
-
+        # 7) Execute the insert/update for the Award itself
         try:
             cur.execute(
                 """
-                INSERT INTO OIResearchGrants (uuid, ro_uuid, grant_name, start_date, end_date, funding, funding_source_name, school)
+                INSERT INTO OIResearchGrants (uuid, ro_uuid, grant_name, start_date, end_date, total_funding, top_funding_source_name, school)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     grant_name = COALESCE(excluded.grant_name, OIResearchGrants.grant_name),
                     ro_uuid = COALESCE(excluded.ro_uuid, OIResearchGrants.ro_uuid),
                     start_date = COALESCE(excluded.start_date, OIResearchGrants.start_date),
                     end_date = COALESCE(excluded.end_date, OIResearchGrants.end_date),
-                    funding = COALESCE(excluded.funding, OIResearchGrants.funding),
-                    funding_source_name = COALESCE(excluded.funding_source_name, OIResearchGrants.funding_source_name),
+                    total_funding = COALESCE(excluded.total_funding, OIResearchGrants.total_funding),
+                    top_funding_source_name = COALESCE(excluded.top_funding_source_name, OIResearchGrants.top_funding_source_name),
                     school = COALESCE(excluded.school, OIResearchGrants.school)
                 """,
-                (award_uuid, ro_uuid, title, start_date, end_date, funding_amount, fund_source, school)
+                (award_uuid, ro_uuid, title, start_date, end_date, top_funder[1], top_funder[0], school)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
@@ -637,6 +654,18 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
         except sqlite3.IntegrityError:
             print("IntegrityError on award insert, attempting update by name")
             skipped += 1
+        # 8) Now insert into OIResearchGrantsFundingSources (if we have a funding source):
+        if funders:
+            for funder in funders:
+                try:
+                    cur.execute(
+                        """INSERT OR IGNORE INTO OIResearchGrantsFundingSources (grant_uuid, funding_source_name, amount)
+                           VALUES (?, ?, ?)""",
+                        (award_uuid, funder[0], funder[1])
+                    )
+                except sqlite3.IntegrityError:
+                    print(f"IntegrityError on funding source insert for award {award_uuid}, funding source {funder[0]}")
+                    continue
 
     conn.commit()
     conn.close()

@@ -8,8 +8,9 @@ CREATE TABLE IF NOT EXISTS OIMembers (
   name TEXT NOT NULL UNIQUE,  -- serves as FK target
   email TEXT,
   education TEXT,
-  bio TEXT,
-  phone TEXT
+  bio TEXT,                   -- Pulled from the API
+  phone TEXT,
+  photo_url TEXT
 );
 
 -- OIExpertise
@@ -31,10 +32,25 @@ CREATE TABLE IF NOT EXISTS OIResearchOutputs (
   researcher_uuid TEXT NOT NULL,
   publisher_name TEXT,
   name TEXT NOT NULL UNIQUE,  -- FK target for grants
+  abstract TEXT,
   FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
+
+-- OIResearchOutputsTags: One to Many relationship between OIResearchOutputs and tags
+CREATE TABLE IF NOT EXISTS OIResearchOutputsTags (
+  id INTEGER PRIMARY KEY,
+  ro_uuid TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+-- DBML: (ro_uuid, tag) [unique]
+CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_tags_rouuid_tag
+  ON OIResearchOutputsTags (ro_uuid, tag);
+
 -- DBML: (researcher_name, name) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_researcher_name
   ON OIResearchOutputs (researcher_uuid, uuid);
@@ -46,13 +62,25 @@ CREATE TABLE IF NOT EXISTS OIResearchGrants (
   grant_name TEXT NOT NULL,
   start_date DATE,
   end_date DATE,
-  funding INTEGER,
-  funding_source_name TEXT,
+  total_funding INTEGER,
+  top_funding_source_name TEXT,
   school TEXT,
   FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
+
+-- OIResearchGrantsFundingSources: One to Many relationship between OIResearchGrants and funding sources
+CREATE TABLE IF NOT EXISTS OIResearchGrantsFundingSources (
+  id INTEGER PRIMARY KEY,
+  grant_uuid TEXT NOT NULL,
+  funding_source_name TEXT NOT NULL,
+  amount REAL NOT NULL,
+  FOREIGN KEY (grant_uuid) REFERENCES OIResearchGrants(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
 -- DBML: (ro_name, grant_name) [unique]
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_grants_roname_grantname
   ON OIResearchGrants (ro_uuid, grant_name);
