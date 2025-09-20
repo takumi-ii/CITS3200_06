@@ -62,21 +62,6 @@ def _norm(val):
         pass
     return re.sub(r"\s+", " ", str(val)).strip()
 
-def _parse_date(val):
-    """
-    Parse common formats into YYYY-MM-DD (string). None if not parsable.
-    """
-    if not val or (not isinstance(val, str) and pd.isna(val)):
-        return None
-    if isinstance(val, (pd.Timestamp, datetime)):
-        return val.date().isoformat()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"):
-        try:
-            return datetime.strptime(str(val), fmt).date().isoformat()
-        except ValueError:
-            continue
-    return None
-
 def _build_name(row):
     """
     Construct a display name: 'Title FirstName Surname' (Title optional).
@@ -228,39 +213,86 @@ def _deterministic_member_uuid(name: str) -> str:
     base = f"member:{name.casefold()}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, base))
 
-def _ensure_member(conn, name: str, member_uuid: Optional[str], email: Optional[str], bio: Optional[str]) -> str:
+def _ensure_member(
+    conn,
+    name: str,
+    member_uuid: Optional[str],
+    email: Optional[str],
+    education: Optional[str],
+    bio: Optional[str],
+    phone: Optional[str],
+    photo_url: Optional[str],
+    profile_url: Optional[str]
+) -> str:
     """
     Ensure an OIMembers row exists for `name`, returning the member UUID.
 
-    - If no row exists:
-        * Use provided `member_uuid` if given, else create deterministic UUIDv5.
-        * Insert (uuid, name, email, bio).
-    - If a row exists and `member_uuid` is provided but differs:
-        * UPDATE the primary key uuid to the canonical `member_uuid`
-          (ON UPDATE CASCADE will update referencing FKs).
-    - Update email/bio if provided (non-null).
+    - Tries to INSERT with the provided `member_uuid` (or deterministic if none).
+    - If IntegrityError (PK or UNIQUE violation), checks existing by name or uuid and UPDATES accordingly.
+      - If name exists (possibly with different uuid), updates uuid to canonical and other fields.
+      - If uuid exists (with different name), updates name and fields.
     """
+    if not member_uuid:
+        member_uuid = _deterministic_member_uuid(name)
+
     cur = conn.cursor()
-    cur.execute("SELECT uuid FROM OIMembers WHERE name = ?", (name,))
-    row = cur.fetchone()
-    if row is None:
-        if not member_uuid:
-            member_uuid = _deterministic_member_uuid(name)
+    try:
         cur.execute(
-            "INSERT INTO OIMembers (uuid, name, email, bio) VALUES (?, ?, ?, ?)",
-            (member_uuid, name, email, bio)
+            """
+            INSERT INTO OIMembers (uuid, name, email, education, bio, phone, photo_url, profile_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (member_uuid, name, email, education, bio, phone, photo_url, profile_url)
         )
         return member_uuid
-    else:
-        current_uuid = row[0]
-        if member_uuid and member_uuid != current_uuid:
-            cur.execute("UPDATE OIMembers SET uuid = ? WHERE name = ?", (member_uuid, name))
-        if email or bio:
+    except sqlite3.IntegrityError:
+        # Check by name
+        cur.execute("SELECT uuid FROM OIMembers WHERE name = ?", (name,))
+        row = cur.fetchone()
+        if row:
+            existing_uuid = row[0]
+            if existing_uuid != member_uuid:
+                # Update PK uuid (cascades to FKs)
+                cur.execute("UPDATE OIMembers SET uuid = ? WHERE name = ?", (member_uuid, name))
+            # Update fields
             cur.execute(
-                "UPDATE OIMembers SET email = COALESCE(?, email), bio = COALESCE(?, bio) WHERE name = ?",
-                (email if email else None, bio if bio else None, name)
+                """
+                UPDATE OIMembers SET
+                    email = COALESCE(?, email),
+                    education = COALESCE(?, education),
+                    bio = COALESCE(?, bio),
+                    phone = COALESCE(?, phone),
+                    photo_url = COALESCE(?, photo_url),
+                    profile_url = COALESCE(?, profile_url)
+                WHERE name = ?
+                """,
+                (email, education, bio, phone, photo_url, name)
             )
-        return member_uuid or current_uuid
+            return member_uuid
+
+        # Check by uuid (if name different)
+        cur.execute("SELECT name FROM OIMembers WHERE uuid = ?", (member_uuid,))
+        row = cur.fetchone()
+        if row:
+            # Update name and fields
+            cur.execute(
+                """
+                UPDATE OIMembers SET
+                    name = ?,
+                    email = COALESCE(?, email),
+                    education = COALESCE(?, education),
+                    bio = COALESCE(?, bio),
+                    phone = COALESCE(?, phone),
+                    photo_url = COALESCE(?, photo_url),
+                    profile_url = COALESCE(?, profile_url)
+                WHERE uuid = ?
+                """,
+                (name, email, education, bio, phone, photo_url, member_uuid, profile_url)
+            )
+            return member_uuid
+
+        # If neither, re-raise (should not happen)
+        raise
 
 # Ingest: People + Expertise from Excel (UUID-based)
 EXPECTED_COLS = [
@@ -279,45 +311,6 @@ EXPECTED_COLS = [
     "OI geographical focus for research",
     "Top 3 priorities for OI for next 5 years",
 ]
-
-def fill_db_from_excel_people(
-    db_name='data.db',
-    excel_path='db\\OI_members_data.xlsx',
-    sheet_name='DATA- OI Member Listing-sample'
-):
-    """
-    Load expertise from Excel into OIExpertise (UUID schema). Members should be handled via JSON files.
-    """
-    df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype=str)
-    df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
-
-    missing = [c for c in EXPECTED_COLS if c not in df.columns]
-    if missing:
-        print(f"[WARN] Missing expected columns: {missing}")
-
-    conn = sqlite3.connect(db_name)
-    cur = conn.cursor()
-    inserted_expertise = 0
-
-    for _, row in df.iterrows():
-        name = _build_name(row)
-        if not name:
-            continue  # Skip rows without any name information
-
-        # Only insert expertise from the Excel data
-        for field in _iter_expertise(row):
-            cur.execute(
-                """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
-                   VALUES (?, ?)""",
-                (name, field)
-            )
-            if cur.rowcount > 0:
-                inserted_expertise += 1
-
-    conn.commit()
-    conn.close()
-    print(f"[INFO] Expertise inserted: {inserted_expertise}")
-    return True
 
 # Ingest: Research outputs JSON (UUID-based)
 def _first_author_name_uuid(item):
@@ -461,7 +454,8 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         
         # Ensure the member exists; this will also "upgrade" the uuid for
         # name-matched Excel members to the canonical author_uuid (cascade-safe).
-        member_uuid = _ensure_member(conn, author_name, author_uuid, None, None)
+        # member_uuid = _ensure_member(conn, author_name, author_uuid, None, None)
+        member_uuid = _deterministic_member_uuid(author_name)
 
         publisher = _publisher_from_item(item)
         # Get the portal link to the paper:
@@ -819,27 +813,6 @@ def _parse_iso_date(val):
         return parsed_datetime.date().isoformat()
     except ValueError:
         return None
-    
-def _parse_date(val):
-    """
-    Parse common date formats into 'YYYY-MM-DD' format. Returns None if not parsable.
-    
-    Args:
-    val (str or datetime): The date value to parse.
-    
-    Returns:
-    str or None: The formatted date string or None.
-    """
-    if not val or (not isinstance(val, str) and pd.isna(val)):
-        return None
-    if isinstance(val, (pd.Timestamp, datetime)):
-        return val.date().isoformat()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"):
-        try:
-            return datetime.strptime(str(val), fmt).date().isoformat()
-        except ValueError:
-            continue
-    return None
 
 def _build_name(row):
     """
@@ -924,141 +897,163 @@ def _deterministic_member_uuid(name: str) -> str:
     base = f"member:{name.casefold()}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, base))
 
-def _ensure_member(conn, name: str, member_uuid: Optional[str], email: Optional[str], bio: Optional[str]) -> str:
+# Add this function to the script, e.g., after import statements and before _ensure_member
+def clean_expertise(raw: str) -> Optional[str]:
     """
-    Ensure an OIMembers row exists for the given name, returning the member UUID.
-    
-    If no row exists:
-        - Uses `member_uuid` if provided, or creates a deterministic UUIDv5.
-        - Inserts (uuid, name, email, bio).
-    
-    If a row exists and `member_uuid` differs:
-        - Updates the primary key to the canonical `member_uuid` (cascade-safe).
-    
-    Args:
-    conn (sqlite3.Connection): The database connection.
-    name (str): The full name of the member.
-    member_uuid (str or None): The canonical member UUID (if available).
-    email (str or None): The email address.
-    bio (str or None): The bio string.
-    
-    Returns:
-    str: The UUID for the member.
+    Clean up extracted expertise values by removing HTML, artifacts, and filtering junk.
+    Returns None if the cleaned value is invalid (e.g., SDG, URL, too short).
     """
-    cur = conn.cursor()
-    cur.execute("SELECT uuid FROM OIMembers WHERE name = ?", (name,))
-    row = cur.fetchone()
-    if row is None:
-        if not member_uuid:
-            member_uuid = _deterministic_member_uuid(name)
-        cur.execute(
-            "INSERT INTO OIMembers (uuid, name, email, bio) VALUES (?, ?, ?, ?)",
-            (member_uuid, name, email, bio)
-        )
-        return member_uuid
-    else:
-        current_uuid = row[0]
-        if member_uuid and member_uuid != current_uuid:
-            cur.execute("UPDATE OIMembers SET uuid = ? WHERE name = ?", (member_uuid, name))
-        if email or bio:
-            cur.execute(
-                "UPDATE OIMembers SET email = COALESCE(?, email), bio = COALESCE(?, bio) WHERE name = ?",
-                (email if email else None, bio if bio else None, name)
-            )
-        return member_uuid or current_uuid
+    # Unescape HTML entities
+    raw = html.unescape(raw)
+    # Remove HTML tags
+    raw = re.sub(r'<[^>]*>', '', raw)
+    # Normalize: replace multiple spaces with single, strip
+    field = re.sub(r'\s+', ' ', raw).strip()
+    # Remove leading artifacts like >, <, numbers like 1.
+    field = re.sub(r'^[><\s]*', '', field).strip()
+    field = re.sub(r'^\d+\.\s*', '', field).strip()
+    # Remove trailing artifacts
+    field = re.sub(r'[><\s]*$', '', field).strip()
+    # Skip if it's a URL, or too short/junk
+    upper_field = field.upper()
+    if field.lower().startswith(('http', 'www.')) or len(field) < 3 or re.match(r'^[\W\s]*$', field):
+        return None
+    return field
 
-# Ingest expertise from Excel (UUID-based)
-def fill_db_from_excel_people(
-    db_name='data.db',
-    excel_path='db\\OI_members_data.xlsx',
-    sheet_name='DATA- OI Member Listing-sample'
-):
-    """
-    Load expertise from Excel into OIExpertise, and upsert OIMembers using full names.
-    Merges people from both Excel and OIPersons.json files when names match.
-    
-    Args:
-    db_name (str): The name of the SQLite database.
-    excel_path (str): The path to the Excel file.
-    sheet_name (str): The sheet name in the Excel file.
-    
-    Returns:
-    bool: True if successful, False otherwise.
-    """
-    df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype=str)
-    df.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in df.columns]
-
-    missing = [c for c in EXPECTED_COLS if c not in df.columns]
-    if missing:
-        print(f"[WARN] Missing expected columns: {missing}")
-
-    conn = sqlite3.connect(db_name)
-    cur = conn.cursor()
-    inserted_expertise = 0
-
-    for _, row in df.iterrows():
-        name = _build_name(row)
-        if not name:
-            continue  # Skip rows without any name information
-
-        email = _choose_email(row.get("Email Address"), row.get("Seconday email"))
-        bio = _build_bio(row)
-
-        # Ensure member (deterministic uuid if new)
-        member_uuid = _ensure_member(conn, name, None, email, bio)
-
-        # Count a new insert roughly by checking if any expertise will insert new rows.
-        for field in _iter_expertise(row):
-            cur.execute(
-                """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
-                   VALUES (?, ?)""",
-                (member_uuid, field)
-            )
-            if cur.rowcount > 0:
-                inserted_expertise += 1
-
-    conn.commit()
-    conn.close()
-    print(f"[INFO] Expertise inserted: {inserted_expertise}")
-    return True
-
-# Ingest: People + Expertise from OIPersons.json (UUID-based)
 def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json'):
     """
-    Ingest OIPersons.json into OIMembers, ensuring data is inserted without any filtering.
-    
-    Args:
-    db_name (str): The name of the SQLite database.
-    json_file (str): The path to the OIPersons.json file.
-    
-    Returns:
-    bool: True if successful, False otherwise.
+    Load persons and expertise from OIPersons.json into OIMembers and OIExpertise (UUID-based).
+    This replaces the Excel ingestion function.
+    Upserts members by attempting INSERT first, then UPDATE on failure (e.g., due to unique name or PK uuid).
+    Uses canonical UUID from JSON.
+    Extracts and inserts expertise from profileInformations (researchinterests) by splitting and title-casing,
+    and from keywordGroups (e.g., sustainabledevelopmentgoals) as additional fields, similar to how tags are handled in OIResearchOutputTags.
     """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     conn = sqlite3.connect(db_name)
     cur = conn.cursor()
-
     inserted_members = 0
+    inserted_expertise = 0
 
     for person in data:
-        name = person.get("name", {}).get("value")
+        # Extract name
+        name_dict = person.get('name', {})
+        first_name = _norm(name_dict.get('firstName'))
+        last_name = _norm(name_dict.get('lastName'))
+        name = f"{first_name} {last_name}".strip()
         if not name:
-            continue  # Skip if no name exists (this should not happen if OIPersons.json is well-formed)
+            continue  # Skip if no valid name
 
-        uuid = person.get("uuid")
-        email = _norm(person.get("email"))
-        bio = _norm(person.get("bio"))
+        # Canonical UUID
+        member_uuid = person.get('uuid')
 
-        # Ensure member (deterministic uuid if new)
-        member_uuid = _ensure_member(conn, name, uuid, email, bio)
+        # Email: Prefer from primary staffOrganisationAssociation's emails
+        email = None
+        associations = person.get('staffOrganisationAssociations', [])
+        primary_assoc = next((assoc for assoc in associations if assoc.get('isPrimaryAssociation')), None)
+        if primary_assoc:
+            emails = primary_assoc.get('emails', [])
+            if emails:
+                email_value = emails[0].get('value', {})
+                email = _norm(email_value.get('value') if isinstance(email_value, dict) else email_value)
 
-        inserted_members += 1
+        # Education: From titles with type /academicdegree
+        education = None
+        for title in person.get('titles', []):
+            title_type_uri = title.get('type', {}).get('uri', '')
+            if 'academicdegree' in title_type_uri:
+                value_text = title.get('value', {}).get('text', [])
+                if value_text:
+                    education = _norm(value_text[0].get('value'))
+                break
+
+        # Bio: From profileInformations with type /background
+        bio = None
+        for info in person.get('profileInformations', []):
+            info_type_uri = info.get('type', {}).get('uri', '')
+            if 'background' in info_type_uri:
+                value_text = info.get('value', {}).get('text', [])
+                if value_text:
+                    bio_raw = value_text[0].get('value', '')
+                    bio = re.sub(r"<.*?>", "", html.unescape(_norm(bio_raw)))
+                break
+
+        # Phone: From primary association phones
+        phone = None
+        if primary_assoc:
+            phones = primary_assoc.get('phoneNumbers', [])
+            if phones:
+                phone_value = phones[0].get('value', {})
+                phone = _norm(phone_value.get('value') if isinstance(phone_value, dict) else phone_value)
+
+        # Photo URL: From first profilePhotos
+        photo_url = None
+        photos = person.get('profilePhotos', [])
+        if photos:
+            photo_url = photos[0].get('url')
+
+        # Profile URL: From first profileLinks
+        info_obj = person.get('info', {})
+        profile_url = info_obj.get('portalUrl', None)
+
+        # Ensure member (try insert, update on fail)
+        ensured_uuid = _ensure_member(conn, name, member_uuid, email, education, bio, phone, photo_url, profile_url)
+        inserted_members += 1  # Count as processed
+
+        # Insert expertise from researchinterests (split similar to Excel)
+        seen = set()
+        for info in person.get('profileInformations', []):
+            info_type_uri = info.get('type', {}).get('uri', '')
+            if 'researchinterests' in info_type_uri:
+                value_text = info.get('value', {}).get('text', [])
+                if value_text:
+                    interests_raw = value_text[0].get('value', '')
+                    # Clean HTML from the whole interests_raw
+                    interests_raw = html.unescape(interests_raw)
+                    interests_raw = re.sub(r'<[^>]*>', '', interests_raw)
+                    # Split the cleaned raw
+                    parts = re.split(r"[;,/]|(?i)\band\b", _norm(interests_raw))
+                    for p in parts:
+                        if cleaned := clean_expertise(p):
+                            field = titlecase_expertise(cleaned)
+                            key = field.casefold()
+                            if key not in seen:
+                                seen.add(key)
+                                cur.execute(
+                                    """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
+                                       VALUES (?, ?)""",
+                                    (ensured_uuid, field)
+                                )
+                                if cur.rowcount > 0:
+                                    inserted_expertise += 1
+
+        # Insert expertise from keywordGroups (treat as additional fields/tags)
+        for kg in person.get('keywordGroups', []):
+            for container in kg.get('keywordContainers', []):
+                structured_kw = container.get('structuredKeyword', {})
+                term = structured_kw.get('term', {})
+                term_text = term.get('text', [])
+                if term_text:
+                    field_raw = term_text[0].get('value', '')
+                    if cleaned := clean_expertise(field_raw):
+                        field = titlecase_expertise(cleaned)
+                        key = field.casefold()
+                        if key not in seen:
+                            seen.add(key)
+                            cur.execute(
+                                """INSERT OR IGNORE INTO OIExpertise (researcher_uuid, field)
+                                   VALUES (?, ?)""",
+                                (ensured_uuid, field)
+                            )
+                            if cur.rowcount > 0:
+                                inserted_expertise += 1
 
     conn.commit()
     conn.close()
-    print(f"[INFO] Members inserted: {inserted_members}")
+    print(f"[INFO] Members inserted/updated: {inserted_members}")
+    print(f"[INFO] Expertise inserted: {inserted_expertise}")
     return True
 
 # Main pipeline orchestrator
@@ -1079,7 +1074,7 @@ def main():
     persons_json = 'db\\OIPersons.json'
 
     check_and_create_db(db_name=db_name, sql_path=sql_path)
-    fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
+    # fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
     fill_db_from_json_persons(db_name=db_name, json_file=persons_json)  # Merging OIPersons.json into OIMembers
     fill_db_from_json_research_outputs(db_name=db_name, json_file=research_outputs_json)
     fill_db_from_json_awards(db_name=db_name, json_file=awards_json)

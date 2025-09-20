@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS OIMembers (
   education TEXT,
   bio TEXT,                   -- Pulled from the API
   phone TEXT,
-  photo_url TEXT
+  photo_url TEXT,
+  profile_url TEXT
 );
 
 -- OIExpertise
