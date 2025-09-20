@@ -330,12 +330,14 @@ def get_tags():
     return {"tags": [{"tag": r[0], "count": r[1]} for r in rows]}
 
 # ---------------------------------------------------------------------------
-# Search endpoint with simple weighted ranking
+# Search endpoint with weighted ranking
 # Ranking priority (highest to lowest):
 #   1) Strategic research focuses (configurable via STRATEGIC_FOCUSES env, ';' separated)
-#   2) Top-level categories (hard-coded tags list below)
-#   3) Member expertise fields
-#   4) Member full name
+#   2) Tier 1 expertise groupings (Condensed)
+#   3) Tier 2 expertise groupings (Broad)
+#   4) Historical top-level categories (kept for compatibility)
+#   5) Member expertise fields
+#   6) Member full name
 # ---------------------------------------------------------------------------
 
 STRATEGIC_FOCUSES = [s.strip().lower() for s in os.environ.get(
@@ -343,6 +345,76 @@ STRATEGIC_FOCUSES = [s.strip().lower() for s in os.environ.get(
     "Climate Change;Ocean Health;Blue Economy"
 ).split(";") if s.strip()]
 
+# Tier 1 (Condensed) research expertise groupings
+TIER1_EXPERTISE = [
+    "Archelogy and cultural heritage",
+    "Conservation planning and ecosystem restoration",
+    "Climate Law",
+    "Environmental & resource economics and policy",
+    "Environmental and human geography",
+    "Environmental Fluid Mechanics",
+    "Marine and spatial ecology",
+    "Marine biodiversity",
+    "Marine geonomics",
+    "Marine geoscience",
+    "Marine parks and fisheries science",
+    "Maritime law and policy",
+    "Nature based solutions",
+    "Ocean and coastal engineering",
+    "Oceanography",
+]
+
+# Tier 2 (Broad) research expertise groupings
+TIER2_EXPERTISE = [
+    "Archeology and heritage studies",
+    "Biological or chemical oceanography",
+    "Climate change",
+    "Coastal engineering",
+    "Coastal policy and governance",
+    "Coastal processes and dynamics",
+    "Conservation planning",
+    "Conservation science",
+    "Coral reef ecology",
+    "Deep ocean systems",
+    "Deep sea biology",
+    "Environmental economics and social science",
+    "Fish and invertebrate biology",
+    "Fish stock assessment and modeling",
+    "Fisheries ecology and conservation",
+    "Fisheries science and management",
+    "Governance and policy frameworks for sustainable fisheries",
+    "Hydrography and mapping",
+    "Indigenous knowledge",
+    "Integrated coastal zone management",
+    "Literature and arts of the sea",
+    "Marine biology",
+    "Marine biotechnology/pharmacology",
+    "Marine ecology and biodiversity",
+    "Marine genomics",
+    "Marine geology and geophysics",
+    "Marine geohazards",
+    "Marine microbiology",
+    "Marine sedimentology",
+    "Marine social impact assessment",
+    "Marine spatial planning",
+    "Maritime history",
+    "Maritime law",
+    "Maritime governance and policy",
+    "Megafauna",
+    "Ocean atmosphere interactions",
+    "Ocean circulation and currents",
+    "Ocean health and conservation",
+    "Offshore geotechnical engineering",
+    "Offshore renewable energy",
+    "Onshore renewable energy",
+    "Physical Oceanography",
+    "Pollution and contaminants",
+    "Restoration science",
+    "Robotics and autonomous systems",
+    "Science communication",
+]
+
+# Keep legacy categories for compatibility with previous data
 TOP_LEVEL_CATEGORIES = [
     "Climate Change",
     "Coral Reef Health",
@@ -365,19 +437,48 @@ def _like_param(s: str) -> str:
     return f"%{s.lower()}%"
 
 def _compute_score(texts: list[str], query_terms: list[str]) -> int:
+    """
+    Compute a score using two signals:
+      A) Query intent vs configured categories/focuses (high weight)
+      B) Textual presence in the record (lower weight)
+
+    This prioritises results when the query itself matches Tier 1/2 or Strategic Focus.
+    """
     score = 0
     ql = [t.lower() for t in query_terms if t]
+    q_phrase = " ".join(ql).strip()
     joined = "\n".join(texts).lower()
-    # Strategic focus weight 4
-    if any(focus in joined for focus in STRATEGIC_FOCUSES):
+
+    def _phrase_match(query_l: str, phrase: str) -> bool:
+        pl = phrase.lower()
+        return bool(query_l) and (pl in query_l or query_l in pl)
+
+    # A) Query intent vs groupings
+    if any(_phrase_match(q_phrase, focus) for focus in STRATEGIC_FOCUSES):
+        score += 6
+    if any(_phrase_match(q_phrase, tag) for tag in TIER1_EXPERTISE):
+        score += 5
+    if any(_phrase_match(q_phrase, tag) for tag in TIER2_EXPERTISE):
         score += 4
-    # Category weight 3
-    if any(cat.lower() in joined for cat in TOP_LEVEL_CATEGORIES):
+    if any(_phrase_match(q_phrase, cat) for cat in TOP_LEVEL_CATEGORIES):
         score += 3
-    # Per-term presence adds smaller boosts
+
+    # B) Textual presence within the record
+    if q_phrase and q_phrase in joined:
+        score += 2
     for t in ql:
         if t and t in joined:
             score += 1
+    # Presence of groupings in the text (legacy boost)
+    if any(focus in joined for focus in [f.lower() for f in STRATEGIC_FOCUSES]):
+        score += 1
+    if any(tag.lower() in joined for tag in TIER1_EXPERTISE):
+        score += 1
+    if any(tag.lower() in joined for tag in TIER2_EXPERTISE):
+        score += 1
+    if any(cat.lower() in joined for cat in TOP_LEVEL_CATEGORIES):
+        score += 1
+
     return score
 
 @app.route("/api/search")
@@ -455,6 +556,17 @@ def search():
     members.sort(key=lambda m: m["score"], reverse=True)
     research_outputs.sort(key=lambda r: r["score"], reverse=True)
     return jsonify({"members": members, "research_outputs": research_outputs})
+
+# ---------------------------------------------------------------------------
+# Expertise groupings endpoint for frontend use
+# ---------------------------------------------------------------------------
+
+@app.route("/api/expertise-groups")
+def api_expertise_groups():
+    return jsonify({
+        "tier1": TIER1_EXPERTISE,
+        "tier2": TIER2_EXPERTISE,
+    })
 
 # ---------------------------------------------------------------------------
 # PURE API proxy (GET only), authenticated on the server via API key

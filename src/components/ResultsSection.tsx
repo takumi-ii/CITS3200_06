@@ -192,10 +192,14 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
   const sourceOutcomes = outcomes.length ? outcomes : ((searchQuery || '').trim() ? [] : mockResearchOutcomes);
 
   const q = (searchQuery || '').toLowerCase();
+  const isActiveSearch = (searchQuery || '').trim().length > 0;
 
   const filteredResearchers = sourceResearchers
     .filter((researcher: any) => {
-      const matchesQuery = !q ||
+      // If a search is active, the backend has already applied query relevance.
+      // Avoid re-filtering here which could hide legitimate results (e.g., multi-term queries).
+      const matchesQuery = isActiveSearch ||
+        !q ||
         (researcher.name || '').toLowerCase().includes(q) ||
         ((researcher.expertise || []).some((exp: string) => (exp || '').toLowerCase().includes(q)));
 
@@ -208,14 +212,29 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
 
       return matchesQuery && matchesTags;
     })
-    .sort((a: any, b: any) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
+    .sort((a: any, b: any) => {
+      if (isActiveSearch) {
+        const sa = Number(a.score ?? 0);
+        const sb = Number(b.score ?? 0);
+        if (sb !== sa) return sb - sa; // higher score first
+        const pa = Number(a.publications ?? 0);
+        const pb = Number(b.publications ?? 0);
+        if (pb !== pa) return pb - pa; // then by publications
+        const na = String(a.name || '').toLowerCase();
+        const nb = String(b.name || '').toLowerCase();
+        return na.localeCompare(nb); // stable tie-breaker by name
+      }
+      // Default (no active search): sort by publications desc
+      return Number(b.publications ?? 0) - Number(a.publications ?? 0);
+    });
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
     const keywords: string[] = Array.isArray(outcome.keywords) ? outcome.keywords : [];
     const journal = (outcome.journal || outcome.publisher_name || '') as string;
 
-    const matchesQuery = !q ||
+    const matchesQuery = isActiveSearch ||
+      !q ||
       title.toLowerCase().includes(q) ||
       journal.toLowerCase().includes(q) ||
       keywords.some((k: string) => (k || '').toLowerCase().includes(q));
@@ -236,6 +255,25 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
       : year >= filters.yearRange[0] && year <= filters.yearRange[1];
 
     return matchesQuery && matchesTags && matchesYear;
+  }).sort((a: any, b: any) => {
+    if (isActiveSearch) {
+      const sa = Number(a.score ?? 0);
+      const sb = Number(b.score ?? 0);
+      if (sb !== sa) return sb - sa; // higher score first
+      const ya = typeof a.year === 'number' ? a.year : (a.year ? Number(a.year) : -Infinity);
+      const yb = typeof b.year === 'number' ? b.year : (b.year ? Number(b.year) : -Infinity);
+      if (yb !== ya) return yb - ya; // then by year desc if available
+      const ta = String(a.name || a.title || '').toLowerCase();
+      const tb = String(b.name || b.title || '').toLowerCase();
+      return ta.localeCompare(tb);
+    }
+    // Default (no active search): by year desc then title
+    const ya = typeof a.year === 'number' ? a.year : (a.year ? Number(a.year) : -Infinity);
+    const yb = typeof b.year === 'number' ? b.year : (b.year ? Number(b.year) : -Infinity);
+    if (yb !== ya) return yb - ya;
+    const ta = String(a.name || a.title || '').toLowerCase();
+    const tb = String(b.name || b.title || '').toLowerCase();
+    return ta.localeCompare(tb);
   });
 
   const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
