@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 
@@ -128,57 +128,132 @@ const mockResearchOutcomes = [
 ];
 
 export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
+  const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
-  const [researchers, setResearchers] = useState<Member[]>([]);
-  const [outcomes, setOutcomes] = useState<ResearchOutput[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PER_PAGE = 6; // how many results per page (researchers/outcomes)
+
+  // Live data states
+  const [researchers, setResearchers] = useState<any[]>([]);
+  const [outcomes, setOutcomes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Fetch strategy:
+  // - If there's a query, use /api/search
+  // - Otherwise, load default lists (/api/researchers and /api/researchOutcomes)
+  //   and fall back to mocks if empty/unavailable.
   useEffect(() => {
     const controller = new AbortController();
     const run = async () => {
-      const q = searchQuery?.trim();
-      if (!q) {
-        setResearchers([]);
-        setOutcomes([]);
-        return;
-      }
+      const q = (searchQuery || '').trim();
       try {
         setLoading(true);
-        const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
-        if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
-        const data = await resp.json();
-        setResearchers(Array.isArray(data.members) ? data.members : []);
-        setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
-      } catch (err) {
-        // Fallback to mock data if backend not available
-        const filteredResearchers = mockResearchers.filter(researcher => {
-          const matchesQuery = !searchQuery || 
-            researcher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            researcher.expertise.some(exp => exp.toLowerCase().includes(searchQuery.toLowerCase()));
-          const matchesTags = filters.tags.length === 0 || 
-            filters.tags.some(tag => researcher.expertise.some(exp => exp.includes(tag)));
-          return matchesQuery && matchesTags;
-        });
-        const filteredOutcomes = mockResearchOutcomes.filter(outcome => {
-          const matchesQuery = !searchQuery || 
-            outcome.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            outcome.keywords.some(keyword => keyword.toLowerCase().includes(searchQuery.toLowerCase()));
-          const matchesTags = filters.tags.length === 0 || 
-            filters.tags.some(tag => outcome.keywords.includes(tag));
-          const matchesYear = outcome.year >= filters.yearRange[0] && outcome.year <= filters.yearRange[1];
-          return matchesQuery && matchesTags && matchesYear;
-        });
-        setResearchers(filteredResearchers as unknown as Member[]);
-        setOutcomes(filteredOutcomes as unknown as ResearchOutput[]);
+        if (q) {
+          const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+            signal: controller.signal,
+          });
+          if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
+          const data = await resp.json();
+          setResearchers(Array.isArray(data.members) ? data.members : []);
+          setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
+        } else {
+          const [rRes, oRes] = await Promise.all([
+            fetch('/api/researchers', { signal: controller.signal }),
+            fetch('/api/researchOutcomes', { signal: controller.signal }),
+          ]);
+          let rJson: any = null;
+          let oJson: any = null;
+          try { rJson = await rRes.json(); } catch {}
+          try { oJson = await oRes.json(); } catch {}
+          const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
+          const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
+          setResearchers(Array.isArray(rData) ? rData : []);
+          setOutcomes(Array.isArray(oData) ? oData : []);
+        }
+      } catch {
+        // On error: if searching, show empty; otherwise fallback happens below
+        if ((searchQuery || '').trim()) {
+          setResearchers([]);
+          setOutcomes([]);
+        } else {
+          setResearchers([]);
+          setOutcomes([]);
+        }
       } finally {
         setLoading(false);
       }
     };
     run();
     return () => controller.abort();
-  }, [searchQuery, filters]);
+  }, [searchQuery]);
+
+  // Choose live data if available; otherwise use mocks (only when no active search)
+  const sourceResearchers = researchers.length ? researchers : ((searchQuery || '').trim() ? [] : mockResearchers);
+  const sourceOutcomes = outcomes.length ? outcomes : ((searchQuery || '').trim() ? [] : mockResearchOutcomes);
+
+  const q = (searchQuery || '').toLowerCase();
+
+  const filteredResearchers = sourceResearchers
+    .filter((researcher: any) => {
+      const matchesQuery = !q ||
+        (researcher.name || '').toLowerCase().includes(q) ||
+        ((researcher.expertise || []).some((exp: string) => (exp || '').toLowerCase().includes(q)));
+
+      const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+        filters.tags.some(tag =>
+          (researcher.expertise || []).some((exp: string) =>
+            (exp || '').toLowerCase().includes((tag || '').toLowerCase())
+          )
+        );
+
+      return matchesQuery && matchesTags;
+    })
+    .sort((a: any, b: any) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
+
+  const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
+    const title = (outcome.title || outcome.name || '') as string;
+    const keywords: string[] = Array.isArray(outcome.keywords) ? outcome.keywords : [];
+    const journal = (outcome.journal || outcome.publisher_name || '') as string;
+
+    const matchesQuery = !q ||
+      title.toLowerCase().includes(q) ||
+      journal.toLowerCase().includes(q) ||
+      keywords.some((k: string) => (k || '').toLowerCase().includes(q));
+
+    const matchesTags = (filters.tags?.length ?? 0) === 0 ||
+      filters.tags.some(tag => {
+        const tl = (tag || '').toLowerCase();
+        return keywords.some(k => (k || '').toLowerCase().includes(tl)) ||
+               title.toLowerCase().includes(tl) ||
+               journal.toLowerCase().includes(tl);
+      });
+
+    const yRaw = (outcome.year as number | string | undefined);
+    const year = typeof yRaw === 'number' ? yRaw : (yRaw ? Number(yRaw) : null);
+    // Include unknown years so search results from /api/search aren't dropped
+    const matchesYear = year === null
+      ? true
+      : year >= filters.yearRange[0] && year <= filters.yearRange[1];
+
+    return matchesQuery && matchesTags && matchesYear;
+  });
+
+  const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
+  const totalPagesOutcomes  = Math.max(1, Math.ceil(filteredOutcomes.length / PER_PAGE));
+  const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
+
+  const HEADER_OFFSET = 300;
+  const scrollToResultsTop = () => {
+    const el = resultsTopRef.current;
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  };
+
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  const endIndex = startIndex + PER_PAGE;
+  const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
+  const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
 
   return (
     <div className="flex-1">
@@ -203,15 +278,17 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           </TabsTrigger>
         </TabsList>
 
+        <div ref={resultsTopRef} />
+
         <TabsContent value="researchers" className="space-y-6">
-          {researchers.map((researcher: any) => (
+          {paginatedResearchers.map((researcher: any) => (
             <Card key={researcher.uuid || researcher.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex gap-4">
                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
                     <User className="w-8 h-8 text-blue-600" />
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -228,11 +305,11 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                         View Profile
                       </Button>
                     </div>
-                    
+
                     {researcher.bio && (
                       <p className="text-gray-700 mb-3">{researcher.bio}</p>
                     )}
-                    
+
                     <div className="flex flex-wrap gap-2 mb-3">
                       {(researcher.expertise || []).map((exp: string) => (
                         <Badge key={exp} variant="secondary" className="bg-blue-100 text-blue-800">
@@ -240,7 +317,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                         </Badge>
                       ))}
                     </div>
-                    
+
                     {(researcher.publications || researcher.grants || researcher.collaborations) && (
                       <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
                         {researcher.publications && (
@@ -282,7 +359,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
         </TabsContent>
 
         <TabsContent value="outcomes" className="space-y-6">
-          {outcomes.map((outcome: any) => (
+          {paginatedOutcomes.map((outcome: any) => (
             <Card key={outcome.uuid || outcome.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-3">
@@ -302,32 +379,32 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                     View Paper
                   </Button>
                 </div>
-                
+
                 {outcome.abstract && (
                   <p className="text-gray-700 mb-3">{outcome.abstract}</p>
                 )}
-                
+
                 {Array.isArray(outcome.authors) && (
                   <div className="mb-3">
                     <span className="text-sm font-medium text-gray-700">Authors: </span>
                     <span className="text-sm text-gray-600">{outcome.authors.join(', ')}</span>
                   </div>
                 )}
-                
+
                 {outcome.journal && (
                   <div className="mb-3">
                     <span className="text-sm font-medium text-gray-700">Journal: </span>
                     <span className="text-sm text-gray-600">{outcome.journal}</span>
                   </div>
                 )}
-                
+
                 {outcome.grantFunding && (
                   <div className="mb-3">
                     <span className="text-sm font-medium text-gray-700">Funding: </span>
                     <span className="text-sm text-gray-600">{outcome.grantFunding}</span>
                   </div>
                 )}
-                
+
                 {Array.isArray(outcome.keywords) && (
                   <div className="flex flex-wrap gap-2">
                     {outcome.keywords.map((keyword: string) => (
@@ -342,6 +419,36 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           ))}
         </TabsContent>
       </Tabs>
+
+      <div className="mt-6 flex items-center justify-center gap-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setCurrentPage((p) => Math.max(1, p - 1));
+            scrollToResultsTop();
+          }}
+          disabled={currentPage === 1}
+          aria-label="Previous page"
+        >
+          ‹
+        </Button>
+
+        <span className="text-sm">
+          Page {currentPage} of {activeTotalPages}
+        </span>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            setCurrentPage((p) => Math.min(activeTotalPages, p + 1));
+            scrollToResultsTop();
+          }}
+          disabled={currentPage >= activeTotalPages}
+          aria-label="Next page"
+        >
+          ›
+        </Button>
+      </div>
     </div>
   );
 }
