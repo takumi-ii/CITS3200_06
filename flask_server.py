@@ -329,6 +329,15 @@ def get_tags():
     conn.close()
     return {"tags": [{"tag": r[0], "count": r[1]} for r in rows]}
 
+# Register SPA catch-all LAST so it doesn't shadow /api/* routes
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve(path: str):
+    target = BUILD_DIR / path
+    if path and target.exists() and target.is_file():
+        return send_from_directory(BUILD_DIR, path)
+    return send_from_directory(BUILD_DIR, "index.html")
+
 # ---------------------------------------------------------------------------
 # Search endpoint with simple weighted ranking
 # Ranking priority (highest to lowest):
@@ -506,11 +515,3 @@ else:
     # When imported (e.g., by a WSGI server), register the SPA route last so API routes win
     pass
 
-# Register SPA catch-all LAST so it doesn't shadow /api/* routes
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path: str):
-    target = BUILD_DIR / path
-    if path and target.exists() and target.is_file():
-        return send_from_directory(BUILD_DIR, path)
-    return send_from_directory(BUILD_DIR, "index.html")
