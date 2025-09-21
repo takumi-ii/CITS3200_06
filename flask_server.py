@@ -527,11 +527,22 @@ def search():
                 "score": score,
             })
 
-    # Research outputs
+    # Research outputs (include author name and expertise to improve matching)
     cur.execute(
         """
-        SELECT uuid, researcher_uuid, publisher_name, name
-        FROM OIResearchOutputs
+        SELECT
+          ro.uuid,
+          ro.researcher_uuid,
+          ro.publisher_name,
+          ro.name,
+          m.name AS author_name,
+          GROUP_CONCAT(e.field, '\u001F') AS expertise_concat
+        FROM OIResearchOutputs ro
+        LEFT JOIN OIMembers m
+          ON m.uuid = ro.researcher_uuid
+        LEFT JOIN OIExpertise e
+          ON e.researcher_uuid = ro.researcher_uuid
+        GROUP BY ro.uuid, ro.researcher_uuid, ro.publisher_name, ro.name, m.name
         """
     )
     outputs_rows = cur.fetchall()
@@ -539,11 +550,27 @@ def search():
 
     research_outputs: list[dict] = []
     for row in outputs_rows:
-        uuid, researcher_uuid, publisher_name, name = row
-        score = _compute_score([publisher_name or "", name or ""], terms)
+        uuid, researcher_uuid, publisher_name, name, author_name, expertise_concat = row
+        expertise_list = (expertise_concat or "").split("\u001F") if expertise_concat else []
+
+        score = _compute_score([
+            publisher_name or "",
+            name or "",
+            author_name or "",
+            " ".join(expertise_list),
+        ], terms)
+
         name_l = (name or "").lower()
+        author_l = (author_name or "").lower()
+        expertise_joined_l = " ".join([e.lower() for e in expertise_list])
+
         if any(t.lower() in name_l for t in terms):
             score += 1
+        if any(t.lower() in author_l for t in terms):
+            score += 1
+        if any(t.lower() in expertise_joined_l for t in terms):
+            score += 1
+
         if score > 0:
             research_outputs.append({
                 "uuid": uuid,
