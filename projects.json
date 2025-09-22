@@ -1,0 +1,2672 @@
+{
+  "count" : 17259,
+  "pageInformation" : {
+    "offset" : 0,
+    "size" : 10
+  },
+  "items" : [ {
+    "pureId" : 11086154,
+    "externalId" : "0980010887",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "092696ab-b794-432f-b511-2ddbcf2dc2b4",
+    "managingOrganisationalUnit" : {
+      "uuid" : "a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6"
+      },
+      "externalId" : "UNAA00120F063",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Humanities"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2000-01-01T12:00:00.000+0800",
+      "endDate" : "2000-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T14:23:55.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2020-11-16T21:53:51.000+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/092696ab-b794-432f-b511-2ddbcf2dc2b4",
+      "prettyURLIdentifiers" : [ "initial-language-contact-in-the-pilbara" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Initial language contact in the Pilbara"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11086157,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980010887"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11086159,
+      "externalId" : "autoid:0980010887-00009919-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Alan",
+        "lastName" : "Dench"
+      },
+      "period" : {
+        "startDate" : "2000-01-01T12:00:00.000+0800",
+        "endDate" : "2000-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6"
+        },
+        "externalId" : "UNAA00120F063",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Humanities"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 38666486,
+      "externalId" : "autoid:0980010887-14772262-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externalPerson" : {
+        "uuid" : "7ac30ace-2f24-43cb-a93b-c804735273a7",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/external-persons/7ac30ace-2f24-43cb-a93b-c804735273a7"
+        },
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "Alan Dench"
+          } ]
+        },
+        "type" : {
+          "pureId" : 5627,
+          "uri" : "/dk/atira/pure/externalperson/externalpersontypes/externalperson/externalperson",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "External person"
+            } ]
+          }
+        }
+      },
+      "name" : {
+        "firstName" : "Alan",
+        "lastName" : "Dench"
+      },
+      "period" : {
+        "startDate" : "2000-01-01T12:00:00.000+0800",
+        "endDate" : "2000-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      }
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a50fd1be-f0e0-4e62-b835-f91fe2cb8ed6"
+      },
+      "externalId" : "UNAA00120F063",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Humanities"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "ef042b3e-2d8d-4ee7-bc35-812bc9adc261",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/ef042b3e-2d8d-4ee7-bc35-812bc9adc261"
+      },
+      "externalId" : "0980010887",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Initial language contact in the Pilbara"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11123173,
+    "externalId" : "RA/1/1639/77",
+    "externalIdSource" : "synchronisedUPMProject",
+    "externallyManaged" : true,
+    "uuid" : "ffdc9c6c-eb7b-4de1-9670-601a7ba0b1ab",
+    "managingOrganisationalUnit" : {
+      "uuid" : "2692ea82-a2ba-4398-8bb1-cb5942e7f691",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/2692ea82-a2ba-4398-8bb1-cb5942e7f691"
+      },
+      "externalId" : "00560",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Physics and Astrophysics"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2012-01-01T12:00:00.000+0800",
+      "endDate" : "2014-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : true,
+    "curtailDate" : "2014-12-30T12:00:00.000+0800",
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T14:54:07.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2024-04-18T16:30:18.392+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/ffdc9c6c-eb7b-4de1-9670-601a7ba0b1ab",
+      "prettyURLIdentifiers" : [ "integrated-gas-photonics" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Integrated Gas Photonics"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "CURTAILED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Curtailed"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11123176,
+      "externalId" : "autoid:funderprojectreference",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "DE120102028"
+      },
+      "type" : {
+        "pureId" : 6691,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/funderprojectreference",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Funder Project Reference"
+          } ]
+        }
+      }
+    }, {
+      "pureId" : 238847223,
+      "externalId" : "autoid:referencecode",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "RA/1/1639/77"
+      },
+      "type" : {
+        "pureId" : 6693,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/referencecode",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Reference Code"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 351911539,
+      "externalId" : "autoid:RA/1/1639/77-00062627-investigator_1",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "name" : {
+        "firstName" : "Philip",
+        "lastName" : "Light"
+      },
+      "period" : {
+        "startDate" : "2012-01-01T12:00:00.000+0800",
+        "endDate" : "2014-12-30T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 94318727,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/investigator_1",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Investigator 01"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "ac74c812-285b-404b-ace0-45f3f3125834",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/ac74c812-285b-404b-ace0-45f3f3125834"
+        },
+        "externalId" : "UXXX",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "The University of Western Australia"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6798,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/u",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "University"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "2692ea82-a2ba-4398-8bb1-cb5942e7f691",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/2692ea82-a2ba-4398-8bb1-cb5942e7f691"
+      },
+      "externalId" : "00560",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Physics and Astrophysics"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    }, {
+      "uuid" : "ac74c812-285b-404b-ace0-45f3f3125834",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/ac74c812-285b-404b-ace0-45f3f3125834"
+      },
+      "externalId" : "UXXX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "The University of Western Australia"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6798,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/u",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "University"
+          } ]
+        }
+      }
+    } ],
+    "links" : [ {
+      "pureId" : 11123178,
+      "externalId" : "RA/1/1639/77-DE120102028",
+      "externalIdSource" : "synchronisedUPMProject",
+      "url" : "http://purl.org/au-research/grants/arc/DE120102028"
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "cc96395e-9227-42ec-bbee-330246c3878b",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/cc96395e-9227-42ec-bbee-330246c3878b"
+      },
+      "externalId" : "RA/1/1639/77",
+      "externalIdSource" : "synchronisedAward",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Integrated Gas Photonics"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ],
+    "relatedResearchOutputs" : [ {
+      "uuid" : "f6ec12aa-9c94-45da-9293-06b537a0913b",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/research-outputs/f6ec12aa-9c94-45da-9293-06b537a0913b"
+      },
+      "externalId" : "85076397670",
+      "externalIdSource" : "Scopus",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "value" : "Dichroic Two-Photon Rubidium Frequency Standard"
+        } ]
+      },
+      "type" : {
+        "pureId" : 5263,
+        "uri" : "/dk/atira/pure/researchoutput/researchoutputtypes/contributiontojournal/article",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Article"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11125460,
+    "externalId" : "0980032609",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "2a76f240-4483-4610-be4a-778512d53ab9",
+    "managingOrganisationalUnit" : {
+      "uuid" : "bd1a8092-f757-485a-b118-8d41255e41ed",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/bd1a8092-f757-485a-b118-8d41255e41ed"
+      },
+      "externalId" : "00310",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Sport Science, Exercise and Health"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2008-01-01T12:00:00.000+0900",
+      "endDate" : "2008-12-31T12:00:00.000+0900"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T14:55:58.000+0800",
+      "modifiedBy" : "00089917",
+      "modifiedDate" : "2021-04-19T16:01:10.000+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/2a76f240-4483-4610-be4a-778512d53ab9",
+      "prettyURLIdentifiers" : [ "whitfeld-fellowship-gucciardi" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Whitfeld Fellowship - Gucciardi"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11125463,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980032609"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11125465,
+      "externalId" : "autoid:0980032609-00058481-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Daniel",
+        "lastName" : "Gucciardi"
+      },
+      "period" : {
+        "startDate" : "2008-01-01T12:00:00.000+0900",
+        "endDate" : "2008-12-31T12:00:00.000+0900"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "bd1a8092-f757-485a-b118-8d41255e41ed",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/bd1a8092-f757-485a-b118-8d41255e41ed"
+        },
+        "externalId" : "00310",
+        "externalIdSource" : "synchronisedOrganisation",
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Sport Science, Exercise and Health"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 48810801,
+      "externalId" : "autoid:0980032609-48775858-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externalPerson" : {
+        "uuid" : "f8de2af2-c2c9-41e0-a9bc-1b60b11086e2",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/external-persons/f8de2af2-c2c9-41e0-a9bc-1b60b11086e2"
+        },
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "Daniel Gucciardi"
+          } ]
+        },
+        "type" : {
+          "pureId" : 5627,
+          "uri" : "/dk/atira/pure/externalperson/externalpersontypes/externalperson/externalperson",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "External person"
+            } ]
+          }
+        }
+      },
+      "name" : {
+        "firstName" : "Daniel",
+        "lastName" : "Gucciardi"
+      },
+      "period" : {
+        "startDate" : "2008-01-01T12:00:00.000+0900",
+        "endDate" : "2008-12-31T12:00:00.000+0900"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      }
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "bd1a8092-f757-485a-b118-8d41255e41ed",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/bd1a8092-f757-485a-b118-8d41255e41ed"
+      },
+      "externalId" : "00310",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Sport Science, Exercise and Health"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "efb248da-0944-4939-8bcf-a378bd2d9dc0",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/efb248da-0944-4939-8bcf-a378bd2d9dc0"
+      },
+      "externalId" : "0980032609",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Whitfeld Fellowship - Gucciardi"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241996,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/contract/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11128436,
+    "externalId" : "0980023418",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "429d7653-3b58-471d-b4fe-67dc23b9cd3b",
+    "managingOrganisationalUnit" : {
+      "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+      },
+      "externalId" : "00850",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Medicine and Pharmacology"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2002-01-01T12:00:00.000+0800",
+      "endDate" : "2002-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T14:58:28.000+0800",
+      "modifiedBy" : "00102508",
+      "modifiedDate" : "2021-08-27T16:23:13.324+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/429d7653-3b58-471d-b4fe-67dc23b9cd3b",
+      "prettyURLIdentifiers" : [ "thirst-and-vasopressin-secretion-in-left-ventricular-dysfunction" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Thirst and Vasopressin Secretion in Left Ventricular Dysfunction"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11128439,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980023418"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11128441,
+      "externalId" : "autoid:0980023418-00046307-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Leonard",
+        "lastName" : "Arnolda"
+      },
+      "period" : {
+        "startDate" : "2002-01-01T12:00:00.000+0800",
+        "endDate" : "2002-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+        },
+        "externalId" : "00850",
+        "externalIdSource" : "synchronisedOrganisation",
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Medicine and Pharmacology"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 38878578,
+      "externalId" : "autoid:0980023418-18419970-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Leonard",
+        "lastName" : "Arnolda"
+      },
+      "period" : {
+        "startDate" : "2002-01-01T12:00:00.000+0800",
+        "endDate" : "2002-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+        },
+        "externalId" : "00850",
+        "externalIdSource" : "synchronisedOrganisation",
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Medicine and Pharmacology"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+      },
+      "externalId" : "00850",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Medicine and Pharmacology"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "f9df3feb-dad2-41d2-a8da-039c0d4fde4c",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/f9df3feb-dad2-41d2-a8da-039c0d4fde4c"
+      },
+      "externalId" : "0980023418",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Thirst and Vasopressin Secretion in Left Ventricular Dysfunction"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11140308,
+    "externalId" : "RA/1/537/19",
+    "externalIdSource" : "synchronisedUPMProject",
+    "externallyManaged" : true,
+    "uuid" : "5481f572-a431-453a-820d-65121153d5da",
+    "managingOrganisationalUnit" : {
+      "uuid" : "12d864e4-e09c-4b11-8b7e-75af6ec9c679",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/12d864e4-e09c-4b11-8b7e-75af6ec9c679"
+      },
+      "externalId" : "UNAD01675F101DX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Centre of Excellence in Natural Resource Mgt (NRM)"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6809,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/c",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Centre"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2016-01-22T12:00:00.000+0800",
+      "endDate" : "2017-10-30T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T15:08:22.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2024-04-18T16:51:12.082+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/5481f572-a431-453a-820d-65121153d5da",
+      "prettyURLIdentifiers" : [ "soil-health-and-pasture-nutrition-on-blue-gum-plantations" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Soil Health and Pasture Nutrition on Blue Gum Plantations"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11140311,
+      "externalId" : "autoid:funderprojectreference",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "NLP-03-01-5b"
+      },
+      "type" : {
+        "pureId" : 6691,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/funderprojectreference",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Funder Project Reference"
+          } ]
+        }
+      }
+    }, {
+      "pureId" : 224234962,
+      "externalId" : "autoid:referencecode",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "RA/1/537/19"
+      },
+      "type" : {
+        "pureId" : 6693,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/referencecode",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Reference Code"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 351934325,
+      "externalId" : "autoid:RA/1/537/19-18436868-investigator_1",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "name" : {
+        "firstName" : "Sylvia",
+        "lastName" : "Leighton"
+      },
+      "period" : {
+        "startDate" : "2016-01-22T12:00:00.000+0800",
+        "endDate" : "2017-10-30T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 94318727,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/investigator_1",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Investigator 01"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "ac74c812-285b-404b-ace0-45f3f3125834",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/ac74c812-285b-404b-ace0-45f3f3125834"
+        },
+        "externalId" : "UXXX",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "The University of Western Australia"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6798,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/u",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "University"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "12d864e4-e09c-4b11-8b7e-75af6ec9c679",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/12d864e4-e09c-4b11-8b7e-75af6ec9c679"
+      },
+      "externalId" : "UNAD01675F101DX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Centre of Excellence in Natural Resource Mgt (NRM)"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6809,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/c",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Centre"
+          } ]
+        }
+      }
+    }, {
+      "uuid" : "ac74c812-285b-404b-ace0-45f3f3125834",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/ac74c812-285b-404b-ace0-45f3f3125834"
+      },
+      "externalId" : "UXXX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "The University of Western Australia"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6798,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/u",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "University"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "0d2ddaac-9b30-4b34-9314-9f65a4d35bd9",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/0d2ddaac-9b30-4b34-9314-9f65a4d35bd9"
+      },
+      "externalId" : "RA/1/537/19",
+      "externalIdSource" : "synchronisedAward",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Soil Health and Pasture Nutrition on Blue Gum Plantations"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11146299,
+    "externalId" : "0980023683",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "4197c405-c835-4fb8-8895-b39e03a0ffef",
+    "managingOrganisationalUnit" : {
+      "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+      },
+      "externalId" : "UNAA00125F067",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Social Sciences"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2003-01-01T12:00:00.000+0800",
+      "endDate" : "2004-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T15:13:27.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2020-11-16T21:34:00.000+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/4197c405-c835-4fb8-8895-b39e03a0ffef",
+      "prettyURLIdentifiers" : [ "cultural-continuity-change-at-shark-bay-wa-an-anthropological-his" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Cultural Continuity & Change at Shark Bay WA: An Anthropological & Hisotrical Study of the Malgana Aboriginal People"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11146302,
+      "externalId" : "autoid:funderprojectreference",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "DI0347845"
+      },
+      "type" : {
+        "pureId" : 6691,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/funderprojectreference",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Funder Project Reference"
+          } ]
+        }
+      }
+    }, {
+      "pureId" : 11146303,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980023683"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11146306,
+      "externalId" : "autoid:0980023683-00040276-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Donna",
+        "lastName" : "Oxenham"
+      },
+      "period" : {
+        "startDate" : "2003-01-01T12:00:00.000+0800",
+        "endDate" : "2004-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+        },
+        "externalId" : "UNAA00125F067",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Social Sciences"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 78386835,
+      "externalId" : "autoid:0980023683-19148477-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Donna",
+        "lastName" : "Oxenham"
+      },
+      "period" : {
+        "startDate" : "2003-01-01T12:00:00.000+0800",
+        "endDate" : "2004-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+        },
+        "externalId" : "UNAA00125F067",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Social Sciences"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+      },
+      "externalId" : "UNAA00125F067",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Social Sciences"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "links" : [ {
+      "pureId" : 11146304,
+      "externalId" : "0980023683-DI0347845",
+      "externalIdSource" : "synchronisedUPMProject",
+      "url" : "http://purl.org/au-research/grants/arc/DI0347845"
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "37837a9e-62f4-40a8-88f6-f805a73bdf03",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/37837a9e-62f4-40a8-88f6-f805a73bdf03"
+      },
+      "externalId" : "0980023683",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Cultural Continuity & Change at Shark Bay WA: An Anthropological & Hisotrical Study of the Malgana Aboriginal People"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11160721,
+    "externalId" : "RA/1/472/397",
+    "externalIdSource" : "synchronisedUPMProject",
+    "externallyManaged" : true,
+    "uuid" : "f723fb3b-8a7e-41b2-a45b-ec3805593e7d",
+    "managingOrganisationalUnit" : {
+      "uuid" : "6ee01163-c066-46a7-ad84-11ba2ce74087",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/6ee01163-c066-46a7-ad84-11ba2ce74087"
+      },
+      "externalId" : "UNAD00140F091DX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Psychological Science"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2013-01-01T12:00:00.000+0800",
+      "endDate" : "2013-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T15:25:15.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2024-04-18T16:15:22.223+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/f723fb3b-8a7e-41b2-a45b-ec3805593e7d",
+      "prettyURLIdentifiers" : [ "round-16-david-badcock" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Round 16 - David Badcock"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 94280860,
+      "externalId" : "autoid:referencecode",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "RA/1/472/397"
+      },
+      "type" : {
+        "pureId" : 6693,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/referencecode",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Reference Code"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 351895350,
+      "externalId" : "autoid:RA/1/472/397-00030443-investigator_1",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "person" : {
+        "uuid" : "f7233af1-927d-43eb-9c15-e0f86d1bf5ac",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/persons/f7233af1-927d-43eb-9c15-e0f86d1bf5ac"
+        },
+        "externalId" : "00030443",
+        "externalIdSource" : "synchronisedUnifiedPerson",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "David Badcock"
+          } ]
+        }
+      },
+      "name" : {
+        "firstName" : "David",
+        "lastName" : "Badcock"
+      },
+      "period" : {
+        "startDate" : "2013-01-01T12:00:00.000+0800",
+        "endDate" : "2013-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 94318727,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/investigator_1",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Investigator 01"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "6ee01163-c066-46a7-ad84-11ba2ce74087",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/6ee01163-c066-46a7-ad84-11ba2ce74087"
+        },
+        "externalId" : "UNAD00140F091DX",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Psychological Science"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "6ee01163-c066-46a7-ad84-11ba2ce74087",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/6ee01163-c066-46a7-ad84-11ba2ce74087"
+      },
+      "externalId" : "UNAD00140F091DX",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Psychological Science"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "63e89b32-a19b-426f-9fb3-20a04902fd6d",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/63e89b32-a19b-426f-9fb3-20a04902fd6d"
+      },
+      "externalId" : "RA/1/472/397",
+      "externalIdSource" : "synchronisedAward",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Round 16 - David Badcock"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11164068,
+    "externalId" : "0980025438",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "139a8850-c986-4f42-94b6-5f5a97816793",
+    "managingOrganisationalUnit" : {
+      "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+      },
+      "externalId" : "00850",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Medicine and Pharmacology"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2004-01-01T12:00:00.000+0800",
+      "endDate" : "2004-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T15:28:04.000+0800",
+      "modifiedBy" : "00102508",
+      "modifiedDate" : "2021-08-27T16:21:30.924+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/139a8850-c986-4f42-94b6-5f5a97816793",
+      "prettyURLIdentifiers" : [ "cardiac-and-arterial-baroreceptor-reflex-interactions-in-cardiac-" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Cardiac and Arterial Baroreceptor Reflex Interactions in Cardiac Transplant Recipients."
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11164071,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980025438"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11164073,
+      "externalId" : "autoid:0980025438-00046307-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Leonard",
+        "lastName" : "Arnolda"
+      },
+      "period" : {
+        "startDate" : "2004-01-01T12:00:00.000+0800",
+        "endDate" : "2004-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+        },
+        "externalId" : "00850",
+        "externalIdSource" : "synchronisedOrganisation",
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Medicine and Pharmacology"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "8166770a-d99e-45e2-86ea-921234236aae",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/8166770a-d99e-45e2-86ea-921234236aae"
+      },
+      "externalId" : "00850",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Medicine and Pharmacology"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "b8481157-4e7d-44e6-91e7-9b877cf63195",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/b8481157-4e7d-44e6-91e7-9b877cf63195"
+      },
+      "externalId" : "0980025438",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Cardiac and Arterial Baroreceptor Reflex Interactions in Cardiac Transplant Recipients."
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 11186872,
+    "externalId" : "0980026724",
+    "externalIdSource" : "synchronisedUPMProject",
+    "uuid" : "87e5cb99-4345-4416-8c6a-b36cf71b3f08",
+    "managingOrganisationalUnit" : {
+      "uuid" : "eb71fb64-cfc1-445d-a147-401183c749ca",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/eb71fb64-cfc1-445d-a147-401183c749ca"
+      },
+      "externalId" : "00620",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Electrical, Electronic and Computer Engineering"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2005-01-01T12:00:00.000+0800",
+      "endDate" : "2005-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2016-10-12T15:47:40.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2020-11-16T21:51:59.000+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/87e5cb99-4345-4416-8c6a-b36cf71b3f08",
+      "prettyURLIdentifiers" : [ "characterization-of-mechanical-properties-of-and-stress-gradient-" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Characterization of Mechanical Properties of and Stress Gradient in Low-temperature Deposited Ultra-thin Films for Nano/Micro Electromechanical Systems."
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 11186875,
+      "externalId" : "autoid:funderprojectreference",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "15"
+      },
+      "type" : {
+        "pureId" : 6691,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/funderprojectreference",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Funder Project Reference"
+          } ]
+        }
+      }
+    }, {
+      "pureId" : 11186876,
+      "externalId" : "autoid:infoed_inst_no",
+      "externalIdSource" : "synchronisedUPMProject",
+      "value" : {
+        "formatted" : false,
+        "value" : "0980026724"
+      },
+      "type" : {
+        "pureId" : 9649934,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/infoed_inst_no",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "InfoEd Institution Number"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 11186878,
+      "externalId" : "autoid:0980026724-00053566-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "name" : {
+        "firstName" : "Han",
+        "lastName" : "Huang"
+      },
+      "period" : {
+        "startDate" : "2005-01-01T12:00:00.000+0800",
+        "endDate" : "2005-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "eb71fb64-cfc1-445d-a147-401183c749ca",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/eb71fb64-cfc1-445d-a147-401183c749ca"
+        },
+        "externalId" : "00620",
+        "externalIdSource" : "synchronisedOrganisation",
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Electrical, Electronic and Computer Engineering"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 62892785,
+      "externalId" : "autoid:0980026724-62830380-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externalPerson" : {
+        "uuid" : "b35287f7-a845-4b0e-8545-981c2db3a4e6",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/external-persons/b35287f7-a845-4b0e-8545-981c2db3a4e6"
+        },
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "Han Huang"
+          } ]
+        },
+        "type" : {
+          "pureId" : 5627,
+          "uri" : "/dk/atira/pure/externalperson/externalpersontypes/externalperson/externalperson",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "External person"
+            } ]
+          }
+        }
+      },
+      "name" : {
+        "firstName" : "Han",
+        "lastName" : "Huang"
+      },
+      "period" : {
+        "startDate" : "2005-01-01T12:00:00.000+0800",
+        "endDate" : "2005-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      }
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "eb71fb64-cfc1-445d-a147-401183c749ca",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/eb71fb64-cfc1-445d-a147-401183c749ca"
+      },
+      "externalId" : "00620",
+      "externalIdSource" : "synchronisedOrganisation",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Electrical, Electronic and Computer Engineering"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "5ec229df-1f1a-4a37-988f-e65a9ff510c3",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/5ec229df-1f1a-4a37-988f-e65a9ff510c3"
+      },
+      "externalId" : "0980026724",
+      "externalIdSource" : "synchronisedAward",
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Characterization of Mechanical Properties of and Stress Gradient in Low-temperature Deposited Ultra-thin Films for Nano/Micro Electromechanical Systems."
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  }, {
+    "pureId" : 31504393,
+    "externalId" : "RA/1/3235/2",
+    "externalIdSource" : "synchronisedUPMProject",
+    "externallyManaged" : true,
+    "uuid" : "3b19b842-b3aa-4afb-84dd-06de7360b613",
+    "managingOrganisationalUnit" : {
+      "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+      },
+      "externalId" : "UNAA00125F067",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Social Sciences"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    },
+    "collaborative" : false,
+    "period" : {
+      "startDate" : "2018-01-01T12:00:00.000+0800",
+      "endDate" : "2018-12-31T12:00:00.000+0800"
+    },
+    "curtailed" : false,
+    "confidential" : false,
+    "info" : {
+      "createdBy" : "sync_user",
+      "createdDate" : "2018-05-28T04:07:50.000+0800",
+      "modifiedBy" : "sync_user",
+      "modifiedDate" : "2025-02-27T22:16:00.549+0800",
+      "portalUrl" : "https://research-repository.uwa.edu.au/en/projects/3b19b842-b3aa-4afb-84dd-06de7360b613",
+      "prettyURLIdentifiers" : [ "travel-research-grant-people-and-animal-interactions-a-relati", "travel-research-grant-people-and-animal-interactions-a-relational" ]
+    },
+    "title" : {
+      "formatted" : false,
+      "text" : [ {
+        "locale" : "en_GB",
+        "value" : "Travel Research Grant - People and Animal Interactions: A Relational Approach to the Study of Social Identity in North-Eastern Kimberley Rock Art, Australia"
+      } ]
+    },
+    "type" : {
+      "pureId" : 6770,
+      "uri" : "/dk/atira/pure/upmproject/upmprojecttypes/upmproject/research",
+      "term" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Research"
+        } ]
+      }
+    },
+    "status" : {
+      "key" : "FINISHED",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Finished"
+        } ]
+      }
+    },
+    "visibility" : {
+      "key" : "FREE",
+      "value" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Public - No restriction"
+        } ]
+      }
+    },
+    "ids" : [ {
+      "pureId" : 94290471,
+      "externalId" : "autoid:referencecode",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "value" : {
+        "formatted" : false,
+        "value" : "RA/1/3235/2"
+      },
+      "type" : {
+        "pureId" : 6693,
+        "uri" : "/dk/atira/pure/upm/classifiedsource/referencecode",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Reference Code"
+          } ]
+        }
+      }
+    } ],
+    "participants" : [ {
+      "pureId" : 31504398,
+      "externalId" : "autoid:RA/1/3235/2-00096207-pi",
+      "externalIdSource" : "synchronisedUPMProject",
+      "person" : {
+        "uuid" : "f96ab783-70b3-4359-8e3f-34b0d02cc666",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/persons/f96ab783-70b3-4359-8e3f-34b0d02cc666"
+        },
+        "externalId" : "00096207",
+        "externalIdSource" : "synchronisedUnifiedPerson",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "Ana Motta"
+          } ]
+        }
+      },
+      "name" : {
+        "firstName" : "Ana",
+        "lastName" : "Motta"
+      },
+      "period" : {
+        "startDate" : "2018-01-01T12:00:00.000+0800",
+        "endDate" : "2018-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 6788,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/pi",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Chief Investigator"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+        },
+        "externalId" : "UNAA00125F067",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Social Sciences"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    }, {
+      "pureId" : 495047545,
+      "externalId" : "autoid:RA/1/3235/2-00096207-investigator_1",
+      "externalIdSource" : "synchronisedUPMProject",
+      "externallyManaged" : true,
+      "person" : {
+        "uuid" : "f96ab783-70b3-4359-8e3f-34b0d02cc666",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/persons/f96ab783-70b3-4359-8e3f-34b0d02cc666"
+        },
+        "externalId" : "00096207",
+        "externalIdSource" : "synchronisedUnifiedPerson",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "value" : "Ana Motta"
+          } ]
+        }
+      },
+      "name" : {
+        "firstName" : "Ana",
+        "lastName" : "Motta"
+      },
+      "period" : {
+        "startDate" : "2018-01-01T12:00:00.000+0800",
+        "endDate" : "2018-12-31T12:00:00.000+0800"
+      },
+      "samePeriodAsProject" : true,
+      "personRole" : {
+        "pureId" : 94318727,
+        "uri" : "/dk/atira/pure/upmproject/roles/upmproject/investigator_1",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Investigator 01"
+          } ]
+        }
+      },
+      "organisationalUnits" : [ {
+        "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+        "link" : {
+          "ref" : "content",
+          "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+        },
+        "externalId" : "UNAA00125F067",
+        "externalIdSource" : "synchronisedUnifiedOrganisation",
+        "externallyManaged" : true,
+        "name" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School of Social Sciences"
+          } ]
+        },
+        "type" : {
+          "pureId" : 6803,
+          "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+          "term" : {
+            "formatted" : false,
+            "text" : [ {
+              "locale" : "en_GB",
+              "value" : "School"
+            } ]
+          }
+        }
+      } ]
+    } ],
+    "organisationalUnits" : [ {
+      "uuid" : "a5fe735d-dd19-4764-b3b3-9058939d4c4c",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/organisational-units/a5fe735d-dd19-4764-b3b3-9058939d4c4c"
+      },
+      "externalId" : "UNAA00125F067",
+      "externalIdSource" : "synchronisedUnifiedOrganisation",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "School of Social Sciences"
+        } ]
+      },
+      "type" : {
+        "pureId" : 6803,
+        "uri" : "/dk/atira/pure/organisation/organisationtypes/organisation/s",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "School"
+          } ]
+        }
+      }
+    } ],
+    "relatedAwards" : [ {
+      "uuid" : "ea4c327e-55ff-4e77-80c9-1ac0d8c4faa6",
+      "link" : {
+        "ref" : "content",
+        "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/awards/ea4c327e-55ff-4e77-80c9-1ac0d8c4faa6"
+      },
+      "externalId" : "RA/1/3235/2",
+      "externalIdSource" : "synchronisedAward",
+      "externallyManaged" : true,
+      "name" : {
+        "formatted" : false,
+        "text" : [ {
+          "locale" : "en_GB",
+          "value" : "Travel Research Grant - People and Animal Interactions: A Relational Approach to the Study of Social Identity in North-Eastern Kimberley Rock Art, Australia"
+        } ]
+      },
+      "type" : {
+        "pureId" : 10241986,
+        "uri" : "/dk/atira/pure/award/awardtypes/award/grant/award",
+        "term" : {
+          "formatted" : false,
+          "text" : [ {
+            "locale" : "en_GB",
+            "value" : "Award"
+          } ]
+        }
+      }
+    } ]
+  } ],
+  "navigationLinks" : [ {
+    "ref" : "next",
+    "href" : "https://api.research-repository.uwa.edu.au/ws/api/524/projects?offset=10"
+  } ]
+}

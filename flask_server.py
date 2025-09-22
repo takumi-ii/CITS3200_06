@@ -4,9 +4,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from flask import Flask, send_from_directory, Response, request, jsonify
+import json
 import sqlite3
 import requests
 from urllib.parse import urlencode
+import re
 
 try:
     # Optional: load environment variables from .env if present
@@ -159,26 +161,36 @@ def get_oiresearchoutputs():
     )
     outputs = cursor.fetchall()
 
-    # Build grants map keyed by ro_name
-    cursor.execute(
-        """
-        SELECT ro_name, grant_name, start_date, end_date, funding, institute, school
-        FROM OIResearchGrants
-        """
-    )
-    grant_rows = cursor.fetchall()
+    # Build grants map keyed by ro_name (if column/table exists); degrade gracefully otherwise
+    grants_by_output = {}
+    try:
+        # Check if table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='OIResearchGrants'")
+        if cursor.fetchone():
+            # Check for ro_name column
+            cursor.execute("PRAGMA table_info('OIResearchGrants')")
+            cols = {row[1] for row in cursor.fetchall()}
+            if 'ro_name' in cols:
+                cursor.execute(
+                    """
+                    SELECT ro_name, grant_name, start_date, end_date, funding, institute, school
+                    FROM OIResearchGrants
+                    """
+                )
+                for ro_name, grant_name, start_date, end_date, funding, institute, school in cursor.fetchall():
+                    grants_by_output.setdefault(ro_name, []).append({
+                        "grant_name": grant_name,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "funding": funding,
+                        "institute": institute,
+                        "school": school,
+                    })
+    except sqlite3.Error as e:
+        app.logger.warning(f"/api/oiresearchoutputs grants fallback: {e}")
     conn.close()
 
-    grants_by_output = {}
-    for ro_name, grant_name, start_date, end_date, funding, institute, school in grant_rows:
-        grants_by_output.setdefault(ro_name, []).append({
-            "grant_name": grant_name,
-            "start_date": start_date,
-            "end_date": end_date,
-            "funding": funding,
-            "institute": institute,
-            "school": school,
-        })
+    # (grants_by_output may be empty if no table/column)
 
     research_outputs = []
     for uuid, researcher_uuid, publisher_name, name in outputs:
@@ -251,7 +263,7 @@ def api_researchers():
     for r in rows:
         expertise = (r["expertise_concat"] or "").split("||") if r["expertise_concat"] else []
         recent = recent_outputs_for(r["uuid"], limit=2)
-        data.append({
+        item = {
             "id": r["uuid"],
             "name": r["name"],
             "title": "",
@@ -262,8 +274,10 @@ def api_researchers():
             "collaborations": 0,
             "location": "Perth, Australia",
             "bio": r["bio"],
-            "recentPublications": recent or [{"title": "Test Publication", "year": 2024, "journal": "Test Journal"}],
-        })
+        }
+        if recent:
+            item["recentPublications"] = recent
+        data.append(item)
     return {"researchers": data}
 
 @app.route("/api/researchOutcomes")
@@ -283,10 +297,11 @@ def api_research_outcomes():
 
     sql = """
       SELECT
-        ro.uuid           AS id,
-        ro.name           AS title,
-        ro.publisher_name AS journal,
-        m.name            AS author_name
+        ro.uuid            AS id,
+        ro.researcher_uuid AS researcher_uuid,
+        ro.name            AS title,
+        ro.publisher_name  AS journal,
+        m.name             AS author_name
       FROM OIResearchOutputs ro
         LEFT JOIN OIMembers m
           ON m.uuid = ro.researcher_uuid
@@ -304,12 +319,27 @@ def api_research_outcomes():
         return {"outcomes": [TEST_OUTCOME]}
 
     outcomes = []
+    cache = _maybe_load_ro_authors()
     for r in rows:
+        title_val = r["title"] or "Untitled"
+        authors_list: list[str] = []
+        if r["author_name"]:
+            authors_list = [r["author_name"]]
+        else:
+            # Fallback via JSON index
+            aid = str(r["id"])
+            if aid in cache.get("authors_by_id", {}):
+                authors_list = cache["authors_by_id"][aid]
+            else:
+                ntitle = _norm(title_val)
+                authors_list = cache.get("authors_by_title", {}).get(ntitle, [])
+
         outcomes.append({
             "id": r["id"],
-            "title": r["title"] or "Untitled",
+            "researcher_uuid": r["researcher_uuid"],
+            "title": title_val,
             "type": "Research Output",
-            "authors": [r["author_name"]] if r["author_name"] else [],
+            "authors": authors_list,
             "journal": r["journal"] or "",
             "year": None,
             "citations": 0,
@@ -318,6 +348,223 @@ def api_research_outcomes():
             "grantFunding": "",
         })
     return {"outcomes": outcomes}
+
+# ---------------------------------------------------------------------------
+# Lightweight authors lookup using a large PURE export (research_outputs.json)
+# Usage: /api/ro-authors?ids=uuid1,uuid2
+# Returns: { "authors_by_id": { uuid: ["Name A", "Name B"], ... } }
+# The file is read once, cached in memory, and the root copy is deleted after
+# successful indexing as requested by the user.
+# ---------------------------------------------------------------------------
+
+_RO_AUTHORS_CACHE: dict | None = None  # {'authors_by_id': {uuid: [names]}, 'outputs_by_author': {key: [pub...]}, 'authors_by_title': {ntitle: [names]}}
+
+def _norm(s: str) -> str:
+    import re
+    s = (s or "").strip().lower()
+    # keep letters, numbers and spaces
+    s = re.sub(r"[^a-z0-9\s]", "", s)
+    # collapse spaces
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+def _maybe_load_ro_authors() -> dict[str, list[str]]:
+    global _RO_AUTHORS_CACHE
+    if _RO_AUTHORS_CACHE is not None:
+        return _RO_AUTHORS_CACHE
+
+    candidates = [
+        Path("research_outputs.json"),
+        Path("db/research_outputs.json"),
+    ]
+    file_path: Path | None = None
+    for p in candidates:
+        if p.exists():
+            file_path = p
+            break
+    cache: dict = {"authors_by_id": {}, "outputs_by_author": {}, "authors_by_title": {}}
+    if file_path:
+        try:
+            with file_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Support either a raw list or a wrapped object containing the list
+            items: list = []
+            if isinstance(data, list):
+                items = data
+            elif isinstance(data, dict):
+                # Heuristics: common keys that hold the list
+                for k in [
+                    "items", "results", "research_outputs", "outputs",
+                    "data", "records", "content", "publications"
+                ]:
+                    v = data.get(k)
+                    if isinstance(v, list):
+                        items = v
+                        break
+                # Last resort: scan dict values for a list of dicts with personAssociations/title
+                if not items:
+                    for v in data.values():
+                        if isinstance(v, list) and v and isinstance(v[0], dict):
+                            if any("personAssociations" in vv or "title" in vv for vv in v):
+                                items = v
+                                break
+
+            # The export list contains outputs; authors are under
+            # personAssociations[*].personRole.term.text[].value == "Author"
+            for item in items:
+                rid = str(item.get("uuid") or item.get("id") or "").strip()
+                if not rid:
+                    continue
+                # title
+                title_val = ""
+                t = item.get("title")
+                if isinstance(t, dict):
+                    title_val = t.get("value") or ""
+                elif isinstance(t, str):
+                    title_val = t
+                # year
+                year = None
+                for ps in (item.get("publicationStatuses") or []):
+                    pd = ps.get("publicationDate") or {}
+                    if isinstance(pd, dict) and "year" in pd:
+                        year = pd.get("year")
+                        break
+                # journal
+                j = item.get("journalAssociation") or {}
+                jtitle = j.get("title") or {}
+                journal = jtitle.get("value") if isinstance(jtitle, dict) else ""
+
+                authors: list[str] = []
+                for pa in item.get("personAssociations", []) or []:
+                    role = (((pa.get("personRole") or {}).get("term") or {}).get("text") or [{}])[0].get("value") if isinstance(((pa.get("personRole") or {}).get("term") or {}).get("text"), list) else None
+                    if (role or "").lower() != "author":
+                        continue
+                    name = (pa.get("name") or {}).get("lastName") or (((pa.get("person") or {}).get("name") or {}).get("text") or [{}])[0].get("value")
+                    first = (pa.get("name") or {}).get("firstName")
+                    if first and name:
+                        full = f"{first} {name}".strip()
+                    else:
+                        full = str(name or "").strip()
+                    if full:
+                        authors.append(full)
+                        # index by normalized author name
+                        key = _norm(full)
+                        cache["outputs_by_author"].setdefault(key, []).append({
+                            "title": title_val or "Untitled",
+                            "year": year,
+                            "journal": journal or "",
+                        })
+                if authors:
+                    cache["authors_by_id"][rid] = authors
+                    if title_val:
+                        cache["authors_by_title"][_norm(title_val)] = authors
+        except Exception as err:
+            app.logger.warning(f"Failed to index research_outputs.json: {err}")
+        else:
+            # Optionally remove the root-level file after indexing (commented out to avoid surprises)
+            try:
+                root_file = Path("research_outputs.json")
+                if root_file.exists():
+                    pass
+            except Exception:
+                pass
+
+    _RO_AUTHORS_CACHE = cache
+    return cache
+
+@app.route("/api/ro-authors")
+def api_ro_authors():
+    ids_param = (request.args.get("ids") or "").strip()
+    ids = [s for s in ids_param.split(",") if s][:100]  # safety cap
+    cache = _maybe_load_ro_authors()
+    if not ids:
+        # Return nothing by default to avoid sending a huge payload
+        return jsonify({"authors_by_id": {}})
+    out: dict[str, list[str]] = {}
+    # 1) Use cache if present
+    if cache.get("authors_by_id"):
+        for rid in ids:
+            if rid in cache["authors_by_id"]:
+                out[rid] = cache["authors_by_id"][rid]
+    # 2) Fallback to DB for any remaining IDs
+    remaining = [rid for rid in ids if rid not in out]
+    if remaining:
+        qmarks = ",".join(["?"] * len(remaining))
+        sql = f"""
+          SELECT ro.uuid, m.name
+          FROM OIResearchOutputs ro
+          LEFT JOIN OIMembers m ON m.uuid = ro.researcher_uuid
+          WHERE ro.uuid IN ({qmarks})
+        """
+        try:
+            with get_db() as conn:
+                rows = conn.execute(sql, remaining).fetchall()
+            for r in rows:
+                if r["uuid"] and r["name"]:
+                    out.setdefault(r["uuid"], []).append(r["name"])
+        except sqlite3.Error as err:
+            app.logger.warning(f"/api/ro-authors fallback DB error: {err}")
+    return jsonify({"authors_by_id": out})
+
+@app.route("/api/ro-by-author")
+def api_ro_by_author():
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return jsonify({"publications": []})
+    # 1) Try cache indexed from research_outputs.json
+    cache = _maybe_load_ro_authors()
+    key = _norm(name)
+    pubs = cache.get("outputs_by_author", {}).get(key, [])[:5]
+    if pubs:
+        return jsonify({"publications": pubs})
+    # 2) Fallback to DB by exact author match
+    try:
+        with get_db() as conn:
+            rows = conn.execute(
+                """
+                SELECT ro.name AS title, ro.publisher_name AS journal
+                FROM OIResearchOutputs ro
+                LEFT JOIN OIMembers m ON m.uuid = ro.researcher_uuid
+                WHERE LOWER(m.name) = LOWER(?)
+                ORDER BY ro.rowid DESC
+                LIMIT 5
+                """,
+                (name,),
+            ).fetchall()
+        pubs_db = [{"title": r["title"] or "Untitled", "journal": r["journal"] or "", "year": None} for r in rows]
+        return jsonify({"publications": pubs_db})
+    except sqlite3.Error as err:
+        app.logger.warning(f"/api/ro-by-author fallback DB error: {err}")
+        return jsonify({"publications": []})
+
+@app.route("/api/ro-authors-by-title")
+def api_ro_authors_by_title():
+    titles_param = (request.args.get("titles") or "").strip()
+    if not titles_param:
+        return jsonify({"authors_by_title": {}})
+    # Titles are joined by '|' to preserve commas within titles
+    titles = [t for t in titles_param.split("|") if t][:100]
+    cache = _maybe_load_ro_authors()
+    out: dict[str, list[str]] = {}
+    by_title = cache.get("authors_by_title", {})
+    for t in titles:
+        key = _norm(t)
+        if key in by_title:
+            out[t] = by_title[key]
+    return jsonify({"authors_by_title": out})
+
+@app.route("/api/ro-status")
+def api_ro_status():
+    cache = _maybe_load_ro_authors()
+    c_id = len(cache.get("authors_by_id", {}))
+    c_title = len(cache.get("authors_by_title", {}))
+    c_author = len(cache.get("outputs_by_author", {}))
+    return jsonify({
+        "loaded": bool(c_id or c_title or c_author),
+        "authors_by_id": c_id,
+        "outputs_by_author": c_author,
+        "authors_by_title": c_title,
+    })
 
 @app.route("/api/tags")
 def get_tags():
@@ -549,6 +796,7 @@ def search():
     conn.close()
 
     research_outputs: list[dict] = []
+    cache = _maybe_load_ro_authors()
     for row in outputs_rows:
         uuid, researcher_uuid, publisher_name, name, author_name, expertise_concat = row
         expertise_list = (expertise_concat or "").split("\u001F") if expertise_concat else []
@@ -572,12 +820,24 @@ def search():
             score += 1
 
         if score > 0:
+            # add authors via cache/title if not present
+            authors_list: list[str] = []
+            if author_name:
+                authors_list = [author_name]
+            else:
+                aid = str(uuid)
+                if aid in cache.get("authors_by_id", {}):
+                    authors_list = cache["authors_by_id"][aid]
+                else:
+                    authors_list = cache.get("authors_by_title", {}).get(_norm(name or ""), [])
+
             research_outputs.append({
                 "uuid": uuid,
                 "researcher_uuid": researcher_uuid,
                 "publisher_name": publisher_name,
                 "name": name,
                 "score": score,
+                "authors": authors_list,
             })
 
     members.sort(key=lambda m: m["score"], reverse=True)
@@ -637,6 +897,61 @@ def pure_proxy(resource: str):
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 502
 # ------------------ end API routes ------------------
+
+# ------------------ UWA Repository portraits ------------------
+_PROFILE_PHOTO_CACHE: dict[str, str] = {}
+
+def _slugify_name(name: str) -> str:
+    s = (name or "").strip().lower()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
+    s = re.sub(r"-+", "-", s)
+    return s
+
+@app.route("/api/profile-photo")
+def api_profile_photo():
+    """Return a public portrait URL from the UWA repository for a researcher name.
+
+    Query: name=Full Name
+    Response: { "photo_url": "https://research-repository.uwa.edu.au/files-asset/.../Name_img?..." }
+    """
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return jsonify({"photo_url": ""})
+
+    if name in _PROFILE_PHOTO_CACHE:
+        return jsonify({"photo_url": _PROFILE_PHOTO_CACHE[name]})
+
+    slug = _slugify_name(name)
+    if not slug:
+        return jsonify({"photo_url": ""})
+
+    base = "https://research-repository.uwa.edu.au"
+    url = f"{base}/en/persons/{slug}"
+    try:
+        resp = requests.get(url, timeout=15)
+        html = resp.text
+    except requests.RequestException as err:
+        app.logger.warning(f"profile-photo fetch failed for {name}: {err}")
+        return jsonify({"photo_url": ""})
+
+    # Look for files-asset path ending with _img
+    match = re.search(r"(\/files-asset\/[\w\-\/]+?_img[^'\"\s>]*)", html)
+    photo_url = ""
+    if match:
+        src = match.group(1)
+        # Ensure we request a small, square image if sizing params are supported
+        if "?" in src:
+            if "w=" not in src:
+                src += ("&" if "?" in src else "?") + "w=160"
+            if "h=" not in src:
+                src += "&h=160"
+        else:
+            src += "?w=160&h=160"
+        photo_url = base + src
+
+    _PROFILE_PHOTO_CACHE[name] = photo_url
+    return jsonify({"photo_url": photo_url})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))

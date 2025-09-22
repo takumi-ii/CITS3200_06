@@ -157,18 +157,36 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           setResearchers(Array.isArray(data.members) ? data.members : []);
           setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
         } else {
-          const [rRes, oRes] = await Promise.all([
+          const [rRes, oRes, oiRes] = await Promise.all([
             fetch('/api/researchers', { signal: controller.signal }),
             fetch('/api/researchOutcomes', { signal: controller.signal }),
+            fetch('/api/oiresearchoutputs', { signal: controller.signal }),
           ]);
           let rJson: any = null;
           let oJson: any = null;
+          let oiJson: any = null;
           try { rJson = await rRes.json(); } catch {}
           try { oJson = await oRes.json(); } catch {}
+          try { oiJson = await oiRes.json(); } catch {}
           const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
-          const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
+          const oDataPrimary = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
+          const oDataFallback = oiJson ? (Array.isArray(oiJson) ? oiJson : (oiJson.research_outputs ?? [])) : [];
           setResearchers(Array.isArray(rData) ? rData : []);
-          setOutcomes(Array.isArray(oData) ? oData : []);
+          if (Array.isArray(oDataPrimary) && oDataPrimary.length) {
+            setOutcomes(oDataPrimary);
+          } else {
+            // Map OI fallback shape to the expected outcome shape
+            const mapped = Array.isArray(oDataFallback) ? oDataFallback.map((o: any) => ({
+              id: o.uuid || o.id,
+              uuid: o.uuid || o.id,
+              researcher_uuid: o.researcher_uuid,
+              title: o.name || o.title,
+              name: o.name || o.title,
+              journal: o.publisher_name,
+              authors: [],
+            })) : [];
+            setOutcomes(mapped);
+          }
         }
       } catch {
         // On error: if searching, show empty; otherwise fallback happens below
@@ -191,8 +209,19 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
   const sourceResearchers = researchers.length ? researchers : ((searchQuery || '').trim() ? [] : mockResearchers);
   const sourceOutcomes = outcomes.length ? outcomes : ((searchQuery || '').trim() ? [] : mockResearchOutcomes);
 
+  // Build quick lookup to resolve author names from researcher UUIDs when backend doesn't provide authors
+  const researcherIdToName = new Map<string, string>();
+  (sourceResearchers || []).forEach((r: any) => {
+    const id = String(r.uuid || r.id || '').trim();
+    const nm = String(r.name || '').trim();
+    if (id && nm) researcherIdToName.set(id, nm);
+  });
+
+  // Authors lookup is declared after filteredOutcomes below
+
   const q = (searchQuery || '').toLowerCase();
   const isActiveSearch = (searchQuery || '').trim().length > 0;
+  const areaFilter = (filters.researchArea || '').trim().toLowerCase();
 
   const filteredResearchers = sourceResearchers
     .filter((researcher: any) => {
@@ -210,7 +239,13 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           )
         );
 
-      return matchesQuery && matchesTags;
+      const matchesArea = !areaFilter || [
+        researcher.title,
+        researcher.department,
+        ...(Array.isArray(researcher.expertise) ? researcher.expertise : []),
+      ].some((v: string) => (v || '').toLowerCase().includes(areaFilter));
+
+      return matchesQuery && matchesTags && matchesArea;
     })
     .sort((a: any, b: any) => {
       if (isActiveSearch) {
@@ -254,7 +289,13 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
       ? true
       : year >= filters.yearRange[0] && year <= filters.yearRange[1];
 
-    return matchesQuery && matchesTags && matchesYear;
+    const matchesArea = !areaFilter ||
+      keywords.some(k => (k || '').toLowerCase().includes(areaFilter)) ||
+      title.toLowerCase().includes(areaFilter) ||
+      journal.toLowerCase().includes(areaFilter) ||
+      (Array.isArray(outcome.authors) && outcome.authors.some((a: string) => (a || '').toLowerCase().includes(areaFilter)));
+
+    return matchesQuery && matchesTags && matchesYear && matchesArea;
   }).sort((a: any, b: any) => {
     if (isActiveSearch) {
       const sa = Number(a.score ?? 0);
@@ -293,6 +334,170 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
   const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
   const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
 
+  // Fetch author names for visible outcomes using the new backend helper
+  const [authorsById, setAuthorsById] = useState<Record<string, string[]>>({});
+  const [pubsByAuthor, setPubsByAuthor] = useState<Record<string, any[]>>({});
+  const [pubsByResearcherId, setPubsByResearcherId] = useState<Record<string, any[]>>({});
+  const [photoByAuthor, setPhotoByAuthor] = useState<Record<string, string>>({});
+  const [allResearchersMap, setAllResearchersMap] = useState<Record<string, string>>({});
+  const lastIdsKeyRef = useRef<string>('');
+  useEffect(() => {
+    // Only fetch for visible page, dedupe IDs, and debounce slightly
+    const ids = Array.from(new Set(
+      paginatedOutcomes.map((o: any) => String(o.uuid || o.id || '')).filter(Boolean)
+    )).slice(0, 50);
+    const titles = Array.from(new Set(
+      paginatedOutcomes.map((o: any) => String(o.title || o.name || '')).filter(Boolean)
+    )).slice(0, 50);
+    const key = `${ids.join(',')}|${titles.join('|')}`;
+    if ((!ids.length && !titles.length) || key === lastIdsKeyRef.current) return;
+    lastIdsKeyRef.current = key;
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      (async () => {
+        try {
+          let map: Record<string, string[]> = {};
+          if (ids.length) {
+            const resp = await fetch(`/api/ro-authors?ids=${encodeURIComponent(ids.join(','))}` , { signal: controller.signal });
+            const json = await resp.json();
+            map = json.authors_by_id || {};
+          }
+          // Also fetch by title when available
+          if (titles.length) {
+            const titleKey = titles.join('|');
+            const r2 = await fetch(`/api/ro-authors-by-title?titles=${encodeURIComponent(titleKey)}`, { signal: controller.signal });
+            const j2 = await r2.json();
+            const byTitle: Record<string, string[]> = j2.authors_by_title || {};
+            // Map back by matching titles from current page to their uuids
+            const idByTitle: Record<string, string> = {};
+            paginatedOutcomes.forEach((o: any) => {
+              const t = String(o.title || o.name || '');
+              const id = String(o.uuid || o.id || '');
+              if (t && id) idByTitle[t] = id;
+            });
+            Object.entries(byTitle).forEach(([title, authors]) => {
+              const id = idByTitle[title];
+              if (id && authors && authors.length) {
+                map[id] = authors as string[];
+              }
+            });
+          }
+          setAuthorsById((prev) => ({ ...prev, ...(map || {}) }));
+        } catch {}
+      })();
+    }, 200);
+    return () => { controller.abort(); clearTimeout(t); };
+  }, [paginatedOutcomes]);
+
+  // Load a global uuid->name map once to improve author fallback on outcomes
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/researchers');
+        const j = await r.json();
+        const arr: any[] = Array.isArray(j) ? j : (j.researchers || []);
+        const map: Record<string, string> = {};
+        for (const it of arr) {
+          const id = String(it.uuid || it.id || '').trim();
+          const nm = String(it.name || '').trim();
+          if (id && nm) map[id] = nm;
+        }
+        if (!cancelled) setAllResearchersMap(map);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Prefetch recent publications for visible researchers by author name (fuzzy)
+  const lastAuthorKeyRef = useRef<string>('');
+  useEffect(() => {
+    const names: string[] = Array.from(new Set(
+      paginatedResearchers.map((r: any) => String(r.name || '').trim()).filter((s: string) => Boolean(s))
+    ));
+    const key = names.join('|');
+    if (!names.length || key === lastAuthorKeyRef.current) return;
+    lastAuthorKeyRef.current = key;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const results: Record<string, any[]> = {};
+        // Limit to first 20 names to control load
+        for (const nm of names.slice(0, 20) as string[]) {
+          const resp = await fetch(`/api/ro-by-author?name=${encodeURIComponent(nm)}`, { signal: controller.signal });
+          const json = await resp.json();
+          if (Array.isArray(json.publications) && json.publications.length) {
+            results[nm] = json.publications;
+          }
+        }
+        setPubsByAuthor((prev) => ({ ...prev, ...results }));
+      } catch {}
+    })();
+    return () => controller.abort();
+  }, [paginatedResearchers]);
+
+  // Prefetch recent outputs by researcher UUID for visible researcher cards (fallback)
+  useEffect(() => {
+    const ids: string[] = Array.from(new Set(
+      paginatedResearchers.map((r: any) => String(r.uuid || r.id || '')).filter(Boolean)
+    ));
+    if (!ids.length) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const results: Record<string, any[]> = {};
+        for (const id of ids.slice(0, 20)) {
+          if (pubsByResearcherId[id]) continue;
+          const resp = await fetch(`/api/oiresearchoutputs?researcher_uuid=${encodeURIComponent(id)}`, { signal: controller.signal });
+          const json = await resp.json();
+          const list: any[] = Array.isArray(json) ? json : (json.research_outputs || []);
+          if (list && list.length) {
+            results[id] = list.slice(0, 3).map((o: any) => ({
+              title: o.title || o.name,
+              year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+              journal: o.journal || o.publisher_name || '',
+            }));
+          }
+        }
+        if (Object.keys(results).length) {
+          setPubsByResearcherId((prev) => ({ ...prev, ...results }));
+        }
+      } catch {}
+    })();
+    return () => controller.abort();
+  }, [paginatedResearchers]);
+
+  // Fetch portrait photos for visible researchers
+  const lastPhotoKeyRef = useRef<string>('');
+  useEffect(() => {
+    const names: string[] = Array.from(new Set(
+      paginatedResearchers.map((r: any) => String(r.name || '').trim()).filter(Boolean)
+    ));
+    const key = names.join('|');
+    if (!names.length || key === lastPhotoKeyRef.current) return;
+    lastPhotoKeyRef.current = key;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const result: Record<string, string> = {};
+        for (const nm of names.slice(0, 20)) {
+          const resp = await fetch(`/api/profile-photo?name=${encodeURIComponent(nm)}`, { signal: controller.signal });
+          const json = await resp.json();
+          if (json.photo_url) result[nm] = json.photo_url;
+        }
+        if (Object.keys(result).length) {
+          setPhotoByAuthor((prev) => ({ ...prev, ...result }));
+        }
+      } catch {}
+    })();
+    return () => controller.abort();
+  }, [paginatedResearchers]);
+
+  // Reset pagination on filter/tab/query changes so users always see the first page
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, activeTab, searchQuery]);
+
   return (
     <div className="flex-1">
       <div className="mb-6">
@@ -300,7 +505,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
           Search Results
         </h3>
         <p className="text-gray-600">
-          {loading ? 'Searching…' : `Found ${researchers.length} researchers and ${outcomes.length} research outcomes`}
+          {loading ? 'Searching…' : `Found ${filteredResearchers.length} researchers and ${filteredOutcomes.length} research outcomes`}
         </p>
       </div>
 
@@ -308,11 +513,11 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="researchers" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            Researchers ({researchers.length})
+            Researchers ({filteredResearchers.length})
           </TabsTrigger>
           <TabsTrigger value="outcomes" className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
-            Research Outcomes ({outcomes.length})
+            Research Outcomes ({filteredOutcomes.length})
           </TabsTrigger>
         </TabsList>
 
@@ -323,8 +528,21 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
             <Card key={researcher.uuid || researcher.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex gap-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="w-8 h-8 text-blue-600" />
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-50 flex items-center justify-center">
+                    {(function(){
+                      const nm = String(researcher.name || '').trim();
+                      const src = photoByAuthor[nm];
+                      if (src) {
+                        return (
+                          <ImageWithFallback
+                            src={src}
+                            alt={`${researcher.name} portrait`}
+                            className="w-16 h-16 object-cover"
+                          />
+                        );
+                      }
+                      return <User className="w-8 h-8 text-blue-600" />;
+                    })()}
                   </div>
 
                   <div className="flex-1">
@@ -338,9 +556,23 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
                       </div>
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        View Profile
+                      <Button variant="outline" size="sm" asChild>
+                        {(function(){
+                          const nm = String(researcher.name || '').trim().toLowerCase();
+                          const slug = nm
+                            .replace(/[^a-z0-9\s-]/g, '')
+                            .replace(/\s+/g, '-')
+                            .replace(/-+/g, '-');
+                          const href = slug
+                            ? `https://research-repository.uwa.edu.au/en/persons/${slug}`
+                            : `https://research-repository.uwa.edu.au/`;
+                          return (
+                            <a href={href} target="_blank" rel="noreferrer noopener">
+                              <ExternalLink className="w-4 h-4 mr-1" />
+                              View Profile
+                            </a>
+                          );
+                        })()}
                       </Button>
                     </div>
 
@@ -356,7 +588,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                       ))}
                     </div>
 
-                    {(researcher.publications || researcher.grants || researcher.collaborations) && (
+                    {!!(Number(researcher.publications || 0) || Number(researcher.grants || 0) || Number(researcher.collaborations || 0)) && (
                       <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
                         {researcher.publications && (
                           <div className="flex items-center gap-1">
@@ -379,16 +611,76 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                       </div>
                     )}
 
-                    {Array.isArray(researcher.recentPublications) && (
+                    {(function(){
+                      const explicitRaw = Array.isArray(researcher.recentPublications) ? researcher.recentPublications : [];
+                      const isPlaceholder = (p: any) => {
+                        const t = String((p && p.title) || '').toLowerCase();
+                        const j = String((p && p.journal) || '').toLowerCase();
+                        return t.includes('test publication') || j.includes('test journal');
+                      };
+                      const explicit = explicitRaw.filter((p: any) => !isPlaceholder(p));
+
+                      const researcherId = String(researcher.uuid || researcher.id || '');
+                      const derivedByUuid = sourceOutcomes
+                        .filter((o: any) => !!researcherId && String(o.researcher_uuid || '') === researcherId)
+                        .map((o: any) => ({
+                          title: o.title || o.name,
+                          year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+                          journal: o.journal || o.publisher_name || '',
+                        }));
+
+                      const derivedByAuthor = derivedByUuid.length ? [] : sourceOutcomes
+                        .filter((o: any) => {
+                          const authorList: string[] = Array.isArray(o.authors) ? o.authors : (o.author_name ? [o.author_name] : []);
+                          return authorList.some((a: string) => (a || '').toLowerCase() === String(researcher.name || '').toLowerCase());
+                        })
+                        .map((o: any) => ({
+                          title: o.title || o.name,
+                          year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+                          journal: o.journal || o.publisher_name || '',
+                        }));
+
+                      let derived = (derivedByUuid.length ? derivedByUuid : derivedByAuthor)
+                        .filter((p: any) => !isPlaceholder(p));
+                      if (!derived.length && String(researcherId || '').trim()) {
+                        const fromId = pubsByResearcherId[researcherId] || [];
+                        if (fromId.length) {
+                          derived = fromId;
+                        }
+                      }
+                      if (!derived.length && String(researcher.name || '').trim()) {
+                        const nm = String(researcher.name);
+                        const fromCache = pubsByAuthor[nm] || [];
+                        if (fromCache.length) {
+                          derived = fromCache.map((p: any) => ({
+                            title: p.title,
+                            year: p.year,
+                            journal: p.journal,
+                          }));
+                        }
+                      }
+                      derived = derived.slice(0, 2);
+
+                      const items = explicit.length ? explicit : derived;
+                      if (!items.length) return null; // do not fall back to placeholders
+                      return (
                       <div className="border-t pt-3">
                         <h5 className="font-medium text-gray-800 mb-2">Recent Publications</h5>
-                        {researcher.recentPublications.map((pub: any, idx: number) => (
+                        {items.map((pub: any, idx: number) => (
                           <div key={idx} className="text-sm text-gray-600 mb-1">
-                            <span className="font-medium">{pub.title}</span> {pub.year && `(${pub.year})`} {pub.journal && `- ${pub.journal}`}
+                            <a
+                              className="font-medium text-blue-700 hover:underline"
+                              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(`${pub.title} ${researcher.name}`)}`}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                            >
+                              {pub.title}
+                            </a> {pub.year && `(${pub.year})`} {pub.journal && `- ${pub.journal}`}
                           </div>
                         ))}
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
@@ -412,9 +704,15 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                       {outcome.citations && <span>{outcome.citations} citations</span>}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    View Paper
+                  <Button variant="outline" size="sm" asChild>
+                    <a
+                      href={`https://scholar.google.com/scholar?q=${encodeURIComponent(String(outcome.name || outcome.title || ''))}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      View Paper
+                    </a>
                   </Button>
                 </div>
 
@@ -422,12 +720,20 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                   <p className="text-gray-700 mb-3">{outcome.abstract}</p>
                 )}
 
-                {Array.isArray(outcome.authors) && (
-                  <div className="mb-3">
-                    <span className="text-sm font-medium text-gray-700">Authors: </span>
-                    <span className="text-sm text-gray-600">{outcome.authors.join(', ')}</span>
-                  </div>
-                )}
+                {(function(){
+                  const id = String(outcome.uuid || outcome.id || '');
+                  const list = (Array.isArray(outcome.authors) && outcome.authors.length ? outcome.authors : [])
+                    .concat(authorsById[id] || [])
+                    .concat(outcome.researcher_uuid && (researcherIdToName.get(outcome.researcher_uuid) || allResearchersMap[outcome.researcher_uuid]) ? [(researcherIdToName.get(outcome.researcher_uuid) as string) || allResearchersMap[outcome.researcher_uuid]] : []);
+                  const unique = Array.from(new Set(list.filter(Boolean)));
+                  if (!unique.length) return null;
+                  return (
+                    <div className="mb-3">
+                      <span className="text-sm font-medium text-gray-700">Authors: </span>
+                      <span className="text-sm text-gray-600">{unique.join(', ')}</span>
+                    </div>
+                  );
+                })()}
 
                 {outcome.journal && (
                   <div className="mb-3">
