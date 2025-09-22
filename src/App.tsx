@@ -4,6 +4,19 @@ import SearchSection from './components/SearchSection';
 import FilterSidebar from './components/FilterSidebar';
 import ResultsSection from './components/ResultsSection';
 import NetworkHeatmap from './components/NetworkHeatmap';
+import Profile from './components/profile';
+
+
+type Researcher = {
+  id?: number | string;
+  uuid?: string;
+  name: string;
+  title?: string;
+  department?: string;
+  bio?: string;
+  expertise?: string[];
+  // add anything else you’ll show in the modal
+};
 
 export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -12,6 +25,18 @@ export default function App() {
     tags: [],
     researchArea: ''
   });
+
+
+
+   const [profileOpen, setProfileOpen] = useState(false);
+   const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
+
+
+    const handleCloseProfile = () => {
+    setProfileOpen(false);
+    setSelectedResearcher(null); // optional: clear on close
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,6 +65,8 @@ export default function App() {
       <span>Expeditions</span>
       <span>Resources</span>
       <span>Awards</span>
+
+      
     </div>
   </div>
 </nav>
@@ -57,12 +84,26 @@ export default function App() {
           <FilterSidebar filters={filters} setFilters={setFilters} />
           
           {/* Results Section */}
-          <ResultsSection searchQuery={searchQuery} filters={filters} />
+    <ResultsSection
+            searchQuery={searchQuery}
+            filters={filters}
+            setProfileOpen={setProfileOpen}
+            setSelectedResearcher={setSelectedResearcher}
+          />
         </div>
       </div>
+
+       <Profile
+        open={profileOpen}
+        onClose={handleCloseProfile}
+        person={selectedResearcher}
+      />
+
 
       {/* Network Heatmap */}
       <NetworkHeatmap searchQuery={searchQuery} filters={filters} />
     </div>
+
+    
   );
 }

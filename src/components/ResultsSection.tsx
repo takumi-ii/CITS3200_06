@@ -14,6 +14,9 @@ interface ResultsSectionProps {
     tags: string[];
     researchArea: string;
   };
+   // NEW: allow parent to control the Profile modal
+  setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or your Researcher type
 }
 
 type Member = {
@@ -127,7 +130,8 @@ const mockResearchOutcomes = [
   }
 ];
 
-export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
+export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher }: ResultsSectionProps) {
+
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
   const [currentPage, setCurrentPage] = useState(1);
@@ -300,10 +304,17 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
                       </div>
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        View Profile
-                      </Button>
+                       <Button
+    variant="outline"
+    size="sm"
+    onClick={() => {
+      setSelectedResearcher(researcher);
+      setProfileOpen(true);
+    }}
+  >
+    <ExternalLink className="w-4 h-4 mr-1" />
+    View Profile
+  </Button>
                     </div>
 
                     {researcher.bio && (
