@@ -7,8 +7,11 @@ CREATE TABLE IF NOT EXISTS OIMembers (
   uuid TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,  -- serves as FK target
   email TEXT,
-  education TEXT,
+  education TEXT,             -- PhD, MSc, etc.
   bio TEXT,                   -- Pulled from the API
+  position TEXT,              -- Their role at the OI - Associate Professor, Research Fellow, etc.
+  title TEXT,                 -- Dr, Prof, etc.
+  main_research_area TEXT,    -- Climate Change, Marine Biology, etc.
   phone TEXT,
   photo_url TEXT,
   profile_url TEXT
