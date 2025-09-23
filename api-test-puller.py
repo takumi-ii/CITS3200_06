@@ -9,6 +9,11 @@ load_dotenv()
 BASE = os.getenv("PURE_API_BASE", "").rstrip("/")
 API_KEY = os.getenv("PURE_API_KEY", "")
 
+
+print("PURE_API_BASE =", os.getenv("PURE_API_BASE"))
+print("PURE_API_KEY  =", os.getenv("PURE_API_KEY"))
+
+
 if not BASE or not API_KEY:
     print("Missing PURE_API_BASE or PURE_API_KEY in environment.")
     sys.exit(1)

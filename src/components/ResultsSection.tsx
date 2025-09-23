@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { mockResearchers,mockResearchOutcomes } from './mockData';
 
 interface ResultsSectionProps {
   searchQuery: string;
@@ -18,117 +19,6 @@ interface ResultsSectionProps {
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or your Researcher type
 }
-
-type Member = {
-  uuid: string;
-  name: string;
-  email?: string;
-  education?: string;
-  bio?: string;
-  phone?: string;
-  expertise?: string[];
-  score?: number;
-};
-
-type ResearchOutput = {
-  uuid: string;
-  researcher_uuid: string;
-  publisher_name?: string;
-  name: string;
-  score?: number;
-};
-
-// Mock data for researchers
-const mockResearchers = [
-  {
-    id: 1,
-    name: 'Dr. Sarah Chen',
-    title: 'Marine Biologist',
-    department: 'School of Biological Sciences',
-    expertise: ['Coral Reef Ecology', 'Climate Change', 'Marine Conservation'],
-    publications: 42,
-    grants: 8,
-    collaborations: 15,
-    location: 'Perth, Australia',
-    bio: 'Leading researcher in coral reef resilience and adaptation strategies.',
-    recentPublications: [
-      { title: 'Coral Adaptation to Ocean Acidification', year: 2024, journal: 'Nature Climate Change' },
-      { title: 'Marine Protected Area Effectiveness', year: 2023, journal: 'Conservation Biology' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Prof. Michael Rodriguez',
-    title: 'Oceanographer',
-    department: 'Oceans Institute',
-    expertise: ['Deep Sea Research', 'Ocean Circulation', 'Marine Geology'],
-    publications: 67,
-    grants: 12,
-    collaborations: 23,
-    location: 'Perth, Australia',
-    bio: 'Expert in deep ocean processes and their impact on global climate systems.',
-    recentPublications: [
-      { title: 'Deep Ocean Carbon Sequestration', year: 2024, journal: 'Science' },
-      { title: 'Antarctic Current Dynamics', year: 2023, journal: 'Journal of Physical Oceanography' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Dr. Emma Thompson',
-    title: 'Marine Chemist',
-    department: 'School of Molecular Sciences',
-    expertise: ['Ocean Acidification', 'Marine Pollution', 'Biogeochemistry'],
-    publications: 34,
-    grants: 6,
-    collaborations: 18,
-    location: 'Perth, Australia',
-    bio: 'Specialist in marine chemical processes and pollution impact assessment.',
-    recentPublications: [
-      { title: 'Microplastic Distribution in Australian Waters', year: 2024, journal: 'Environmental Science & Technology' },
-      { title: 'Ocean pH Monitoring Systems', year: 2023, journal: 'Marine Chemistry' }
-    ]
-  }
-];
-
-// Mock data for research outcomes
-const mockResearchOutcomes = [
-  {
-    id: 1,
-    title: 'Climate Resilience in Indo-Pacific Coral Reefs',
-    type: 'Research Article',
-    authors: ['Dr. Sarah Chen', 'Prof. Michael Rodriguez', 'Dr. James Wilson'],
-    journal: 'Nature Climate Change',
-    year: 2024,
-    citations: 23,
-    abstract: 'This study examines the adaptive capacity of coral reefs in the Indo-Pacific region under climate change scenarios.',
-    keywords: ['Climate Change', 'Coral Reefs', 'Adaptation', 'Indo-Pacific'],
-    grantFunding: 'ARC Discovery Grant DP240102345'
-  },
-  {
-    id: 2,
-    title: 'Deep Ocean Carbon Storage Mechanisms',
-    type: 'Research Article',
-    authors: ['Prof. Michael Rodriguez', 'Dr. Lisa Park', 'Dr. Robert Kim'],
-    journal: 'Science',
-    year: 2024,
-    citations: 45,
-    abstract: 'Investigation of deep ocean processes that contribute to long-term carbon sequestration.',
-    keywords: ['Carbon Sequestration', 'Deep Sea', 'Climate', 'Oceanography'],
-    grantFunding: 'NHMRC Grant GNT2009876'
-  },
-  {
-    id: 3,
-    title: 'Microplastic Impact on Marine Food Webs',
-    type: 'Review Article',
-    authors: ['Dr. Emma Thompson', 'Dr. Sarah Chen', 'Prof. David Brown'],
-    journal: 'Environmental Science & Technology',
-    year: 2023,
-    citations: 67,
-    abstract: 'Comprehensive review of microplastic distribution and impact on marine ecosystems.',
-    keywords: ['Microplastics', 'Marine Pollution', 'Food Webs', 'Ecosystem Health'],
-    grantFunding: 'Cooperative Research Centre Grant'
-  }
-];
 
 export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher }: ResultsSectionProps) {
 
@@ -146,6 +36,7 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   // - If there's a query, use /api/search
   // - Otherwise, load default lists (/api/researchers and /api/researchOutcomes)
   //   and fall back to mocks if empty/unavailable.
+
   useEffect(() => {
     const controller = new AbortController();
     const run = async () => {
@@ -212,7 +103,7 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
 
       return matchesQuery && matchesTags;
     })
-    .sort((a: any, b: any) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
+    .sort((a: any, b: any) => Number(b.publicationsCount ?? 0) - Number(a.publicationsCount ?? 0));
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -259,6 +150,9 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
   const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
 
+
+  
+
   return (
     <div className="flex-1">
       <div className="mb-6">
@@ -273,13 +167,15 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="researchers" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Researchers ({researchers.length})
-          </TabsTrigger>
-          <TabsTrigger value="outcomes" className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            Research Outcomes ({outcomes.length})
-          </TabsTrigger>
+  <Users className="w-4 h-4" />
+  Researchers ({sourceResearchers.length})
+</TabsTrigger>
+<TabsTrigger value="outcomes" className="flex items-center gap-2">
+  <BookOpen className="w-4 h-4" />
+  Research Outcomes ({sourceOutcomes.length})
+</TabsTrigger>
+
+          
         </TabsList>
 
         <div ref={resultsTopRef} />
@@ -329,28 +225,29 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
                       ))}
                     </div>
 
-                    {(researcher.publications || researcher.grants || researcher.collaborations) && (
-                      <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
-                        {researcher.publications && (
-                          <div className="flex items-center gap-1">
-                            <BookOpen className="w-4 h-4" />
-                            {researcher.publications} Publications
-                          </div>
-                        )}
-                        {researcher.grants && (
-                          <div className="flex items-center gap-1">
-                            <Award className="w-4 h-4" />
-                            {researcher.grants} Grants
-                          </div>
-                        )}
-                        {researcher.collaborations && (
-                          <div className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            {researcher.collaborations} Collaborations
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
+    <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
+    {typeof researcher.publicationsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <BookOpen className="w-4 h-4" />
+        {researcher.publicationsCount} Publications
+      </div>
+    )}
+    {typeof researcher.grantsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <Award className="w-4 h-4" />
+        {researcher.grantsCount} Grants
+      </div>
+    )}
+    {typeof researcher.collaboratorsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <Users className="w-4 h-4" />
+        {researcher.collaboratorsCount} Collaborations
+      </div>
+    )}
+  </div>
+)}
+
 
                     {Array.isArray(researcher.recentPublications) && (
                       <div className="border-t pt-3">
