@@ -180,30 +180,6 @@ def titlecase_expertise(phrase: str) -> str:
             out.append(_titlecase_word(tok, is_boundary=is_first or is_last))
     return " ".join(out)
 
-def _iter_expertise(row):
-    """
-    Iterate normalized, title-cased expertise terms from three columns:
-      - Splits on commas, semicolons, slashes, and the word 'and' (case-insensitive).
-      - Applies titlecase_expertise *before* case-insensitive de-duplication.
-    """
-    fields = []
-    for col in ["New Expertise", "New Expertise2", "New Expertise3"]:
-        raw = _norm(row.get(col))
-        if not raw:
-            continue
-        parts = re.split(r"[;,/]|(?i)\band\b", raw)
-        for p in parts:
-            v = _norm(p)
-            if v:
-                fields.append(titlecase_expertise(v))
-
-    seen = set()
-    for f in fields:
-        key = f.casefold()
-        if key not in seen:
-            seen.add(key)
-            yield f
-
 # UUID helpers + member upsert
 def _deterministic_member_uuid(name: str) -> str:
     """
@@ -481,11 +457,10 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         try:
             cur.execute(
                 """
-                INSERT INTO OIResearchOutputs (uuid, researcher_uuid, publisher_name, name, abstract, num_citations, num_authors, publication_year, link_to_paper)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO OIResearchOutputs (uuid, publisher_name, name, abstract, num_citations, num_authors, publication_year, link_to_paper)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name),
-                    researcher_uuid = COALESCE(excluded.researcher_uuid, OIResearchOutputs.researcher_uuid),
                     name = COALESCE(excluded.name, OIResearchOutputs.name),
                     abstract = COALESCE(excluded.abstract, OIResearchOutputs.abstract),
                     num_citations = COALESCE(excluded.num_citations, OIResearchOutputs.num_citations),
@@ -493,7 +468,7 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
                     publication_year = COALESCE(excluded.publication_year, OIResearchOutputs.publication_year),
                     link_to_paper = COALESCE(excluded.link_to_paper, OIResearchOutputs.link_to_paper)
                 """,
-                (ro_uuid, member_uuid, publisher, title, abstract, num_citations, num_authors, publication_year, link_to_paper)
+                (ro_uuid , publisher, title, abstract, num_citations, num_authors, publication_year, link_to_paper)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
@@ -568,6 +543,28 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         except Exception as e:
             print(f"Error inserting keyword tag {ro_uuid}, {type_name}, {name}: {e}")
 
+        # Now we insert the author / collaborator associations (uuid, name, role)
+        person_associations_obj = item.get("personAssociations", [{}])
+        for person_assoc in person_associations_obj:
+            # Get the UUID
+            p_uuid = person_assoc.get("person", {}).get("uuid", None)
+
+            # Get the role
+            p_role = person_assoc.get("personRole", {}).get("term", {}).get("text", [{}])[0].get("value", None)
+
+            # Only insert if we have both a UUID and a role:
+            if not p_uuid or not p_role:
+                continue
+            
+            # Insert the association:
+            try:
+                cur.execute(
+                    """INSERT OR IGNORE INTO OIResearchOutputsCollaborators (ro_uuid, researcher_uuid, role)
+                    VALUES (?, ?, ?)""",
+                    (ro_uuid,  p_uuid, p_role)
+                )
+            except Exception as e:
+                print(f"Error inserting author association {ro_uuid}, {p_uuid}, {p_role}: {e}")
 
 
 
@@ -1014,7 +1011,7 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
                     interests_raw = html.unescape(interests_raw)
                     interests_raw = re.sub(r'<[^>]*>', '', interests_raw)
                     # Split the cleaned raw
-                    parts = re.split(r"[;,/]|(?i)\band\b", _norm(interests_raw))
+                    parts = re.split(r"[;,/]|\band\b", _norm(interests_raw), flags=re.I)
                     for p in parts:
                         if cleaned := clean_expertise(p):
                             field = titlecase_expertise(cleaned)
@@ -1067,8 +1064,6 @@ def main():
     """
     db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
-    excel_path = 'db\\OI_members_data.xlsx'
-    sheet_name = 'DATA- OI Member Listing-sample'
     research_outputs_json = 'db\\research_outputs.json'
     awards_json = 'db\\OIAwards.json'
     persons_json = 'db\\OIPersons.json'
