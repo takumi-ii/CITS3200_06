@@ -547,7 +547,7 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         person_associations_obj = item.get("personAssociations", [{}])
         for person_assoc in person_associations_obj:
             # Get the UUID
-            p_uuid = person_assoc.get("person", {}).get("uuid", None)
+            p_uuid = person_assoc.get("person", {}).get("uuid", None) or person_assoc.get("externalPerson", {}).get("uuid", None)
 
             # Get the role
             p_role = person_assoc.get("personRole", {}).get("term", {}).get("text", [{}])[0].get("value", None)
@@ -565,10 +565,6 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
                 )
             except Exception as e:
                 print(f"Error inserting author association {ro_uuid}, {p_uuid}, {p_role}: {e}")
-
-
-
-
     conn.commit()
     conn.close()
     print(f"[INFO] Research outputs -> inserted/updated: {inserted + updated}, skipped: {skipped}")
