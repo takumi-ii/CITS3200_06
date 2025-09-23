@@ -180,30 +180,6 @@ def titlecase_expertise(phrase: str) -> str:
             out.append(_titlecase_word(tok, is_boundary=is_first or is_last))
     return " ".join(out)
 
-def _iter_expertise(row):
-    """
-    Iterate normalized, title-cased expertise terms from three columns:
-      - Splits on commas, semicolons, slashes, and the word 'and' (case-insensitive).
-      - Applies titlecase_expertise *before* case-insensitive de-duplication.
-    """
-    fields = []
-    for col in ["New Expertise", "New Expertise2", "New Expertise3"]:
-        raw = _norm(row.get(col))
-        if not raw:
-            continue
-        parts = re.split(r"[;,/]|(?i)\band\b", raw)
-        for p in parts:
-            v = _norm(p)
-            if v:
-                fields.append(titlecase_expertise(v))
-
-    seen = set()
-    for f in fields:
-        key = f.casefold()
-        if key not in seen:
-            seen.add(key)
-            yield f
-
 # UUID helpers + member upsert
 def _deterministic_member_uuid(name: str) -> str:
     """
@@ -222,7 +198,10 @@ def _ensure_member(
     bio: Optional[str],
     phone: Optional[str],
     photo_url: Optional[str],
-    profile_url: Optional[str]
+    profile_url: Optional[str],
+    title: Optional[str],
+    position: Optional[str],
+    main_research_area: Optional[str]
 ) -> str:
     """
     Ensure an OIMembers row exists for `name`, returning the member UUID.
@@ -239,10 +218,10 @@ def _ensure_member(
     try:
         cur.execute(
             """
-            INSERT INTO OIMembers (uuid, name, email, education, bio, phone, photo_url, profile_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO OIMembers (uuid, name, email, education, bio, phone, photo_url, profile_url, position, first_title, main_research_area)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (member_uuid, name, email, education, bio, phone, photo_url, profile_url)
+            (member_uuid, name, email, education, bio, phone, photo_url, profile_url, position, title, main_research_area)
         )
         return member_uuid
     except sqlite3.IntegrityError:
@@ -436,6 +415,7 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
     updated  = 0
     skipped  = 0
 
+    print(f"[INFO] Processing {len(data)} research outputs from JSON...")
     for item in data:
         # Only process if the item is associated with the desired organization
         if not filter_by_organization(item, 'b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
@@ -478,28 +458,32 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         publisher_obj = item.get("publicationStatuses", [{}])
         publication_date_obj = publisher_obj[0].get("publicationDate", {})
         publication_year = publication_date_obj.get("year", 0000)
+
+        # Get the journal name (if any):
+        journal_name = item.get('journalAssociation', {}).get('title', {}).get('value', None)
         try:
             cur.execute(
                 """
-                INSERT INTO OIResearchOutputs (uuid, researcher_uuid, publisher_name, name, abstract, num_citations, num_authors, publication_year, link_to_paper)
+                INSERT INTO OIResearchOutputs (uuid, publisher_name, name, abstract, num_citations, num_authors, publication_year, link_to_paper, journal_name)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     publisher_name = COALESCE(excluded.publisher_name, OIResearchOutputs.publisher_name),
-                    researcher_uuid = COALESCE(excluded.researcher_uuid, OIResearchOutputs.researcher_uuid),
                     name = COALESCE(excluded.name, OIResearchOutputs.name),
                     abstract = COALESCE(excluded.abstract, OIResearchOutputs.abstract),
                     num_citations = COALESCE(excluded.num_citations, OIResearchOutputs.num_citations),
                     num_authors = COALESCE(excluded.num_authors, OIResearchOutputs.num_authors),
                     publication_year = COALESCE(excluded.publication_year, OIResearchOutputs.publication_year),
-                    link_to_paper = COALESCE(excluded.link_to_paper, OIResearchOutputs.link_to_paper)
+                    link_to_paper = COALESCE(excluded.link_to_paper, OIResearchOutputs.link_to_paper),
+                    journal_name = COALESCE(excluded.journal_name, OIResearchOutputs.journal_name)
                 """,
-                (ro_uuid, member_uuid, publisher, title, abstract, num_citations, num_authors, publication_year, link_to_paper)
+                (ro_uuid , publisher, title, abstract, num_citations, num_authors, publication_year, link_to_paper, journal_name)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
             if changes > 0:
                 updated += 1
         except sqlite3.IntegrityError:
+            print(f"[ERROR] IntegrityError on insert, attempting update by name for RO: {title} ({ro_uuid})")
             cur.execute(
                 """
                 UPDATE OIResearchOutputs
@@ -568,10 +552,28 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         except Exception as e:
             print(f"Error inserting keyword tag {ro_uuid}, {type_name}, {name}: {e}")
 
+        # Now we insert the author / collaborator associations (uuid, name, role)
+        person_associations_obj = item.get("personAssociations", [{}])
+        for person_assoc in person_associations_obj:
+            # Get the UUID
+            p_uuid = person_assoc.get("person", {}).get("uuid", None) or person_assoc.get("externalPerson", {}).get("uuid", None)
 
+            # Get the role
+            p_role = person_assoc.get("personRole", {}).get("term", {}).get("text", [{}])[0].get("value", None)
 
-
-
+            # Only insert if we have both a UUID and a role:
+            if not p_uuid or not p_role:
+                continue
+            
+            # Insert the association:
+            try:
+                cur.execute(
+                    """INSERT OR IGNORE INTO OIResearchOutputsCollaborators (ro_uuid, researcher_uuid, role)
+                    VALUES (?, ?, ?)""",
+                    (ro_uuid,  p_uuid, p_role)
+                )
+            except Exception as e:
+                print(f"Error inserting author association {ro_uuid}, {p_uuid}, {p_role}: {e}")
     conn.commit()
     conn.close()
     print(f"[INFO] Research outputs -> inserted/updated: {inserted + updated}, skipped: {skipped}")
@@ -593,26 +595,9 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
     updated  = 0
     skipped  = 0
 
-    def filter_by_organization(item, org_uuid='b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
-        """
-        Checks if the item is associated with the given organization UUID in either the 
-        'managingOrganisationalUnit' or 'organisationalUnits' fields.
-        """
-        # Check 'managingOrganisationalUnit' for the organization UUID
-        managing_org = item.get('managingOrganisationalUnit', {})
-        if managing_org.get('uuid') == org_uuid:
-            return True
-        
-        # Check 'organisationalUnits' for the organization UUID
-        orgs = item.get('organisationalUnits', [])
-        return any(org.get('uuid') == org_uuid for org in orgs)
+    print(f"[INFO] Processing {len(data)} awards from JSON...")
 
     for item in data:
-        # Only process if the item is associated with the desired organization
-        if not filter_by_organization(item, 'b3a31a78-ac4b-46f0-91e0-89423a64aea6'):
-            print("Skipping award not associated with target organization")
-            skipped += 1
-            continue
         # 1) Get the UUID of the grant:
         award_uuid = item.get("uuid")
 
@@ -690,30 +675,27 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
             start_date = None
             end_date = None
 
-        # 6) Get the associated research output uuid
-        try:
-            ro_obj = item.get("relatedProject", {})
-            ro_uuid = ro_obj.get("uuid")
-        except Exception:
-            print(f"Error extracting funding source and amount from award: {item}")
-            ro_uuid = None
+        # 6) Get the associated research outputs' uuids (if any):
+        # ro_objs = item.get("relatedProjects", [{}]) + item.get("relatedResearchOutputs", [{}])
+        # ro_uuids = [x.get("uuid", None) for x in ro_objs]
+        # if title == "ARC Research Hub for Transforming Energy Infrastructure Through Digital Engineering":
+        #     print(f"[DEBUG] Related ROs missing for award: {title}\n\n\nRAW:\n{json.dumps(item)}\n\n\n")
 
         # 7) Execute the insert/update for the Award itself
         try:
             cur.execute(
                 """
-                INSERT INTO OIResearchGrants (uuid, ro_uuid, grant_name, start_date, end_date, total_funding, top_funding_source_name, school)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO OIResearchGrants (uuid, grant_name, start_date, end_date, total_funding, top_funding_source_name, school)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     grant_name = COALESCE(excluded.grant_name, OIResearchGrants.grant_name),
-                    ro_uuid = COALESCE(excluded.ro_uuid, OIResearchGrants.ro_uuid),
                     start_date = COALESCE(excluded.start_date, OIResearchGrants.start_date),
                     end_date = COALESCE(excluded.end_date, OIResearchGrants.end_date),
                     total_funding = COALESCE(excluded.total_funding, OIResearchGrants.total_funding),
                     top_funding_source_name = COALESCE(excluded.top_funding_source_name, OIResearchGrants.top_funding_source_name),
                     school = COALESCE(excluded.school, OIResearchGrants.school)
                 """,
-                (award_uuid, ro_uuid, title, start_date, end_date, top_funder[1], top_funder[0], school)
+                (award_uuid, title, start_date, end_date, top_funder[1], top_funder[0], school)
             )
             cur.execute("SELECT changes()")
             changes = cur.fetchone()[0] or 0
@@ -722,6 +704,7 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
         except sqlite3.IntegrityError:
             print("IntegrityError on award insert, attempting update by name")
             skipped += 1
+        
         # 8) Now insert into OIResearchGrantsFundingSources (if we have a funding source):
         if funders:
             for funder in funders:
@@ -734,6 +717,20 @@ def fill_db_from_json_awards(db_name='data.db', json_file='db\\OIAwards.json'):
                 except sqlite3.IntegrityError:
                     print(f"IntegrityError on funding source insert for award {award_uuid}, funding source {funder[0]}")
                     continue
+        
+        # 9) Now insert into OIResearchOutputsToGrants (if we have any research outputs linked):
+        # for ro_uuid in ro_uuids:
+        #     if not ro_uuid:
+        #         continue
+        #     try:
+        #         cur.execute(
+        #             """INSERT OR IGNORE INTO OIResearchOutputsToGrants (ro_uuid, grant_uuid)
+        #                VALUES (?, ?)""",
+        #             (ro_uuid, award_uuid)
+        #         )
+        #     except sqlite3.IntegrityError:
+        #         print(f"[ERROR] IntegrityError on RO-to-award insert for award {award_uuid}, RO {ro_uuid}")
+        #         continue
 
     conn.commit()
     conn.close()
@@ -936,8 +933,9 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
     cur = conn.cursor()
     inserted_members = 0
     inserted_expertise = 0
-
+    print("[INFO] Number of persons in data:", len(data))
     for person in data:
+
         # Extract name
         name_dict = person.get('name', {})
         first_name = _norm(name_dict.get('firstName'))
@@ -969,6 +967,14 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
                     education = _norm(value_text[0].get('value'))
                 break
 
+        # Job Description / Position: From primary association's jobTitle
+        job_position = person.get('staffOrganisationAssociations', [{}])[0].get('jobDescription', {}).get('text', [{}])[0].get('value', None)
+
+        # First Title: First element of titles (if any):
+        person_title = person.get('titles', [{}])[0].get('value', {}).get('text', [{}])[0].get('value', None)
+
+        #
+
         # Bio: From profileInformations with type /background
         bio = None
         for info in person.get('profileInformations', []):
@@ -999,7 +1005,7 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
         profile_url = info_obj.get('portalUrl', None)
 
         # Ensure member (try insert, update on fail)
-        ensured_uuid = _ensure_member(conn, name, member_uuid, email, education, bio, phone, photo_url, profile_url)
+        ensured_uuid = _ensure_member(conn, name, member_uuid, email, education, bio, phone, photo_url, profile_url, person_title, job_position, None)
         inserted_members += 1  # Count as processed
 
         # Insert expertise from researchinterests (split similar to Excel)
@@ -1014,7 +1020,7 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
                     interests_raw = html.unescape(interests_raw)
                     interests_raw = re.sub(r'<[^>]*>', '', interests_raw)
                     # Split the cleaned raw
-                    parts = re.split(r"[;,/]|(?i)\band\b", _norm(interests_raw))
+                    parts = re.split(r"[;,/]|\band\b", _norm(interests_raw), flags=re.I)
                     for p in parts:
                         if cleaned := clean_expertise(p):
                             field = titlecase_expertise(cleaned)
@@ -1056,6 +1062,118 @@ def fill_db_from_json_persons(db_name='data.db', json_file='db\\OIPersons.json')
     print(f"[INFO] Expertise inserted: {inserted_expertise}")
     return True
 
+def fill_db_relations_from_json_projects(db_name='data.db', json_file='db\\OIProjects.json'):
+    """
+    Load project relations from OIProjects.json into OIResearchOutputsToProjects.
+    This links research outputs to projects based on UUIDs.
+    """
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    inserted_relations = 0
+    print("[INFO] Number of projects in data:", len(data))
+
+    # 1) Iterate through each project:
+    for project in data:
+        # 2) Get related award UUIDs (if any):
+        related_awards = project.get('relatedAwards', [{}])
+        award_uuids = [award.get('uuid') for award in related_awards]
+
+        # 3) Get related research outputs (if any):
+        related_ros = project.get('relatedResearchOutputs', [])
+        ro_uuids = [ro.get('uuid') for ro in related_ros]
+
+        # 4) Insert relations into OIResearchOutputsToProjects
+        for aw_uuid in award_uuids:
+            for ro_uuid in ro_uuids:
+                try:
+                    cur.execute(
+                        """INSERT OR IGNORE INTO OIResearchOutputsToGrants (ro_uuid, grant_uuid)
+                        VALUES (?, ?)""",
+                        (ro_uuid, aw_uuid)
+                    )
+                    if cur.rowcount > 0:
+                        inserted_relations += 1
+                except sqlite3.IntegrityError:
+                    print(f"[ERROR] IntegrityError on RO-to-project insert for award {aw_uuid}, RO {ro_uuid}")
+                    continue
+    conn.commit()
+    conn.close()
+    print(f"[INFO] Project relations inserted: {inserted_relations}")
+    return True
+
+def fill_db_meta_info_from_other_tables(db_name='data.db'):
+    """
+    Populate OIMetaInfo with counts of members, expertise, research outputs, awards, and relations.
+    """
+    # 0) Connect to the DB
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+
+    # 1) Define and execute the SQL to populate OIMembersMetaInfo
+    sql = """
+    BEGIN;
+
+    WITH
+    author_ro AS (
+    -- One row per (member, research output)
+    SELECT DISTINCT researcher_uuid, ro_uuid
+    FROM OIResearchOutputsCollaborators
+    ),
+
+    ro_by_member AS (
+    -- # of distinct ROs authored by each member
+    SELECT researcher_uuid, COUNT(DISTINCT ro_uuid) AS num_ros
+    FROM author_ro
+    GROUP BY researcher_uuid
+    ),
+
+    grants_by_member AS (
+        -- # of distinct grants attached to the member's authored ROs
+        SELECT a.researcher_uuid, COUNT(DISTINCT g.uuid) AS num_grants
+        FROM author_ro a
+        JOIN OIResearchOutputsToGrants rg ON rg.ro_uuid = a.ro_uuid
+        JOIN OIResearchGrants g          ON g.uuid     = rg.grant_uuid
+        GROUP BY a.researcher_uuid
+    ),
+
+    collabs_by_member AS (
+        -- # of ROs where the member has at least one *other* collaborator
+        SELECT ar.researcher_uuid, COUNT(DISTINCT ar.ro_uuid) AS num_collabs
+        FROM author_ro ar
+        WHERE EXISTS (
+            SELECT 1
+            FROM OIResearchOutputsCollaborators x
+            WHERE x.ro_uuid = ar.ro_uuid
+                AND x.researcher_uuid <> ar.researcher_uuid
+        )
+        GROUP BY ar.researcher_uuid
+    )
+
+    INSERT INTO OIMembersMetaInfo (researcher_uuid, num_research_outputs, num_grants, num_collaborations)
+    SELECT
+        m.uuid,
+        COALESCE(rm.num_ros, 0)     AS num_research_outputs,
+        COALESCE(gm.num_grants, 0)  AS num_grants,
+        COALESCE(cm.num_collabs, 0) AS num_collaborations
+    FROM OIMembers m
+    LEFT JOIN ro_by_member      rm ON rm.researcher_uuid = m.uuid
+    LEFT JOIN grants_by_member  gm ON gm.researcher_uuid = m.uuid
+    LEFT JOIN collabs_by_member cm ON cm.researcher_uuid = m.uuid
+    ON CONFLICT(researcher_uuid) DO UPDATE SET
+        num_research_outputs = excluded.num_research_outputs,
+        num_grants           = excluded.num_grants,
+        num_collaborations   = excluded.num_collaborations;
+    """
+    cur.executescript(sql)
+    conn.commit()
+    conn.close()
+    print("[INFO] OIMembersMetaInfo populated/updated.")
+    return True
+
+
 # Main pipeline orchestrator
 def main():
     """
@@ -1067,17 +1185,18 @@ def main():
     """
     db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
-    excel_path = 'db\\OI_members_data.xlsx'
-    sheet_name = 'DATA- OI Member Listing-sample'
-    research_outputs_json = 'db\\research_outputs.json'
+    research_outputs_json = 'db\\OIResearchOutputs.json'
     awards_json = 'db\\OIAwards.json'
     persons_json = 'db\\OIPersons.json'
+    projects_json = 'db\\OIProjects.json'
 
     check_and_create_db(db_name=db_name, sql_path=sql_path)
     # fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
     fill_db_from_json_persons(db_name=db_name, json_file=persons_json)  # Merging OIPersons.json into OIMembers
     fill_db_from_json_research_outputs(db_name=db_name, json_file=research_outputs_json)
     fill_db_from_json_awards(db_name=db_name, json_file=awards_json)
+    fill_db_relations_from_json_projects(db_name=db_name, json_file=projects_json)
+    fill_db_meta_info_from_other_tables(db_name=db_name)
 
 if __name__ == "__main__":
     main()
