@@ -38,6 +38,17 @@ export default function App() {
   };
 
 
+  const [dataSource, setDataSource] = useState<'api' | 'mock'>('mock');
+
+  const toggleDataSource = () => {
+    setDataSource(prev => (prev === 'mock' ? 'api' : 'mock'));
+  };
+
+
+
+  
+
+
   return (
     <div className="min-h-screen bg-background">
    {/* Top Navigation Bar */}
@@ -65,6 +76,12 @@ export default function App() {
       <span>Expeditions</span>
       <span>Resources</span>
       <span>Awards</span>
+       <button
+        onClick={toggleDataSource}
+        className="ml-4 px-3 py-1 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
+      >
+        {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
+      </button>
 
       
     </div>
@@ -89,6 +106,7 @@ export default function App() {
             filters={filters}
             setProfileOpen={setProfileOpen}
             setSelectedResearcher={setSelectedResearcher}
+            dataSource = {dataSource}
           />
         </div>
       </div>

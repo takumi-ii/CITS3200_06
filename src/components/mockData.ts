@@ -71,7 +71,9 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
     authors: ['Sarah Chen'],
     journal: 'Nature Climate Change',
     year: 2024,
-    url: 'https://example.org/coral-acidification'
+    url: 'https://example.org/coral-acidification',
+    abstract: 'This paper investigates the genetic and ecological adaptations of corals to increasing ocean acidity, with a focus on resilience mechanisms in Indo-Pacific reefs.',
+    keywords: ['Coral Reefs', 'Ocean Acidification', 'Climate Change', 'Marine Ecology']
   },
   {
     id: 'ro-2',
@@ -80,7 +82,9 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
     authors: ['Sarah Chen', 'Emma Thompson'],
     journal: 'Conservation Biology',
     year: 2023,
-    url: 'https://example.org/mpa-effectiveness'
+    url: 'https://example.org/mpa-effectiveness',
+    abstract: 'Evaluation of global marine protected areas (MPAs) and their role in conserving biodiversity under environmental and anthropogenic pressures.',
+    keywords: ['Marine Protected Areas', 'Conservation', 'Biodiversity', 'Ecosystem Management']
   },
   {
     id: 'ro-3',
@@ -89,7 +93,9 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
     authors: ['Michael Rodriguez'],
     journal: 'Science',
     year: 2024,
-    url: 'https://example.org/deep-carbon'
+    url: 'https://example.org/deep-carbon',
+    abstract: 'An in-depth analysis of carbon sequestration processes in the deep ocean and their implications for mitigating climate change.',
+    keywords: ['Carbon Sequestration', 'Deep Sea', 'Climate Change', 'Oceanography']
   },
   {
     id: 'ro-4',
@@ -98,7 +104,9 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
     authors: ['Emma Thompson'],
     journal: 'Environmental Science & Technology',
     year: 2024,
-    url: 'https://example.org/microplastics-au'
+    url: 'https://example.org/microplastics-au',
+    abstract: 'Survey of microplastic contamination levels across Australian coastal and offshore waters, with implications for food webs and human health.',
+    keywords: ['Microplastics', 'Marine Pollution', 'Environmental Monitoring', 'Australia']
   },
   {
     id: 'ro-5',
@@ -107,9 +115,12 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
     authors: ['Emma Thompson'],
     journal: 'Marine Chemistry',
     year: 2023,
-    url: 'https://example.org/ocean-ph'
+    url: 'https://example.org/ocean-ph',
+    abstract: 'Development of next-generation monitoring systems for continuous assessment of ocean pH and acidification trends.',
+    keywords: ['Ocean Monitoring', 'pH Systems', 'Marine Chemistry', 'Acidification']
   }
 ];
+
 
 // -------- Researchers (additive: objects for today + IDs for later) --------
 export const mockResearchers: Researcher[] = [

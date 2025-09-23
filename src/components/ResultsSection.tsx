@@ -18,9 +18,10 @@ interface ResultsSectionProps {
    // NEW: allow parent to control the Profile modal
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or your Researcher type
+  dataSource:'api' | 'mock'; 
 }
 
-export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher }: ResultsSectionProps) {
+export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher ,dataSource}: ResultsSectionProps) {
 
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
@@ -37,56 +38,73 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   // - Otherwise, load default lists (/api/researchers and /api/researchOutcomes)
   //   and fall back to mocks if empty/unavailable.
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const run = async () => {
-      const q = (searchQuery || '').trim();
-      try {
-        setLoading(true);
-        if (q) {
-          const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-            signal: controller.signal,
-          });
-          if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
-          const data = await resp.json();
-          setResearchers(Array.isArray(data.members) ? data.members : []);
-          setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
-        } else {
-          const [rRes, oRes] = await Promise.all([
-            fetch('/api/researchers', { signal: controller.signal }),
-            fetch('/api/researchOutcomes', { signal: controller.signal }),
-          ]);
-          let rJson: any = null;
-          let oJson: any = null;
-          try { rJson = await rRes.json(); } catch {}
-          try { oJson = await oRes.json(); } catch {}
-          const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
-          const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
-          setResearchers(Array.isArray(rData) ? rData : []);
-          setOutcomes(Array.isArray(oData) ? oData : []);
-        }
-      } catch {
-        // On error: if searching, show empty; otherwise fallback happens below
-        if ((searchQuery || '').trim()) {
-          setResearchers([]);
-          setOutcomes([]);
-        } else {
-          setResearchers([]);
-          setOutcomes([]);
-        }
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const controller = new AbortController();
+
+  const run = async () => {
+    const q = (searchQuery || '').trim();
+
+    try {
+      setLoading(true);
+
+      if (dataSource === 'mock') {
+        // Always fall back to mocks
+        setResearchers(mockResearchers);
+        setOutcomes(mockResearchOutcomes);
+        return;
       }
-    };
-    run();
-    return () => controller.abort();
-  }, [searchQuery]);
+
+      // otherwise go to API
+      if (q) {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
+        const data = await resp.json();
+        setResearchers(Array.isArray(data.members) ? data.members : []);
+        setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
+      } else {
+        const [rRes, oRes] = await Promise.all([
+          fetch('/api/researchers', { signal: controller.signal }),
+          fetch('/api/researchOutcomes', { signal: controller.signal }),
+        ]);
+        let rJson: any = null;
+        let oJson: any = null;
+        try { rJson = await rRes.json(); } catch {}
+        try { oJson = await oRes.json(); } catch {}
+        const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
+        const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
+        setResearchers(Array.isArray(rData) ? rData : []);
+        setOutcomes(Array.isArray(oData) ? oData : []);
+      }
+    } catch {
+      setResearchers([]);
+      setOutcomes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  run();
+  return () => controller.abort();
+}, [searchQuery, dataSource]);   // 👈 include dataSource
+
+const pickSource = <T,>(live: T[], mock: T[]) => {
+  // when searching, never show mocks (even if empty)
+  if (q) return live;
+
+  // no search: honor dataSource, with fallback
+  if (dataSource === 'mock') return mock;
+  return (Array.isArray(live) && live.length > 0) ? live : mock;
+};
 
   // Choose live data if available; otherwise use mocks (only when no active search)
-  const sourceResearchers = researchers.length ? researchers : ((searchQuery || '').trim() ? [] : mockResearchers);
-  const sourceOutcomes = outcomes.length ? outcomes : ((searchQuery || '').trim() ? [] : mockResearchOutcomes);
+  
 
   const q = (searchQuery || '').toLowerCase();
+
+const sourceResearchers = pickSource(researchers, mockResearchers);
+const sourceOutcomes    = pickSource(outcomes,   mockResearchOutcomes);
 
   const filteredResearchers = sourceResearchers
     .filter((researcher: any) => {
