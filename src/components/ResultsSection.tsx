@@ -6,7 +6,9 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { mockResearchers,mockResearchOutcomes } from './mockData';
+import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
+import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+
 
 interface ResultsSectionProps {
   searchQuery: string;
@@ -28,83 +30,36 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
-  // Live data states
-  const [researchers, setResearchers] = useState<any[]>([]);
-  const [outcomes, setOutcomes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Live data from central store (no fetching here)
+const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
+const [outcomes, setOutcomes] = useState<any[]>(getAllOutcomes());
 
-  // Fetch strategy:
-  // - If there's a query, use /api/search
-  // - Otherwise, load default lists (/api/researchers and /api/researchOutcomes)
-  //   and fall back to mocks if empty/unavailable.
+// 🔎 Debug counts
+console.log(
+  "ResultsSection initial store snapshot:",
+  "researchers:", researchers.length,
+  "outcomes:", outcomes.length
+);
+
+
+const handleStoreChange = React.useCallback(() => {
+  const r = getAllResearchers();
+  const o = getAllOutcomes();
+  console.log('ResultsSection store updated:', r.length, o.length);
+  setResearchers(r);
+  setOutcomes(o);
+}, []);
 
 useEffect(() => {
-  const controller = new AbortController();
-
-  const run = async () => {
-    const q = (searchQuery || '').trim();
-
-    try {
-      setLoading(true);
-
-      if (dataSource === 'mock') {
-        // Always fall back to mocks
-        setResearchers(mockResearchers);
-        setOutcomes(mockResearchOutcomes);
-        return;
-      }
-
-      // otherwise go to API
-      if (q) {
-        const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
-        if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
-        const data = await resp.json();
-        setResearchers(Array.isArray(data.members) ? data.members : []);
-        setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
-      } else {
-        const [rRes, oRes] = await Promise.all([
-          fetch('/api/researchers', { signal: controller.signal }),
-          fetch('/api/researchOutcomes', { signal: controller.signal }),
-        ]);
-        let rJson: any = null;
-        let oJson: any = null;
-        try { rJson = await rRes.json(); } catch {}
-        try { oJson = await oRes.json(); } catch {}
-        const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
-        const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
-        setResearchers(Array.isArray(rData) ? rData : []);
-        setOutcomes(Array.isArray(oData) ? oData : []);
-      }
-    } catch {
-      setResearchers([]);
-      setOutcomes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  run();
-  return () => controller.abort();
-}, [searchQuery, dataSource]);   // 👈 include dataSource
-
-const pickSource = <T,>(live: T[], mock: T[]) => {
-  // when searching, never show mocks (even if empty)
-  if (q) return live;
-
-  // no search: honor dataSource, with fallback
-  if (dataSource === 'mock') return mock;
-  return (Array.isArray(live) && live.length > 0) ? live : mock;
-};
-
+  const unsub = subscribe(handleStoreChange);
+  return () => unsub();
+}, [handleStoreChange]);
   // Choose live data if available; otherwise use mocks (only when no active search)
-  
+const q = (searchQuery || '').toLowerCase();
 
-  const q = (searchQuery || '').toLowerCase();
-
-const sourceResearchers = pickSource(researchers, mockResearchers);
-const sourceOutcomes    = pickSource(outcomes,   mockResearchOutcomes);
+// base arrays: real store data or mocks, depending on dataSource
+const sourceResearchers = dataSource === 'mock' ? mockResearchers : researchers;
+const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcomes;
 
   const filteredResearchers = sourceResearchers
     .filter((researcher: any) => {
@@ -177,9 +132,10 @@ const sourceOutcomes    = pickSource(outcomes,   mockResearchOutcomes);
         <h3 className="text-xl font-semibold text-gray-800 mb-2">
           Search Results
         </h3>
-        <p className="text-gray-600">
-          {loading ? 'Searching…' : `Found ${researchers.length} researchers and ${outcomes.length} research outcomes`}
-        </p>
+       <p className="text-gray-600">
+  Found {researchers.length} researchers and {outcomes.length} research outcomes
+</p>
+
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

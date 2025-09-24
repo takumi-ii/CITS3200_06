@@ -1,9 +1,9 @@
 import { useEffect,useState} from "react";
 import { createPortal } from "react-dom";
-import { Researcher } from "./mockData"; // or from your types file
-import { collabIdx, } from "./mockData";
+import { Researcher } from "../data/mockData"; // or from your types file
+import { collabIdx, } from "../data/mockData";
 import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUtils";
-import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "./mockData";
+import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 
 
 

@@ -5,11 +5,19 @@ import FilterSidebar from './components/FilterSidebar';
 import ResultsSection from './components/ResultsSection';
 import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
-import { Researcher } from './components/mockData';
-
+import { Researcher } from './data/mockData';
+import { useEffect } from "react";
+import { loadAllData } from './data/api';
 
 
 export default function App() {
+// App.tsx
+useEffect(() => {
+  console.log('App: calling loadAllData');
+  loadAllData();
+}, []);
+
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     yearRange: [2020, 2024],

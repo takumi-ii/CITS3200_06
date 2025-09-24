@@ -1,4 +1,4 @@
-import { Researcher,CollaborationEdge,ResearchOutcome,pairKey,CollaborationIndex,Grant} from "../components/mockData";
+import { Researcher,CollaborationEdge,ResearchOutcome,pairKey,CollaborationIndex,Grant} from "./mockData";
 
 // Utility: set insert
 const inc = (obj: Record<string, CollaborationEdge>, k: string, fn: (e: CollaborationEdge) => void) => {
