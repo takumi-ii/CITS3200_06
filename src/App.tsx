@@ -5,18 +5,9 @@ import FilterSidebar from './components/FilterSidebar';
 import ResultsSection from './components/ResultsSection';
 import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
+import { Researcher } from './components/mockData';
 
 
-type Researcher = {
-  id?: number | string;
-  uuid?: string;
-  name: string;
-  title?: string;
-  department?: string;
-  bio?: string;
-  expertise?: string[];
-  // add anything else you’ll show in the modal
-};
 
 export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
