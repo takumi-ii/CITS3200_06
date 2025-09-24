@@ -143,6 +143,7 @@ export async function loadAllData() {
     });
 
     console.log('api.ts: loaded', researchers.length, 'researchers,', outcomes.length, 'outcomes');
+    console.log(researchers[0]);
   } catch (e: any) {
     setState({ loading: false, error: e?.message ?? 'Failed to load data' });
   }
