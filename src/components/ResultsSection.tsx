@@ -170,6 +170,9 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
                         {researcher.title && (
                           <p className="text-gray-600">{researcher.title}</p>
                         )}
+                       {researcher.role && (
+  <p className="text-gray-600 font-bold">{researcher.role}</p>
+)}
                         {researcher.department && (
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
