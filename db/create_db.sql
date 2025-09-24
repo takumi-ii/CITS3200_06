@@ -7,8 +7,11 @@ CREATE TABLE IF NOT EXISTS OIMembers (
   uuid TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,  -- serves as FK target
   email TEXT,
-  education TEXT,
+  education TEXT,             -- PhD, MSc, etc.
   bio TEXT,                   -- Pulled from the API
+  position TEXT,              -- Their role at the OI - Associate Professor, Research Fellow, etc.
+  first_title TEXT,                 -- Dr, Prof, etc.
+  main_research_area TEXT,    -- Climate Change, Marine Biology, etc.
   phone TEXT,
   photo_url TEXT,
   profile_url TEXT
@@ -30,14 +33,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_expertise_researcher_field
 -- OIResearchOutputs
 CREATE TABLE IF NOT EXISTS OIResearchOutputs (
   uuid TEXT PRIMARY KEY,
-  researcher_uuid TEXT NOT NULL,
   publisher_name TEXT,
-  name TEXT NOT NULL UNIQUE,  -- FK target for grants
+  journal_name TEXT,
+  name TEXT NOT NULL,  
   abstract TEXT,
   num_citations INTEGER,
   num_authors INTEGER,
   publication_year INTEGER,
-  link_to_paper TEXT,
+  link_to_paper TEXT
+);
+
+-- OI ResearchOutputsAuthors: Many to Many relationship between OIResearchOutputs and authors / contributors:
+CREATE TABLE IF NOT EXISTS OIResearchOutputsCollaborators (
+  id INTEGER PRIMARY KEY,
+  ro_uuid TEXT NOT NULL,
+  researcher_uuid TEXT NOT NULL,
+  role TEXT,
+  
+  FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+-- DBML: (ro_uuid, researcher_uuid) [unique]
+CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_ro_collab_rouuid_member
+  ON OIResearchOutputsCollaborators (ro_uuid, researcher_uuid);
+
+-- OIMembersMetaInfo: One to One relationship between OIMembers and meta info aggregated from one to many relations with OIResearchOutputs (number of ROs, number of grants, number of collabortions (ROs done with other researchers)):
+CREATE TABLE OIMembersMetaInfo (
+  researcher_uuid TEXT PRIMARY KEY,
+  num_research_outputs INTEGER NOT NULL DEFAULT 0,
+  num_grants INTEGER NOT NULL DEFAULT 0,
+  num_collaborations INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
@@ -57,24 +86,32 @@ CREATE TABLE IF NOT EXISTS OIResearchOutputTags (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_tags_rouuid_tag
   ON OIResearchOutputTags (ro_uuid, name);
 
--- DBML: (researcher_name, name) [unique]
-CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_outputs_researcher_name
-  ON OIResearchOutputs (researcher_uuid, uuid);
-
 -- OIResearchGrants
 CREATE TABLE IF NOT EXISTS OIResearchGrants (
   uuid TEXT PRIMARY KEY,
-  ro_uuid TEXT NOT NULL,
   grant_name TEXT NOT NULL,
   start_date DATE,
   end_date DATE,
   total_funding INTEGER,
   top_funding_source_name TEXT,
-  school TEXT,
+  school TEXT
+);
+
+-- OIResearchOutputsToGrants: Many to Many relationship between OIResearchOutputs and OIResearchGrants
+CREATE TABLE IF NOT EXISTS OIResearchOutputsToGrants (
+  id INTEGER PRIMARY KEY,
+  ro_uuid TEXT NOT NULL,
+  grant_uuid TEXT NOT NULL,
   FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (grant_uuid) REFERENCES OIResearchGrants(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
+-- DBML: (ro_uuid, grant_uuid) [unique]
+CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_ro_to_grants_rouuid_grantuuid
+  ON OIResearchOutputsToGrants (ro_uuid, grant_uuid);
 
 -- OIResearchGrantsFundingSources: One to Many relationship between OIResearchGrants and funding sources
 CREATE TABLE IF NOT EXISTS OIResearchGrantsFundingSources (
@@ -86,9 +123,5 @@ CREATE TABLE IF NOT EXISTS OIResearchGrantsFundingSources (
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
-
--- DBML: (ro_name, grant_name) [unique]
-CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_research_grants_roname_grantname
-  ON OIResearchGrants (ro_uuid, grant_name);
 
 COMMIT;

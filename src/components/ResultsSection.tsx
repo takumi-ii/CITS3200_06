@@ -6,6 +6,9 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
+import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+
 
 interface ResultsSectionProps {
   searchQuery: string;
@@ -14,184 +17,49 @@ interface ResultsSectionProps {
     tags: string[];
     researchArea: string;
   };
+   // NEW: allow parent to control the Profile modal
+  setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or your Researcher type
+  dataSource:'api' | 'mock'; 
 }
 
-type Member = {
-  uuid: string;
-  name: string;
-  email?: string;
-  education?: string;
-  bio?: string;
-  phone?: string;
-  expertise?: string[];
-  score?: number;
-};
+export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher ,dataSource}: ResultsSectionProps) {
 
-type ResearchOutput = {
-  uuid: string;
-  researcher_uuid: string;
-  publisher_name?: string;
-  name: string;
-  score?: number;
-};
-
-// Mock data for researchers
-const mockResearchers = [
-  {
-    id: 1,
-    name: 'Dr. Sarah Chen',
-    title: 'Marine Biologist',
-    department: 'School of Biological Sciences',
-    expertise: ['Coral Reef Ecology', 'Climate Change', 'Marine Conservation'],
-    publications: 42,
-    grants: 8,
-    collaborations: 15,
-    location: 'Perth, Australia',
-    bio: 'Leading researcher in coral reef resilience and adaptation strategies.',
-    recentPublications: [
-      { title: 'Coral Adaptation to Ocean Acidification', year: 2024, journal: 'Nature Climate Change' },
-      { title: 'Marine Protected Area Effectiveness', year: 2023, journal: 'Conservation Biology' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Prof. Michael Rodriguez',
-    title: 'Oceanographer',
-    department: 'Oceans Institute',
-    expertise: ['Deep Sea Research', 'Ocean Circulation', 'Marine Geology'],
-    publications: 67,
-    grants: 12,
-    collaborations: 23,
-    location: 'Perth, Australia',
-    bio: 'Expert in deep ocean processes and their impact on global climate systems.',
-    recentPublications: [
-      { title: 'Deep Ocean Carbon Sequestration', year: 2024, journal: 'Science' },
-      { title: 'Antarctic Current Dynamics', year: 2023, journal: 'Journal of Physical Oceanography' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Dr. Emma Thompson',
-    title: 'Marine Chemist',
-    department: 'School of Molecular Sciences',
-    expertise: ['Ocean Acidification', 'Marine Pollution', 'Biogeochemistry'],
-    publications: 34,
-    grants: 6,
-    collaborations: 18,
-    location: 'Perth, Australia',
-    bio: 'Specialist in marine chemical processes and pollution impact assessment.',
-    recentPublications: [
-      { title: 'Microplastic Distribution in Australian Waters', year: 2024, journal: 'Environmental Science & Technology' },
-      { title: 'Ocean pH Monitoring Systems', year: 2023, journal: 'Marine Chemistry' }
-    ]
-  }
-];
-
-// Mock data for research outcomes
-const mockResearchOutcomes = [
-  {
-    id: 1,
-    title: 'Climate Resilience in Indo-Pacific Coral Reefs',
-    type: 'Research Article',
-    authors: ['Dr. Sarah Chen', 'Prof. Michael Rodriguez', 'Dr. James Wilson'],
-    journal: 'Nature Climate Change',
-    year: 2024,
-    citations: 23,
-    abstract: 'This study examines the adaptive capacity of coral reefs in the Indo-Pacific region under climate change scenarios.',
-    keywords: ['Climate Change', 'Coral Reefs', 'Adaptation', 'Indo-Pacific'],
-    grantFunding: 'ARC Discovery Grant DP240102345'
-  },
-  {
-    id: 2,
-    title: 'Deep Ocean Carbon Storage Mechanisms',
-    type: 'Research Article',
-    authors: ['Prof. Michael Rodriguez', 'Dr. Lisa Park', 'Dr. Robert Kim'],
-    journal: 'Science',
-    year: 2024,
-    citations: 45,
-    abstract: 'Investigation of deep ocean processes that contribute to long-term carbon sequestration.',
-    keywords: ['Carbon Sequestration', 'Deep Sea', 'Climate', 'Oceanography'],
-    grantFunding: 'NHMRC Grant GNT2009876'
-  },
-  {
-    id: 3,
-    title: 'Microplastic Impact on Marine Food Webs',
-    type: 'Review Article',
-    authors: ['Dr. Emma Thompson', 'Dr. Sarah Chen', 'Prof. David Brown'],
-    journal: 'Environmental Science & Technology',
-    year: 2023,
-    citations: 67,
-    abstract: 'Comprehensive review of microplastic distribution and impact on marine ecosystems.',
-    keywords: ['Microplastics', 'Marine Pollution', 'Food Webs', 'Ecosystem Health'],
-    grantFunding: 'Cooperative Research Centre Grant'
-  }
-];
-
-export default function ResultsSection({ searchQuery, filters }: ResultsSectionProps) {
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
-  // Live data states
-  const [researchers, setResearchers] = useState<any[]>([]);
-  const [outcomes, setOutcomes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Live data from central store (no fetching here)
+const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
+const [outcomes, setOutcomes] = useState<any[]>(getAllOutcomes());
 
-  // Fetch strategy:
-  // - If there's a query, use /api/search
-  // - Otherwise, load default lists (/api/researchers and /api/researchOutcomes)
-  //   and fall back to mocks if empty/unavailable.
-  useEffect(() => {
-    const controller = new AbortController();
-    const run = async () => {
-      const q = (searchQuery || '').trim();
-      try {
-        setLoading(true);
-        if (q) {
-          const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-            signal: controller.signal,
-          });
-          if (!resp.ok) throw new Error(`Search failed: ${resp.status}`);
-          const data = await resp.json();
-          setResearchers(Array.isArray(data.members) ? data.members : []);
-          setOutcomes(Array.isArray(data.research_outputs) ? data.research_outputs : []);
-        } else {
-          const [rRes, oRes] = await Promise.all([
-            fetch('/api/researchers', { signal: controller.signal }),
-            fetch('/api/researchOutcomes', { signal: controller.signal }),
-          ]);
-          let rJson: any = null;
-          let oJson: any = null;
-          try { rJson = await rRes.json(); } catch {}
-          try { oJson = await oRes.json(); } catch {}
-          const rData = rJson ? (Array.isArray(rJson) ? rJson : (rJson.researchers ?? [])) : [];
-          const oData = oJson ? (Array.isArray(oJson) ? oJson : (oJson.outcomes ?? [])) : [];
-          setResearchers(Array.isArray(rData) ? rData : []);
-          setOutcomes(Array.isArray(oData) ? oData : []);
-        }
-      } catch {
-        // On error: if searching, show empty; otherwise fallback happens below
-        if ((searchQuery || '').trim()) {
-          setResearchers([]);
-          setOutcomes([]);
-        } else {
-          setResearchers([]);
-          setOutcomes([]);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
-    return () => controller.abort();
-  }, [searchQuery]);
+// 🔎 Debug counts
+console.log(
+  "ResultsSection initial store snapshot:",
+  "researchers:", researchers.length,
+  "outcomes:", outcomes.length
+);
 
+
+const handleStoreChange = React.useCallback(() => {
+  const r = getAllResearchers();
+  const o = getAllOutcomes();
+  console.log('ResultsSection store updated:', r.length, o.length);
+  setResearchers(r);
+  setOutcomes(o);
+}, []);
+
+useEffect(() => {
+  const unsub = subscribe(handleStoreChange);
+  return () => unsub();
+}, [handleStoreChange]);
   // Choose live data if available; otherwise use mocks (only when no active search)
-  const sourceResearchers = researchers.length ? researchers : ((searchQuery || '').trim() ? [] : mockResearchers);
-  const sourceOutcomes = outcomes.length ? outcomes : ((searchQuery || '').trim() ? [] : mockResearchOutcomes);
+const q = (searchQuery || '').toLowerCase();
 
-  const q = (searchQuery || '').toLowerCase();
+// base arrays: real store data or mocks, depending on dataSource
+const sourceResearchers = dataSource === 'mock' ? mockResearchers : researchers;
+const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcomes;
 
   const filteredResearchers = sourceResearchers
     .filter((researcher: any) => {
@@ -208,7 +76,7 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
 
       return matchesQuery && matchesTags;
     })
-    .sort((a: any, b: any) => Number(b.publications ?? 0) - Number(a.publications ?? 0)); // desc by publications
+    .sort((a: any, b: any) => Number(b.publicationsCount ?? 0) - Number(a.publicationsCount ?? 0));
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -255,27 +123,33 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
   const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
   const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
 
+
+  
+
   return (
     <div className="flex-1">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-2">
           Search Results
         </h3>
-        <p className="text-gray-600">
-          {loading ? 'Searching…' : `Found ${researchers.length} researchers and ${outcomes.length} research outcomes`}
-        </p>
+       <p className="text-gray-600">
+  Found {researchers.length} researchers and {outcomes.length} research outcomes
+</p>
+
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="researchers" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Researchers ({researchers.length})
-          </TabsTrigger>
-          <TabsTrigger value="outcomes" className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            Research Outcomes ({outcomes.length})
-          </TabsTrigger>
+  <Users className="w-4 h-4" />
+  Researchers ({sourceResearchers.length})
+</TabsTrigger>
+<TabsTrigger value="outcomes" className="flex items-center gap-2">
+  <BookOpen className="w-4 h-4" />
+  Research Outcomes ({sourceOutcomes.length})
+</TabsTrigger>
+
+          
         </TabsList>
 
         <div ref={resultsTopRef} />
@@ -296,14 +170,24 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                         {researcher.title && (
                           <p className="text-gray-600">{researcher.title}</p>
                         )}
+                       {researcher.role && (
+  <p className="text-gray-600 font-bold">{researcher.role}</p>
+)}
                         {researcher.department && (
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
                       </div>
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        View Profile
-                      </Button>
+                       <Button
+    variant="outline"
+    size="sm"
+    onClick={() => {
+      setSelectedResearcher(researcher);
+      setProfileOpen(true);
+    }}
+  >
+    <ExternalLink className="w-4 h-4 mr-1" />
+    View Profile
+  </Button>
                     </div>
 
                     {researcher.bio && (
@@ -318,28 +202,29 @@ export default function ResultsSection({ searchQuery, filters }: ResultsSectionP
                       ))}
                     </div>
 
-                    {(researcher.publications || researcher.grants || researcher.collaborations) && (
-                      <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
-                        {researcher.publications && (
-                          <div className="flex items-center gap-1">
-                            <BookOpen className="w-4 h-4" />
-                            {researcher.publications} Publications
-                          </div>
-                        )}
-                        {researcher.grants && (
-                          <div className="flex items-center gap-1">
-                            <Award className="w-4 h-4" />
-                            {researcher.grants} Grants
-                          </div>
-                        )}
-                        {researcher.collaborations && (
-                          <div className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            {researcher.collaborations} Collaborations
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
+    <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
+    {typeof researcher.publicationsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <BookOpen className="w-4 h-4" />
+        {researcher.publicationsCount} Publications
+      </div>
+    )}
+    {typeof researcher.grantsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <Award className="w-4 h-4" />
+        {researcher.grantsCount} Grants
+      </div>
+    )}
+    {typeof researcher.collaboratorsCount === 'number' && (
+      <div className="flex items-center gap-1">
+        <Users className="w-4 h-4" />
+        {researcher.collaboratorsCount} Collaborations
+      </div>
+    )}
+  </div>
+)}
+
 
                     {Array.isArray(researcher.recentPublications) && (
                       <div className="border-t pt-3">
