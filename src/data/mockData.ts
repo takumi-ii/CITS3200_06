@@ -66,6 +66,7 @@ export type Researcher = {
   email?: string;
   phone?: string;
   photoUrl?: string;
+  bio?: string;
   mainResearchArea?: string | null;
   location?: string;
 };
@@ -74,10 +75,8 @@ export type Researcher = {
 export type Award = {
   id: string;
   name: string;
-  date: string;
-  type?: string | null;
-  recipientId: string ; // singular per your spec
-  recipientIds: string[] ;
+  date?: string;
+  recipientId: string;
 };
 
 export type Grant = {
@@ -90,6 +89,10 @@ export type Grant = {
   funder?: string | null;   // externalOrganizations[0].systemName || managingOrganization.systemName
   managingOrg?: string | null;
   url?: string | null;
+  // Funding fields (from schema: total_funding, top_funding_source_name)
+  totalFunding?: number | null;     // e.g., 750000 (AUD)
+  topFundingSourceName?: string | null;
+  fundingBreakdown?: { sourceName?: string | null; amount?: number | null }[];
  
 
   // Relationships
@@ -325,6 +328,10 @@ export const mockResearchOutcomes: ResearchOutcome[] = [
 // -------- Central grants (12 for Suzan) --------
 export const mockGrants: Grant[] = Array.from({ length: 12 }).map((_, i) => {
   const n = i + 1;
+  const totalFundingSeries = [
+    850000, 1250000, 640000, 980000, 1500000, 720000,
+    1100000, 930000, 560000, 1320000, 875000, 1010000
+  ];
   return {
     id: `gr-20${n.toString().padStart(2, '0')}`,
     title: [
@@ -348,6 +355,8 @@ export const mockGrants: Grant[] = Array.from({ length: 12 }).map((_, i) => {
     funder: ['ARC', 'CRC', 'Industry', 'Govt'][i % 4],
     managingOrg: 'UWA',
     url: 'https://example.org/grant/' + n,
+    totalFunding: totalFundingSeries[i],
+    topFundingSourceName: ['ARC', 'CRC', 'Industry', 'Govt'][i % 4],
     piId: 'suzan-perfect',
     coInvestigatorIds: (['sarah-chen', 'michael-rodriguez', 'emma-thompson'] as string[]).slice(0, (i % 3) + 1),
     participantIds: ['suzan-perfect', 'sarah-chen', 'michael-rodriguez', 'emma-thompson'] // all involved for simplicity
@@ -358,10 +367,10 @@ export const mockGrants: Grant[] = Array.from({ length: 12 }).map((_, i) => {
 // NOTE: your Award type currently requires both recipientId and recipientIds.
 // To avoid squiggles, we fill both, but feel free to drop recipientId later.
 export const mockAwards: Award[] = [
-  { id: 'aw-301', name: 'Early Career Researcher Award', date: '2022-06-15', type: 'Institute', recipientId: 'suzan-perfect', recipientIds: ['suzan-perfect'] },
-  { id: 'aw-302', name: 'Blue Food Innovation Prize', date: '2023-11-05', type: 'External',  recipientId: 'suzan-perfect', recipientIds: ['suzan-perfect'] },
-  { id: 'aw-303', name: 'Sustainability Leadership Medal', date: '2024-09-01', type: 'University', recipientId: 'suzan-perfect', recipientIds: ['suzan-perfect'] },
-  { id: 'aw-304', name: 'Best Paper Award (Marine Policy)', date: '2025-03-20', type: 'Journal', recipientId: 'suzan-perfect', recipientIds: ['suzan-perfect'] },
+  { id: 'aw-301', name: 'Early Career Researcher Award', date: '2022-06-15', recipientId: 'suzan-perfect' },
+  { id: 'aw-302', name: 'Blue Food Innovation Award',    date: '2023-11-05', recipientId: 'suzan-perfect' },
+  { id: 'aw-303', name: 'Sustainability Leadership Medal', date: '2024-09-01', recipientId: 'suzan-perfect' },
+  { id: 'aw-304', name: 'Best Paper Award (Marine Policy)', date: '2025-03-20', recipientId: 'suzan-perfect' },
 ];
 
 // -------- Central projects (5 for Suzan) --------

@@ -1,4 +1,4 @@
-import { useEffect,useState} from "react";
+import React, { useEffect,useState} from "react";
 import { createPortal } from "react-dom";
 import { Researcher } from "../data/mockData"; // or from your types file
 import { collabIdx, } from "../data/mockData";
@@ -22,12 +22,8 @@ const nameOf = (id?: string) => mockResearchers.find(r => r.id === id)?.name || 
 
 
 const safeArray = <T,>(v?: T[] | null) => (Array.isArray(v) ? v : []);
-const recipientsOf = (aw: any) =>
-  safeArray<string>(aw.recipientIds).length
-    ? safeArray<string>(aw.recipientIds)
-    : aw.recipientId
-      ? [aw.recipientId]
-      : [];
+// simplified: awards now have a single recipientId
+const recipientsOf = (aw: any) => (aw?.recipientId ? [aw.recipientId] : []);
 
 const getInitials = (name?: string) =>
   (name || "")
@@ -780,7 +776,7 @@ const collabs = person?.id
                   )}
                 </div>
 
-                {/* Meta row: funder • type • dates • status badge */}
+                {/* Meta row: funder • type • dates • funding • status badge */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
                   <span>{g.funder || "Funder TBD"}</span>
                   {(g.funder && (g.type || (g.startDate || g.endDate))) && <span>·</span>}
@@ -788,8 +784,24 @@ const collabs = person?.id
                   {(g.type && (g.startDate || g.endDate)) && <span>·</span>}
                   <span>{dateRange(g.startDate, g.endDate)}</span>
 
+                  {typeof (g as any).totalFunding === "number" && (
+                    <span style={{
+                      marginLeft: "auto",
+                      background: "#ecfdf5",
+                      border: "1px solid #a7f3d0",
+                      borderRadius: 999,
+                      padding: "2px 8px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#065f46",
+                      whiteSpace: "nowrap"
+                    }}>
+                      ${(g as any).totalFunding.toLocaleString()} AUD
+                    </span>
+                  )}
+
                   {g.status && (
-                    <span style={{ marginLeft: "auto", background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                    <span style={{ background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
                       {g.status}
                     </span>
                   )}
@@ -889,7 +901,7 @@ const collabs = person?.id
           {/* List */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {awards.map(a => {
-              const recips = recipientsOf(a); // handles recipientId or recipientIds
+              const recips = a.recipientId ? [a.recipientId] : [];
               const meIncluded = recips.includes(person!.id);
               return (
                 <div
@@ -899,14 +911,9 @@ const collabs = person?.id
                   {/* Title */}
                   <div style={{ fontWeight: 600, color: "#0b2a4a" }}>{a.name}</div>
 
-                  {/* Meta row: date • type badge */}
+                  {/* Meta row: date */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
                     <span>{a.date ? fmt(a.date) : "Date TBD"}</span>
-                    {a.type && (
-                      <span style={{ background: "#eef2ff", border: "1px solid #e0e7ff", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#3730a3" }}>
-                        {a.type}
-                      </span>
-                    )}
                     {meIncluded && (
                       <span style={{ marginLeft: "auto", background: "#ecfeff", border: "1px solid #a5f3fc", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#075985" }}>
                         Recipient
@@ -914,10 +921,10 @@ const collabs = person?.id
                     )}
                   </div>
 
-                  {/* Recipients (show all if more than one) */}
+                  {/* Recipient */}
                   {!!recips.length && (
                     <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                      <b>Recipient{recips.length > 1 ? "s" : ""}:</b>{" "}
+                      <b>Recipient:</b>{" "}
                       {recips.map(nameOf).join(", ")}
                     </div>
                   )}
