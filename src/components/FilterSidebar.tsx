@@ -68,7 +68,10 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     <div className="w-80 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg text-blue-900">Filter Results</CardTitle>
+          <CardTitle className="text-xl font-semibold text-blue-900" >
+  Filter results
+</CardTitle>
+
         </CardHeader>
         <CardContent className="space-y-6">
           

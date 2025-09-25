@@ -128,15 +128,7 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
 
   return (
     <div className="flex-1 min-w-0">
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">
-          Search Results
-        </h3>
-       <p className="text-gray-600">
-  Found {researchers.length} researchers and {outcomes.length} research outcomes
-</p>
-
-      </div>
+     
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -151,7 +143,15 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
 
           
         </TabsList>
+ <div className="mb-6">
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">
+          Search Results
+        </h3>
+       <p className="text-gray-600">
+  Found {researchers.length} researchers and {outcomes.length} research outcomes
+</p>
 
+      </div>
         <div ref={resultsTopRef} />
 
         <TabsContent value="researchers" className="space-y-6">
@@ -192,10 +192,23 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
                     </div>
 
                     {researcher.bio && (
-                      <p className="text-gray-700 mb-3">{researcher.bio}</p>
-                    )}
+  <div className="mb-3">
+    <p className="text-gray-700 bioClamp3">
+      {researcher.bio}
+    </p>
+    <button
+      className="mt-1 text-sm  text-gray-400 hover:underline"
+      onClick={() => {
+        setSelectedResearcher(researcher);
+        setProfileOpen(true);
+      }}
+    >
+      Read more
+    </button>
+  </div>
+)}
 
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="flex flex-wrap gap-2 mb-3 ">
                       {(researcher.expertise || []).map((exp: string) => (
                         <Badge key={exp} variant="secondary" className="bg-blue-100 text-blue-800">
                           {exp}
