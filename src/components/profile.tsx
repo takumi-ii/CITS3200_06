@@ -288,16 +288,15 @@ return createPortal(
     padding: 0
   }}
 >
-<div className="flex flex-col">
-  <div className="flex items-center gap- mb-2">
-    <GraduationCap className="w-5 h-5 text-gray-600" />
-    <span className="font-semibold text-gray-800 text-base">Expertise</span>
+<div className="mb-3">
+    <div className="flex items-center gap-2">
+      <GraduationCap className="w-5 h-5 text-gray-600" />
+      <span className="font-semibold text-gray-800 text-base">Expertise</span>
+    </div>
+    <div className="text-gray-500 text-sm mt-0.5">
+      Explore areas where {person?.name ?? "this researcher"} is most active
+    </div>
   </div>
-
-  <div className="text-gray-500 text-sm mb-4">
-    Explore areas where {person?.name ?? "this researcher"} is most active
-  </div>
-</div>
 
  
 
