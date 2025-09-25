@@ -1,16 +1,17 @@
-import React, { useEffect,useState} from "react";
+import React, { useEffect,useState,useMemo} from "react";
 import { createPortal } from "react-dom";
 import { Researcher } from "../data/mockData"; // or from your types file
 import { collabIdx, } from "../data/mockData";
 import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUtils";
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
-
+import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 
 
 interface ProfileProps {
   open: boolean;
   onClose: () => void;
   person: Researcher | null;
+  dataSource:'api' | 'mock'; 
 }
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
@@ -44,8 +45,21 @@ const displayAffiliation = (r: any) =>
 
 
 
-export default function Profile({ open, onClose, person }: ProfileProps) {
+export default function Profile({ open, onClose, person ,dataSource}: ProfileProps) {
   const [activeTab, setActiveTab] = useState("Overview");
+  const [tick, setTick] = useState(0);
+
+useEffect(() => {
+  const unsub = subscribe(() => setTick(t => t + 1));
+  return () => unsub();
+}, []);
+
+const publications = useMemo(() => {
+  if (!person) return [];
+  return dataSource === 'api'
+    ? getOutcomesForResearcher(person)  // ← outcomes from API store
+    : person.recentPublications || [];  // ← mock path
+}, [person, dataSource, tick]);
   
   useEffect(() => {
     if (!open) return;
@@ -559,17 +573,57 @@ const collabs = person?.id
 
   </div>
 )}
-
 {/* RESEARCH OUTPUTS CONTENT ONLY */}
 {activeTab === "Research Outputs" && (
   <div style={{ marginTop: 16 }}>
     {(() => {
-      // Resolve IDs -> full objects, sort newest first
-      const outputs =
-        (person?.publicationIds ?? [])
-          .map(id => mockResearchOutcomes.find(o => o.id === id))
-          .filter((o): o is NonNullable<typeof o> => Boolean(o))
+      // --- helpers ----------------------------------------------------------
+      const isApi = dataSource === "api";
+
+      // Normalize "string | object" author forms
+      const toL = (v: any) => (v ?? "").toString().trim().toLowerCase();
+      const authoredBy = (o: any, person: any) => {
+        const authors = Array.isArray(o?.authors) ? o.authors : [];
+        const rid = toL(person?.id || person?.uuid);
+        const rname = toL(person?.name);
+        const rorcid = toL(person?.orcid);
+
+        return authors.some((a: any) => {
+          if (!a) return false;
+          if (typeof a === "string") {
+            const s = toL(a);
+            // could be an id or name string depending on backend
+            return (rid && s === rid) || (rname && s === rname);
+          }
+          const aid = toL(a.id || a.uuid);
+          const aname = toL(a.name);
+          const aorcid = toL(a.orcid);
+          return (rid && aid && rid === aid) ||
+                 (rorcid && aorcid && rorcid === aorcid) ||
+                 (rname && aname && rname === aname);
+        });
+      };
+
+      // --- compute outputs once --------------------------------------------
+      // MOCK path: keep your existing publicationIds -> mockResearchOutcomes
+      // API path: derive from the already-loaded store outcomes by author match
+      let outputs: any[] = [];
+
+      if (isApi) {
+        // IMPORTANT: import getAllOutcomes from ../data/api at the top of Profile.tsx
+        //   import { getAllOutcomes, subscribe } from '../data/api';
+        const all = getAllOutcomes();
+        outputs = all
+          .filter(o => authoredBy(o, person))
           .sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+      } else {
+        // IMPORTANT: import mockResearchOutcomes from ../data/mockData
+        //   import { mockResearchOutcomes } from '../data/mockData';
+        outputs = (person?.publicationIds ?? [])
+          .map((id: string) => mockResearchOutcomes.find(o => o.id === id))
+          .filter((o: any): o is NonNullable<typeof o> => Boolean(o))
+          .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
+      }
 
       return (
         <>
@@ -588,141 +642,146 @@ const collabs = person?.id
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {outputs.map(o => (
               <div
-  key={o.id}
-  style={{
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 8,
-    padding: 12
-  }}
->
-  {/* Title (link) */}
-  <div style={{ fontWeight: 600, color: "#0b2a4a" }}>
-    {o.url ? (
-      <a href={o.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
-        {o.title}
-      </a>
-    ) : (
-      o.title
-    )}
-  </div>
+                key={o.id}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  padding: 12
+                }}
+              >
+                {/* Title (link) */}
+                <div style={{ fontWeight: 600, color: "#0b2a4a" }}>
+                  {o.url ? (
+                    <a href={o.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
+                      {o.title}
+                    </a>
+                  ) : (
+                    o.title
+                  )}
+                </div>
 
-  {/* Meta row: year • journal/type • badges */}
-  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-    <span>{o.year ? `(${o.year})` : ""}{o.year && (o.journal || o.type) ? " · " : ""}{o.journal || o.type || ""}</span>
-    {o.status && (
-      <span style={{ marginLeft: "auto", background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
-        {o.status}
-      </span>
-    )}
-    {o.category && (
-      <span style={{ background: "#eef2ff", border: "1px solid #e0e7ff", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#3730a3" }}>
-        {o.category}
-      </span>
-    )}
-  </div>
+                {/* Meta row: year • journal/type • badges */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
+                  <span>{o.year ? `(${o.year})` : ""}{o.year && (o.journal || o.type) ? " · " : ""}{o.journal || o.type || ""}</span>
+                  {o.status && (
+                    <span style={{ marginLeft: "auto", background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                      {o.status}
+                    </span>
+                  )}
+                  {o.category && (
+                    <span style={{ background: "#eef2ff", border: "1px solid #e0e7ff", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#3730a3" }}>
+                      {o.category}
+                    </span>
+                  )}
+                </div>
 
-  {/* Authors */}
-  {!!o.authors?.length && (
-    <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-      <b>Authors:</b> {o.authors.join(", ")}
-    </div>
-  )}
+                {/* Authors */}
+                {!!o.authors?.length && (
+                  <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
+                    <b>Authors:</b>{" "}
+                    {Array.isArray(o.authors)
+                      ? o.authors
+                          .map((a: any) => (typeof a === "string" ? a : (a?.name ?? a?.id ?? "")))
+                          .filter(Boolean)
+                          .join(", ")
+                      : ""}
+                  </div>
+                )}
 
-  {/* Abstract (collapsible) */}
-  {typeof o.abstract === "string" && o.abstract.trim().length > 0 && (
-    <details style={{ marginTop: 8 }}>
-      <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>Show abstract</summary>
-      <div style={{ color: "#374151", fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap" }}>
-        {o.abstract}
-      </div>
-    </details>
-  )}
+                {/* Abstract (collapsible) */}
+                {typeof o.abstract === "string" && o.abstract.trim().length > 0 && (
+                  <details style={{ marginTop: 8 }}>
+                    <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>Show abstract</summary>
+                    <div style={{ color: "#374151", fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap" }}>
+                      {o.abstract}
+                    </div>
+                  </details>
+                )}
 
-  {/* Keywords */}
-  {!!o.keywords?.length && (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-      {o.keywords.slice(0, 8).map((k) => (
-        <span key={k} style={{ background: "#eef2ff", color: "#3730a3", padding: "4px 8px", borderRadius: 8, fontSize: 12, border: "1px solid #e0e7ff" }}>
-          {k}
-        </span>
-      ))}
-    </div>
-  )}
+                {/* Keywords */}
+                {!!o.keywords?.length && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    {o.keywords.slice(0, 8).map((k: string) => (
+                      <span key={k} style={{ background: "#eef2ff", color: "#3730a3", padding: "4px 8px", borderRadius: 8, fontSize: 12, border: "1px solid #e0e7ff" }}>
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-  {/* Citations */}
-  {typeof o.citations === "number" && (
-    <div style={{ color: "#6b7280", fontSize: 12, marginTop: 6 }}>
-      Citations: {o.citations}
-    </div>
-  )}
+                {/* Citations */}
+                {typeof o.citations === "number" && (
+                  <div style={{ color: "#6b7280", fontSize: 12, marginTop: 6 }}>
+                    Citations: {o.citations}
+                  </div>
+                )}
 
-  {/* Funding */}
-  {(o.grantFundingText || o.grantFundingDetails?.length) && (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Funding</div>
-      {o.grantFundingText && (
-        <div style={{ color: "#374151", fontSize: 13, marginTop: 4 }}>{o.grantFundingText}</div>
-      )}
-      {!!o.grantFundingDetails?.length && (
-        <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
-          {o.grantFundingDetails.map((f, i) => (
-            <li key={`${o.id}-fund-${i}`}>
-              {[f.orgName, f.acronym].filter(Boolean).join(" — ")}
-              {f.fundingNumbers?.length ? ` · ${f.fundingNumbers.join(", ")}` : ""}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )}
+                {/* Funding */}
+                {(o.grantFundingText || o.grantFundingDetails?.length) && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Funding</div>
+                    {o.grantFundingText && (
+                      <div style={{ color: "#374151", fontSize: 13, marginTop: 4 }}>{o.grantFundingText}</div>
+                    )}
+                    {!!o.grantFundingDetails?.length && (
+                      <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
+                        {o.grantFundingDetails.map((f: any, i: number) => (
+                          <li key={`${o.id}-fund-${i}`}>
+                            {[f.orgName, f.acronym].filter(Boolean).join(" — ")}
+                            {f.fundingNumbers?.length ? ` · ${f.fundingNumbers.join(", ")}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
 
-  {/* Links */}
-  {!!o.links?.length && (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-      {o.links.map((l, i) => (
-        <a
-          key={`${o.id}-link-${i}`}
-          href={l.url}
-          target="_blank"
-          rel="noreferrer"
-          style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: "6px 10px", fontSize: 12, textDecoration: "none", color: "#2563eb", whiteSpace: "nowrap" }}
-          title={l.description || l.alias || l.url}
-        >
-          {l.alias || l.description || "Link"}
-        </a>
-      ))}
-    </div>
-  )}
+                {/* Links */}
+                {!!o.links?.length && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {o.links.map((l: any, i: number) => (
+                      <a
+                        key={`${o.id}-link-${i}`}
+                        href={l.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: "6px 10px", fontSize: 12, textDecoration: "none", color: "#2563eb", whiteSpace: "nowrap" }}
+                        title={l.description || l.alias || l.url}
+                      >
+                        {l.alias || l.description || "Link"}
+                      </a>
+                    ))}
+                  </div>
+                )}
 
-  {/* Files */}
-  {!!o.files?.length && (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-      {o.files.map((f, idx) => (
-        <a
-          key={`${o.id}-f-${idx}`}
-          href={f.url ?? "#"}
-          target={f.url ? "_blank" : undefined}
-          rel={f.url ? "noreferrer" : undefined}
-          style={{
-            pointerEvents: f.url ? "auto" : "none",
-            opacity: f.url ? 1 : 0.5,
-            border: "1px solid #e5e7eb",
-            borderRadius: 6,
-            padding: "6px 10px",
-            fontSize: 12,
-            textDecoration: "none",
-            color: "#2563eb",
-            whiteSpace: "nowrap"
-          }}
-        >
-          {f.fileName || f.title || f.mimeType || "Download"}
-        </a>
-      ))}
-    </div>
-  )}
-</div>
-
+                {/* Files */}
+                {!!o.files?.length && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {o.files.map((f: any, idx: number) => (
+                      <a
+                        key={`${o.id}-f-${idx}`}
+                        href={f.url ?? "#"}
+                        target={f.url ? "_blank" : undefined}
+                        rel={f.url ? "noreferrer" : undefined}
+                        style={{
+                          pointerEvents: f.url ? "auto" : "none",
+                          opacity: f.url ? 1 : 0.5,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 6,
+                          padding: "6px 10px",
+                          fontSize: 12,
+                          textDecoration: "none",
+                          color: "#2563eb",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {f.fileName || f.title || f.mimeType || "Download"}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </>
@@ -730,6 +789,7 @@ const collabs = person?.id
     })()}
   </div>
 )}
+
 
 {/* GRANTS CONTENT ONLY */}
 {activeTab === "Grants" && (

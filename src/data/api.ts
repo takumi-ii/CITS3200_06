@@ -195,3 +195,18 @@ export function getAwardsFor(researcherId: ID) {
   const ids = state.awardsByResearcher[researcherId] ?? [];
   return ids.map(id => state.awardsById[id]).filter(Boolean);
 }
+
+export function getOutcomesForResearcher(r: { id?: ID; uuid?: ID; name?: string }) {
+  if (!r) return [];
+  const rid = (r.id || r.uuid || '').toString().toLowerCase();
+  const rname = (r.name || '').toLowerCase();
+
+  return state.allOutcomes.filter(o => {
+    const authors = Array.isArray(o.authors) ? o.authors : [];
+    return authors.some((a: any) =>
+      typeof a === 'string'
+        ? a.toLowerCase() === rname || a.toLowerCase() === rid
+        : (a.id && a.id.toLowerCase() === rid) || (a.name && a.name.toLowerCase() === rname)
+    );
+  });
+}
