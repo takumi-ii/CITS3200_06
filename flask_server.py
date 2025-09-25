@@ -557,7 +557,56 @@ def get_tags():
     conn.close()
     return {"tags": [{"tag": r[0], "count": r[1]} for r in rows]}
 
-# Register SPA catch-all LAST so it doesn't shadow /api/* routes
+
+@app.route("/api/researchers/<rid>/grants")
+def grants_for_researcher(rid: str):
+    with get_db() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT DISTINCT
+                g.uuid AS id,
+                g.grant_name AS title,
+                g.start_date,
+                g.end_date,
+                g.total_funding,
+                g.top_funding_source_name,
+                g.school
+            FROM OIResearchOutputsCollaborators c
+            JOIN OIResearchOutputsToGrants rg ON rg.ro_uuid = c.ro_uuid
+            JOIN OIResearchGrants g           ON g.uuid     = rg.grant_uuid
+            WHERE c.researcher_uuid = ?
+            ORDER BY g.end_date DESC NULLS LAST, g.start_date DESC NULLS LAST, g.rowid DESC
+        """, (rid,)).fetchall()
+
+        grant_ids = [r["id"] for r in rows]
+        fs_map = {}
+        if grant_ids:
+            q = ",".join(["?"] * len(grant_ids))
+            fs_rows = conn.execute(f"""
+                SELECT grant_uuid AS gid, funding_source_name AS name, amount
+                FROM OIResearchGrantsFundingSources
+                WHERE grant_uuid IN ({q})
+                ORDER BY name COLLATE NOCASE
+            """, grant_ids).fetchall()
+            for fr in fs_rows:
+                fs_map.setdefault(fr["gid"], []).append({
+                    "name": fr["name"], "amount": fr["amount"]
+                })
+
+        return jsonify([
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "start_date": r["start_date"],
+                "end_date": r["end_date"],
+                "total_funding": r["total_funding"],
+                "top_funding_source_name": r["top_funding_source_name"],
+                "school": r["school"],
+                "funding_sources": fs_map.get(r["id"], []),
+            }
+            for r in rows
+        ])
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path: str):

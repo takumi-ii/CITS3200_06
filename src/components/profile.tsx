@@ -5,6 +5,7 @@ import { collabIdx, } from "../data/mockData";
 import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUtils";
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
+import { preloadProfile, getGrantsFor, getAwardsFor } from '../data/api';
 
 
 interface ProfileProps {
@@ -46,9 +47,12 @@ const displayAffiliation = (r: any) =>
 
 
 export default function Profile({ open, onClose, person ,dataSource}: ProfileProps) {
+  console.log('[Profile] rid =', person?.id);
   const [activeTab, setActiveTab] = useState("Overview");
   const [tick, setTick] = useState(0);
-
+useEffect(() => {
+  console.log('[Profile] incoming person', person);
+}, [person]);
 useEffect(() => {
   const unsub = subscribe(() => setTick(t => t + 1));
   return () => unsub();
@@ -61,6 +65,25 @@ const publications = useMemo(() => {
     : person.recentPublications || [];  // ← mock path
 }, [person, dataSource, tick]);
   
+
+
+useEffect(() => {
+  if (open && dataSource === 'api' && person?.id) {
+    preloadProfile(person.id); // now grants-only
+  }
+}, [open, dataSource, person?.id]);
+
+
+
+const grants = useMemo(
+  () => (person?.id && dataSource === 'api') ? getGrantsFor(person.id) : [],
+  [person?.id, dataSource, tick]
+);
+const awards = useMemo(
+  () => (person?.id && dataSource === 'api') ? getAwardsFor(person.id) : [],
+  [person?.id, dataSource, tick]
+);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -69,8 +92,6 @@ const publications = useMemo(() => {
   }, [open, onClose]);
 
   if (!open) return null;
-
-
   const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 3).map(c => {
   const r = mockResearchers.find(r => r.id === c.collaboratorId);
   return { ...r, ...c }; // merge collaborator info + counts
@@ -201,10 +222,10 @@ return createPortal(
         </div>
 
 
-        {/* Profile Tabs (Summary Nav) */}
+{/* Profile Tabs (Summary Nav) */}
 <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: 20 }}>
   <div style={{ display: "flex", gap: 24, fontSize: 14, fontWeight: 500 }}>
-    {["Overview", "Research Outputs", "Grants", "Awards", "Collaborators"].map(
+    {["Overview", "Research Outputs", "Grants", "Collaborators"].map(
       (tab) => (
         <button
           key={tab}
@@ -795,15 +816,31 @@ const collabs = person?.id
 {activeTab === "Grants" && (
   <div style={{ marginTop: 16 }}>
     {(() => {
-      // Resolve IDs -> full grant objects; newest startDate first
-      const grants = (person?.grantIds ?? [])
-        .map(id => mockGrants.find(g => g.id === id))
-        .filter((g): g is NonNullable<typeof g> => Boolean(g))
-        .sort((a, b) => {
-          const aT = a.startDate ? Date.parse(a.startDate) : 0;
-          const bT = b.startDate ? Date.parse(b.startDate) : 0;
-          return bT - aT;
-        });
+      const isApi = dataSource === "api";
+
+      // Build grants list (API vs Mock)
+      let grants: any[] = [];
+      if (isApi) {
+        grants = person?.id ? getGrantsFor(person.id) : [];
+      } else {
+        // If your mock researcher carries an array of grant objects:
+        if (Array.isArray((person as any)?.grants)) {
+          grants = (person as any).grants;
+        } else {
+          // Or if it carries IDs, resolve them against mockGrants
+          const ids: string[] = Array.isArray((person as any)?.grantIds) ? (person as any).grantIds : [];
+          grants = ids
+            .map(id => mockGrants.find(g => g.id === id))
+            .filter(Boolean) as any[];
+        }
+      }
+
+      // Sort newest-first (by endDate, then startDate)
+      grants = grants.sort((a: any, b: any) => {
+        const at = a.endDate ? Date.parse(a.endDate) : (a.startDate ? Date.parse(a.startDate) : 0);
+        const bt = b.endDate ? Date.parse(b.endDate) : (b.startDate ? Date.parse(b.startDate) : 0);
+        return bt - at;
+      });
 
       return (
         <>
@@ -815,111 +852,36 @@ const collabs = person?.id
 
           {/* Empty state */}
           {!grants.length && (
-            <div style={{ color: "#9ca3af" }}>No grants recorded for this researcher.</div>
+            <div style={{ color: "#9ca3af" }}>No grants found for this researcher.</div>
           )}
 
           {/* List */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            {grants.map(g => (
+            {grants.map((g: any) => (
               <div
                 key={g.id}
                 style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}
               >
-                {/* Title (link if present) */}
-                <div style={{ fontWeight: 600, color: "#0b2a4a" }}>
-                  {g.url ? (
-                    <a href={g.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
-                      {g.title}
-                    </a>
-                  ) : (
-                    g.title
-                  )}
-                </div>
+                {/* Title */}
+                <div style={{ fontWeight: 600, color: "#0b2a4a" }}>{g.title || "Untitled grant"}</div>
 
-                {/* Meta row: funder • type • dates • funding • status badge */}
+                {/* Meta row */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-                  <span>{g.funder || "Funder TBD"}</span>
-                  {(g.funder && (g.type || (g.startDate || g.endDate))) && <span>·</span>}
-                  {g.type && <span>{g.type}</span>}
-                  {(g.type && (g.startDate || g.endDate)) && <span>·</span>}
                   <span>{dateRange(g.startDate, g.endDate)}</span>
-
-                  {typeof (g as any).totalFunding === "number" && (
-                    <span style={{
-                      marginLeft: "auto",
-                      background: "#ecfdf5",
-                      border: "1px solid #a7f3d0",
-                      borderRadius: 999,
-                      padding: "2px 8px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "#065f46",
-                      whiteSpace: "nowrap"
-                    }}>
-                      ${(g as any).totalFunding.toLocaleString()} AUD
-                    </span>
-                  )}
-
-                  {g.status && (
-                    <span style={{ background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
-                      {g.status}
+                  {g.funder && (
+                    <span style={{ marginLeft: "auto", background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                      {g.funder}
                     </span>
                   )}
                 </div>
 
-                {/* PI / Co-Is */}
-                {(g.piId || g.coInvestigatorIds?.length) && (
+                {/* Funding sources (optional) */}
+                {Array.isArray(g.fundingSources) && g.fundingSources.length > 0 && (
                   <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                    {g.piId && <div><b>PI:</b> {nameOf(g.piId)}</div>}
-                    {!!g.coInvestigatorIds?.length && (
-                      <div><b>Co-Is:</b> {g.coInvestigatorIds.map(nameOf).join(", ")}</div>
-                    )}
-                  </div>
-                )}
-
-                {/* Participants (compact) */}
-                {!!g.participantIds?.length && (
-                  <div style={{ color: "#6b7280", fontSize: 12, marginTop: 6 }}>
-                    Participants: {g.participantIds.length}
-                    {/* uncomment for full list:
-                    <span style={{ color: "#374151" }}> — {g.participantIds.map(nameOf).join(", ")}</span>
-                    */}
-                  </div>
-                )}
-
-                {/* Related outputs */}
-                {!!g.relatedOutputIds?.length && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Related research outputs</div>
-                    <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
-                      {g.relatedOutputIds.map(oid => {
-                        const o = mockResearchOutcomes.find(x => x.id === oid);
-                        return (
-                          <li key={`${g.id}-${oid}`}>
-                            {o?.url ? (
-                              <a href={o.url} target="_blank" rel="noreferrer" style={{ color: "#2563eb", textDecoration: "none" }}>
-                                {o?.title || oid}
-                              </a>
-                            ) : (o?.title || oid)}
-                            {o?.year ? ` (${o.year})` : ""}
-                            {o?.journal ? ` · ${o.journal}` : o?.type ? ` · ${o.type}` : ""}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Related projects */}
-                {!!g.projectIds?.length && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Related projects</div>
-                    <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
-                      {g.projectIds.map(pid => {
-                        const p = (mockProjects as any[]).find(pr => pr.id === pid);
-                        return <li key={`${g.id}-${pid}`}>{p?.title || pid}</li>;
-                      })}
-                    </ul>
+                    <b>Funding sources:</b>{" "}
+                    {g.fundingSources.map((fs: any) =>
+                      [fs.name, (typeof fs.amount === "number" ? `$${fs.amount}` : null)].filter(Boolean).join(" — ")
+                    ).join(", ")}
                   </div>
                 )}
               </div>
@@ -931,8 +893,10 @@ const collabs = person?.id
   </div>
 )}
 
+
 {/* AWARDS CONTENT ONLY */}
-{activeTab === "Awards" && (
+
+{activeTab === "Awards1" && (
   <div style={{ marginTop: 16 }}>
     {(() => {
       // Resolve IDs → award objects, newest first (by date)
@@ -997,6 +961,7 @@ const collabs = person?.id
     })()}
   </div>
 )}
+
 
 {/* ALL COLLABORATORS (GRID) */}
 {activeTab === "Collaborators" && (

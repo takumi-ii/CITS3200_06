@@ -24,8 +24,13 @@ export type Outcome = {
 export type Grant = {
   id: ID;
   title: string;
-  funder?: string;
-  // ...
+  funder?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  totalFunding?: number | null;
+  school?: string | null;
+  fundingSources?: { name: string; amount?: number | null }[];
+  // relations (optional)
   piId?: ID;
   coInvestigatorIds?: ID[];
 };
@@ -74,11 +79,30 @@ async function apiOutcomes(): Promise<any[]> {
     title: o.title ?? o.name ?? 'Untitled',
   }));
 }
-async function apiGrantsForResearcher(id: ID) {
+async function apiGrantsForResearcher(id: ID): Promise<Grant[]> {
   const r = await fetch(`/api/researchers/${id}/grants`);
   const j = await safeJson<any>(r);
-  return arr<Grant>(j) || arr<Grant>(j?.grants);
+  const items = toArr(j); // endpoint returns an array
+
+  return items.map((g: any): Grant => ({
+    id: g.id ?? g.uuid,
+    title: g.title ?? g.grant_name ?? 'Untitled',
+    funder: g.funder ?? g.top_funding_source_name ?? null,
+    startDate: g.start_date ?? null,
+    endDate: g.end_date ?? null,
+    totalFunding: typeof g.total_funding === 'number'
+      ? g.total_funding
+      : (g.total_funding ? Number(g.total_funding) : null),
+    school: g.school ?? null,
+    fundingSources: toArr(g.funding_sources).map((fs: any) => ({
+      name: fs.name ?? fs.funding_source_name ?? '',
+      amount: typeof fs.amount === 'number'
+        ? fs.amount
+        : (fs.amount ? Number(fs.amount) : null),
+    })),
+  }));
 }
+
 async function apiAwardsForResearcher(id: ID) {
   const r = await fetch(`/api/researchers/${id}/awards`);
   const j = await safeJson<any>(r);
@@ -149,32 +173,31 @@ export async function loadAllData() {
   }
 }
 
-/** Lazy-load extras for a profile; caches centrally. */
+// keep the rest of your file as-is
+
 export async function preloadProfile(researcherId: ID) {
+  const rid = String(researcherId).trim();
   setState({ loading: true, error: null });
   try {
-    const [grants, awards] = await Promise.all([
-      apiGrantsForResearcher(researcherId),
-      apiAwardsForResearcher(researcherId),
-    ]);
+    const grants = await apiGrantsForResearcher(rid); // <-- only grants
 
     const grantsById = { ...state.grantsById };
-    const awardsById = { ...state.awardsById };
     const gIds: ID[] = [];
-    const aIds: ID[] = [];
-
-    for (const g of grants) { grantsById[g.id] = g; gIds.push(g.id); }
-    for (const a of awards) { awardsById[a.id] = a; aIds.push(a.id); }
+    for (const g of grants) {
+      const gid = String(g?.id ?? '').trim();
+      if (!gid) continue;
+      grantsById[gid] = { ...g, id: gid };
+      gIds.push(gid);
+    }
 
     setState({
       loading: false,
       grantsById,
-      awardsById,
-      grantsByResearcher: { ...state.grantsByResearcher, [researcherId]: gIds },
-      awardsByResearcher: { ...state.awardsByResearcher, [researcherId]: aIds },
+      grantsByResearcher: { ...state.grantsByResearcher, [rid]: gIds },
+      // leave awards maps untouched
     });
-  } catch (e:any) {
-    setState({ loading: false, error: e?.message ?? "Failed to load profile data" });
+  } catch (e: any) {
+    setState({ loading: false, error: e?.message ?? 'Failed to load grants' });
   }
 }
 
@@ -189,8 +212,22 @@ export function getAllOutcomes() { return state.allOutcomes; }
 
 export function getGrantsFor(researcherId: ID) {
   const ids = state.grantsByResearcher[researcherId] ?? [];
-  return ids.map(id => state.grantsById[id]).filter(Boolean);
+  const grants = ids.map(id => state.grantsById[id]).filter(Boolean);
+
+  console.log("[getGrantsFor]", {
+    researcherId,
+    ids,
+    grantsCount: grants.length,
+    grants,
+    stateSnapshot: {
+      grantsByResearcher: state.grantsByResearcher[researcherId],
+      grantsByIdKeys: Object.keys(state.grantsById),
+    }
+  });
+
+  return grants;
 }
+
 export function getAwardsFor(researcherId: ID) {
   const ids = state.awardsByResearcher[researcherId] ?? [];
   return ids.map(id => state.awardsById[id]).filter(Boolean);

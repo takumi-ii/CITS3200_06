@@ -181,6 +181,7 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
     variant="outline"
     size="sm"
     onClick={() => {
+      console.log('[ResultsSection] selecting', researcher);
       setSelectedResearcher(researcher);
       setProfileOpen(true);
     }}
