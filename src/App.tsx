@@ -92,23 +92,27 @@ useEffect(() => {
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+{/* Main Content Area */}
+<div className="max-w-7xl mx-auto px-6 py-8">
+  <div className="flex gap-8">
+    {/* Filter Sidebar: fixed width, no shrink, own scroll */}
+    <div className="basis-80 shrink-0 sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto">
+      <FilterSidebar filters={filters} setFilters={setFilters} />
+    </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex gap-8">
-          {/* Filter Sidebar */}
-          <FilterSidebar filters={filters} setFilters={setFilters} />
-          
-          {/* Results Section */}
-    <ResultsSection
-            searchQuery={searchQuery}
-            filters={filters}
-            setProfileOpen={setProfileOpen}
-            setSelectedResearcher={setSelectedResearcher}
-            dataSource = {dataSource}
-          />
-        </div>
-      </div>
+    {/* Results Section: takes remaining space, can wrap, own scroll */}
+    <div className="flex-1 min-w-0 h-[calc(100vh-8rem)] overflow-y-auto">
+      <ResultsSection
+        searchQuery={searchQuery}
+        filters={filters}
+        setProfileOpen={setProfileOpen}
+        setSelectedResearcher={setSelectedResearcher}
+        dataSource={dataSource}
+      />
+    </div>
+  </div>
+</div>
+
 
        <Profile
         open={profileOpen}

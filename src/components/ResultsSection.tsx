@@ -127,7 +127,7 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
   
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 min-w-0">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-2">
           Search Results
@@ -163,7 +163,7 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
                     <User className="w-8 h-8 text-blue-600" />
                   </div>
 
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h4 className="text-lg font-semibold text-blue-900">{researcher.name}</h4>
