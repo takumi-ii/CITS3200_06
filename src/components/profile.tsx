@@ -6,6 +6,7 @@ import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUti
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 import { preloadProfile, getGrantsFor, getAwardsFor } from '../data/api';
+import { Info,GraduationCap,Book,Users} from "lucide-react";
 
 
 interface ProfileProps {
@@ -235,10 +236,10 @@ return createPortal(
             border: "none",
             background: "transparent",
             cursor: "pointer",
-            color: activeTab === tab ? "#4338ca" : "#4b5563", // active = indigo-700
+            color: activeTab === tab ? "#003087" : "#4b5563", // active = indigo-700
             borderBottom:
               activeTab === tab
-                ? "2px solid #4338ca"
+                ? "2px solid "
                 : "2px solid transparent",
           }}
         >
@@ -263,7 +264,14 @@ return createPortal(
         padding: 16
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Bio</div>
+  
+
+<div className="flex items-center gap-2 py-2 border-b border-gray-100">
+  <span className="font-semibold text-gray-800">Biography:</span>
+  
+</div>
+
+
       <div style={{ height: 1, background: "#f1f5f9", marginBottom: 12 }} /> {/* thin divider */}
       <div style={{ color: person?.bio ? "#374151" : "#9ca3af" }}>
         {person?.bio || "Empty"}
@@ -279,9 +287,10 @@ return createPortal(
     padding: 8
   }}
 >
-  <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 16 }}>
-    Expertise
-  </div>
+ <div className="flex items-center gap-2 mb-2">
+  <GraduationCap className="w-5 h-5 text-gray-600" />
+  <span className="font-semibold text-gray-800 text-base">Expertise</span>
+</div>
 
    <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 15 }}>
     Explore areas where {person?.name ?? "this researcher"} is most active
@@ -331,10 +340,13 @@ return createPortal(
   return (
     <div style={{ marginTop: 20 }}>
       {/* Header: title + count */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: 16 }}>Recent Publications</div>
-        <div style={{ color: "#6b7280", fontSize: 13 }}>({pubs.length})</div>
-      </div>
+     <div className="flex items-center gap-2 mb-3">
+  <Book className="w-5 h-5 text-gray-600" />
+  <span className="font-semibold text-gray-800 text-base">
+    Recent Publications
+  </span>
+  <span className="text-gray-500 text-sm">({pubs.length})</span>
+</div>
 
       {/* Grid (2 columns) */}
       {pubs.length ? (
@@ -473,10 +485,14 @@ const collabs = person?.id
   return (
     <div style={{ marginTop: 20 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: 16 }}>Top Collaborators</div>
-        <div style={{ color: "#6b7280", fontSize: 13 }}>({collabs.length})</div>
-      </div>
+      {/* Header */}
+<div className="flex items-center gap-2 mb-3">
+  <Users className="w-5 h-5 text-gray-600" />
+  <span className="font-semibold text-gray-800 text-base">
+    Top Collaborators
+  </span>
+  <span className="text-gray-500 text-sm">({collabs.length})</span>
+</div>
 
       {collabs.length ? (
         <div
@@ -507,7 +523,7 @@ const collabs = person?.id
                   background: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: 12,
-                  padding: 12,
+                  padding: 8,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -668,7 +684,7 @@ const collabs = person?.id
                   background: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
-                  padding: 12
+                  padding: 8
                 }}
               >
                 {/* Title (link) */}
