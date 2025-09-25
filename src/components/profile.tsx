@@ -262,6 +262,7 @@ return createPortal(
         border: "1px solid #e5e7eb",   // thin light border
         borderRadius: 8,
         padding: 16
+        
       }}
     >
   
@@ -284,17 +285,20 @@ return createPortal(
     background: "#fff",
     
     borderRadius: 8,
-    padding: 8
+    padding: 0
   }}
 >
- <div className="flex items-center gap-2 mb-2">
-  <GraduationCap className="w-5 h-5 text-gray-600" />
-  <span className="font-semibold text-gray-800 text-base">Expertise</span>
-</div>
+<div className="flex flex-col">
+  <div className="flex items-center gap- mb-2">
+    <GraduationCap className="w-5 h-5 text-gray-600" />
+    <span className="font-semibold text-gray-800 text-base">Expertise</span>
+  </div>
 
-   <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 15 }}>
+  <div className="text-gray-500 text-sm mb-4">
     Explore areas where {person?.name ?? "this researcher"} is most active
   </div>
+</div>
+
  
 
   {person?.expertise?.length ? (
