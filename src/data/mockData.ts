@@ -390,6 +390,7 @@ export const mockResearchers: Researcher[] = [
     title: 'Marine Biologist',
     department: 'School of Biological Sciences',
     expertise: ['Coral Reef Ecology', 'Climate Change', 'Marine Conservation'],
+    photoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=800&q=95&dpr=2',
 
     publicationsCount: 42,
     grantsCount: 8,
@@ -413,6 +414,7 @@ export const mockResearchers: Researcher[] = [
     title: 'Oceanographer',
     department: 'Oceans Institute',
     expertise: ['Deep Sea Research', 'Ocean Circulation', 'Marine Geology'],
+    photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=800&q=95&dpr=2',
 
     publicationsCount: 67,
     grantsCount: 12,
@@ -431,6 +433,7 @@ export const mockResearchers: Researcher[] = [
     title: 'Marine Chemist',
     department: 'School of Molecular Sciences',
     expertise: ['Ocean Acidification', 'Marine Pollution', 'Biogeochemistry'],
+    photoUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=800&q=95&dpr=2',
 
     publicationsCount: 34,
     grantsCount: 6,
@@ -445,13 +448,14 @@ export const mockResearchers: Researcher[] = [
     recentPublicationIds: ['ro-4', 'ro-5'],
   },
 
-  // --- NEW: Suzan Perfect (the “perfect scenario”) ---
+  // --- NEW: Suzan Perfect (the "perfect scenario") ---
   {
     id: 'suzan-perfect',
     name: 'Dr. Suzan Perfect',
     title: 'Ocean Governance & Seafood Systems',
     department: 'UWA Law School',
     institution: 'UWA',
+    photoUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=800&q=95&dpr=2',
 
     // 15 areas of expertise
     expertise: [

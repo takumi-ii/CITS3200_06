@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
 import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
 
@@ -159,9 +160,11 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
             <Card key={researcher.uuid || researcher.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex gap-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="w-8 h-8 text-blue-600" />
-                  </div>
+                  <ProfileAvatar 
+                    photoUrl={researcher.photoUrl}
+                    name={researcher.name}
+                    size="lg"
+                  />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">

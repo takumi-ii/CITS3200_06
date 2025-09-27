@@ -37,7 +37,7 @@ useEffect(() => {
   };
 
 
-  const [dataSource, setDataSource] = useState<'api' | 'mock'>('mock');
+  const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
 
   const toggleDataSource = () => {
     setDataSource(prev => (prev === 'mock' ? 'api' : 'mock'));

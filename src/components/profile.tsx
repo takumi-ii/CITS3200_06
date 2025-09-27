@@ -7,6 +7,7 @@ import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProje
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 import { preloadProfile, getGrantsFor, getAwardsFor } from '../data/api';
 import { Info,GraduationCap,Book,Users} from "lucide-react";
+import ProfileAvatar from './ProfileAvatar';
 
 
 interface ProfileProps {
@@ -178,23 +179,14 @@ return createPortal(
       <div style={{ padding: 20 }}>
         {/* Header row: avatar + name + meta */}
         <div style={{ display: "flex", gap: 16 }}>
-          {/* Avatar with initials */}
-          <div
-            aria-hidden="true"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "9999px",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 700,
-              fontSize: 20,
-              color: "#0b2a4a",
-              // use your figma blue token as a soft avatar bg
-              background: "oklch(0.809 0.105 251.813)"
-            }}
-          >
-            {getInitials(person?.name)}
+          {/* Profile Avatar */}
+          <div style={{ width: 64, height: 64 }}>
+            <ProfileAvatar 
+              photoUrl={person?.photoUrl}
+              name={person?.name}
+              size="xl"
+              className="w-16 h-16"
+            />
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -564,23 +556,13 @@ const collabsList = dataSource === "api"
                 title={name}
               >
                 {/* Avatar */}
-                <div
-                  aria-hidden="true"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 999,
-                    display: "grid",
-                    placeItems: "center",
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: "#0b2a4a",
-                    background: "#eef2ff",
-                    border: "1px solid #e0e7ff",
-                    marginBottom: 8
-                  }}
-                >
-                  {getInitials(name)}
+                <div style={{ marginBottom: 8 }}>
+                  <ProfileAvatar 
+                    photoUrl={c.photoUrl}
+                    name={name}
+                    size="md"
+                    className="w-12 h-12"
+                  />
                 </div>
 
                 {/* Name */}
@@ -1090,17 +1072,12 @@ const collabsList = dataSource === "api"
                 }}
               >
                 {/* Avatar */}
-                <div
-                  style={{
-                    width: 40, height: 40, borderRadius: "50%",
-                    background: "#e5e7eb",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 700, color: "#374151"
-                  }}
-                  aria-hidden
-                >
-                  {getInitials(r.name)}
-                </div>
+                <ProfileAvatar 
+                  photoUrl={r.photo_url}
+                  name={r.name}
+                  size="sm"
+                  className="w-10 h-10"
+                />
 
                 {/* Text */}
                 <div>
