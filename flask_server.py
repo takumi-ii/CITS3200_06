@@ -93,6 +93,15 @@ def _first_nonempty(row: dict, *candidates: str, default: str | None = ""):
 def _norm_url(v: str | None) -> str | None:
     return (v or "").strip() or None
 
+def query(sql: str, params=()):
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        cur = con.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        con.close()
+
 BASE_DIR = Path(__file__).resolve().parent
 BUILD_DIR = (BASE_DIR / "build").resolve()   # change to "dist" if you keep Vite default
 
@@ -759,6 +768,35 @@ ALLOWED_PURE_PATHS = {
     "projects",
     "research-outputs",
 }
+
+@app.get("/api/researchers/<rid>/collaborators")
+def get_collaborators(rid):
+    rows = query("""
+        SELECT 
+          c2.researcher_uuid AS collaboratorId,
+          COALESCE(m.name, c2.researcher_uuid) AS name,
+          m.email,
+          m.position AS title,
+          m.profile_url,
+          m.photo_url,
+          COUNT(DISTINCT c1.ro_uuid) AS pubCount
+        FROM OIResearchOutputsCollaborators c1
+        JOIN OIResearchOutputsCollaborators c2
+          ON c1.ro_uuid = c2.ro_uuid
+        LEFT JOIN OIMembers m
+          ON m.uuid = c2.researcher_uuid
+        WHERE c1.researcher_uuid = ?
+          AND c2.researcher_uuid != ?
+        GROUP BY c2.researcher_uuid
+        ORDER BY pubCount DESC
+        LIMIT 10;
+    """, (rid, rid))
+
+    for r in rows:
+        r["grantCount"] = 0
+        r["total"] = r["pubCount"]
+
+    return jsonify(rows)
 
 @app.route('/api/pure/<path:resource>')
 def pure_proxy(resource: str):

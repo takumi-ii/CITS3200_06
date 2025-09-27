@@ -58,6 +58,21 @@ useEffect(() => {
   const unsub = subscribe(() => setTick(t => t + 1));
   return () => unsub();
 }, []);
+const [collabs, setCollabs] = useState<any[]>([]);
+
+useEffect(() => {
+  if (!person?.id) { setCollabs([]); return; }
+
+  if (dataSource === "api") {
+    fetch(`/api/researchers/${person.id}/collaborators`)
+      .then(res => res.json())
+      .then(data => setCollabs(data))
+      .catch(() => setCollabs([]));
+  } else {
+    // keep your mock/local paths as they are
+  }
+}, [person?.id, dataSource, tick]);
+
 
 const publications = useMemo(() => {
   if (!person) return [];
@@ -469,20 +484,33 @@ type CollabLike = {
   affiliation?: string;
   photoUrl?: string;
 };
-const collabs = person?.id
-  ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
-      const r = mockResearchers.find(r => r.id === c.collaboratorId);
-      return {
-        id: r?.id,
-        name: r?.name,
-        title: r?.title,
-        institution: r?.institution,
-        department: r?.department,
-        affiliation: (r as any)?.affiliation,
-        total: c.total // 👈 this is the count
-      };
-    })
-  : [];
+
+const collabsList = dataSource === "api"
+  ? collabs.map((c: any) => ({
+      id: c.collaboratorId,
+      name: c.name,
+      title: c.title,
+      email: c.email,
+      institution: c.institution,
+      department: c.department,
+      affiliation: c.affiliation,
+      photoUrl: c.photo_url,
+      total: c.total,
+    }))
+  : (person?.id
+      ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
+          const r = mockResearchers.find(r => r.id === c.collaboratorId);
+          return {
+            id: r?.id,
+            name: r?.name,
+            title: r?.title,
+            institution: r?.institution,
+            department: r?.department,
+            affiliation: (r as any)?.affiliation,
+            total: c.total,
+          };
+        })
+      : []);
 
 
   return (
@@ -494,10 +522,10 @@ const collabs = person?.id
   <span className="font-semibold text-gray-800 text-base">
     Top Collaborators
   </span>
-  <span className="text-gray-500 text-sm">({collabs.length})</span>
+  <span className="text-gray-500 text-sm">({collabsList.length})</span>
 </div>
 
-      {collabs.length ? (
+      {collabsList.length ? (
         <div
           style={{
             display: "flex",
@@ -507,7 +535,7 @@ const collabs = person?.id
             scrollbarWidth: "thin"
           }}
         >
-          {collabs.map((c, i) => {
+          {collabsList.map((c, i) => {
             const name = c.name ?? "Unknown";
             const sub =
               c.title ??
@@ -988,29 +1016,40 @@ const collabs = person?.id
     {(() => {
       if (!person?.id) return null;
 
-      // Use the index → get everybody they’ve collaborated with + counts
-      const rows = getAllCollaboratorsFor(person.id, collabIdx)
-        .map(c => {
-          const r = findResearcher(c.collaboratorId);
-          return r
-            ? {
-                id: r.id,
-                name: r.name,
-                email: r.email,
-                institution: r.institution,
-                department: r.department,
-                title: r.title,
-                total: c.total,
-                pubCount: c.pubCount,
-                grantCount: c.grantCount
-              }
-            : null;
-        })
-        .filter(Boolean) as {
-          id: string; name?: string; email?: string;
-          institution?: string; department?: string; title?: string;
-          total: number; pubCount: number; grantCount: number;
-        }[];
+      // Build rows from API when dataSource === 'api'; otherwise use mock index
+      const rows = (dataSource === "api"
+        ? (collabs || []).map((c: any) => ({
+            id: c.collaboratorId,
+            name: c.name ?? c.collaboratorId,   // name from API (falls back to id)
+            email: c.email ?? undefined,
+            title: c.title ?? undefined,        // from OIMembers.position if present
+            // institution/department not in schema, so omit
+            total: c.total ?? c.pubCount ?? 0,  // API sets total = pubCount
+            pubCount: c.pubCount ?? c.total ?? 0,
+            grantCount: c.grantCount ?? 0,
+          }))
+        : getAllCollaboratorsFor(person.id, collabIdx)
+            .map(c => {
+              const r = findResearcher(c.collaboratorId);
+              return r
+                ? {
+                    id: r.id,
+                    name: r.name,
+                    email: r.email,
+                    title: r.title,
+                    institution: r.institution,
+                    department: r.department,
+                    total: c.total,
+                    pubCount: c.pubCount,
+                    grantCount: c.grantCount
+                  }
+                : null;
+            })
+            .filter(Boolean) as {
+              id: string; name?: string; email?: string; title?: string;
+              institution?: string; department?: string;
+              total: number; pubCount: number; grantCount: number;
+            }[]);
 
       // Sort strongest-first
       rows.sort((a, b) => b.total - a.total || b.pubCount - a.pubCount);
@@ -1073,14 +1112,16 @@ const collabs = person?.id
                       </a>
                     </div>
                   )}
-                  <div style={{ color: "#6b7280", fontSize: 13, marginTop: 2 }}>
-                    {displayAffiliation(r)}
-                  </div>
+                  {/* since institution/department aren’t in the live schema, show title only */}
+                  {r.title && (
+                    <div style={{ color: "#6b7280", fontSize: 13, marginTop: 2 }}>
+                      {r.title}
+                    </div>
+                  )}
 
                   {/* Shared counts */}
                   <div style={{ color: "#4338ca", fontSize: 12, fontWeight: 600, marginTop: 6 }}>
                     {r.total} shared collaborations
-                    {/* If you want a breakdown, uncomment: */}
                     {/* <span style={{ color: "#6b7280", fontWeight: 500 }}>
                       {" "}· {r.pubCount} outputs · {r.grantCount} grants
                     </span> */}
@@ -1094,8 +1135,6 @@ const collabs = person?.id
     })()}
   </div>
 )}
-
-
 
 
 
