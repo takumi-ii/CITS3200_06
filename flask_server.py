@@ -295,7 +295,7 @@ def _debug_db():
 @app.route("/api/researchers")
 def api_researchers():
     """
-    Returns researchers in the mock-aligned shape, with:
+    Returns UWA researchers only (excludes external collaborators) in the mock-aligned shape, with:
       - title <- OIMembers.first_title
       - role  <- OIMembers.position
       - counts from OIMembersMetaInfo (num_research_outputs, num_grants, num_collaborations)
@@ -303,6 +303,9 @@ def api_researchers():
       - grantIds via OIResearchOutputsCollaborators -> OIResearchOutputsToGrants
       - collaboratorIds as co-authors on shared outputs
       - awardIds empty (no awards table in schema)
+    
+    Note: External researchers are filtered out to improve performance and show only UWA staff.
+    External collaborators are still available via the /api/researchers/{id}/collaborators endpoint.
     """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
@@ -349,6 +352,7 @@ def api_researchers():
       FROM OIMembers m
       LEFT JOIN OIMembersMetaInfo meta ON meta.researcher_uuid = m.uuid
       LEFT JOIN exp e                   ON e.researcher_uuid    = m.uuid
+      WHERE m.name NOT LIKE 'External Researcher%'
       ORDER BY m.name
     """
 
@@ -686,13 +690,14 @@ def search():
     conn = sqlite3.connect('data.db')
     cur = conn.cursor()
 
-    # Fetch members and their expertise
+    # Fetch UWA members and their expertise (exclude external researchers for search)
     cur.execute(
         """
         SELECT m.uuid, m.name, m.email, m.education, m.bio, m.phone,
                GROUP_CONCAT(e.field, '\u001F') as expertise_concat
         FROM OIMembers m
         LEFT JOIN OIExpertise e ON e.researcher_uuid = m.uuid
+        WHERE m.name NOT LIKE 'External Researcher%'
         GROUP BY m.uuid, m.name, m.email, m.education, m.bio, m.phone
         """
     )
