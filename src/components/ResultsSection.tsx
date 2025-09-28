@@ -149,7 +149,7 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
           Search Results
         </h3>
        <p className="text-gray-600">
-  Found {researchers.length} researchers and {outcomes.length} research outcomes
+  Found {sourceResearchers.length} researchers and {sourceOutcomes.length} research outcomes
 </p>
 
       </div>

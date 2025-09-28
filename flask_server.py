@@ -304,8 +304,9 @@ def api_researchers():
       - collaboratorIds as co-authors on shared outputs
       - awardIds empty (no awards table in schema)
     
-    Note: External researchers are filtered out to improve performance and show only UWA staff.
-    External collaborators are still available via the /api/researchers/{id}/collaborators endpoint.
+    Note: External collaborators (position='External Collaborator') are filtered out to improve 
+    performance and show only UWA staff. External collaborators with real names are still 
+    available via the /api/researchers/{id}/collaborators endpoint.
     """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
@@ -352,7 +353,7 @@ def api_researchers():
       FROM OIMembers m
       LEFT JOIN OIMembersMetaInfo meta ON meta.researcher_uuid = m.uuid
       LEFT JOIN exp e                   ON e.researcher_uuid    = m.uuid
-      WHERE m.name NOT LIKE 'External Researcher%'
+      WHERE m.position != 'External Collaborator' OR m.position IS NULL
       ORDER BY m.name
     """
 
@@ -697,7 +698,7 @@ def search():
                GROUP_CONCAT(e.field, '\u001F') as expertise_concat
         FROM OIMembers m
         LEFT JOIN OIExpertise e ON e.researcher_uuid = m.uuid
-        WHERE m.name NOT LIKE 'External Researcher%'
+        WHERE m.position != 'External Collaborator' OR m.position IS NULL
         GROUP BY m.uuid, m.name, m.email, m.education, m.bio, m.phone
         """
     )
