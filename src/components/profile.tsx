@@ -15,8 +15,11 @@ interface ProfileProps {
   onClose: () => void;
   person: Researcher | null;
   dataSource: 'api' | 'mock';
-  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>;
-  setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedResearcher?: React.Dispatch<React.SetStateAction<Researcher | null>>; // optional if using history
+  setProfileOpen?: React.Dispatch<React.SetStateAction<boolean>>;                  // optional if using history
+  pushProfile?: (r: Researcher) => void;                                           // NEW
+  popProfile?: () => void;                                                         // NEW
+  canGoBack?: boolean;                                                             // NEW
 }
 
 
@@ -64,7 +67,7 @@ const displayAffiliation = (r: any) =>
 
 
 
-export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher}: ProfileProps) {
+export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
   const [activeTab, setActiveTab] = useState("Overview");
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -79,6 +82,15 @@ useEffect(() => {
   }
 }, [open, person]);
 
+const navigateToResearcher = (full: Researcher) => {
+  if (pushProfile) {
+    pushProfile(full);
+  } else {
+    // backward-compat behaviour
+    setSelectedResearcher?.(full);
+    setProfileOpen?.(true);
+  }
+};
 
 
   const [tick, setTick] = useState(0);
@@ -191,32 +203,61 @@ return createPortal(
     flexDirection: "column"
   }}
 >
-      {/* Top bar */}
-      <div
+   
+{/* Top bar */}
+<div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 16px",
+    borderBottom: "1px solid #eee",
+    background: "#f8fafc"
+  }}
+>
+  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    {canGoBack && (
+      <button
+        onClick={() => popProfile?.()}
+        aria-label="Back to previous profile"
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "12px 16px",
-          borderBottom: "1px solid #eee",
-          background: "#f8fafc"
+          border: "1px solid #e5e7eb",
+          background: "#fff",
+          padding: "6px 10px",
+          borderRadius: 8,
+          cursor: "pointer",
+          fontSize: 14,
+          lineHeight: 1.2
         }}
+        onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+        onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
       >
-        <div style={{ fontWeight: 600 }}>Profile</div>
-        <button
-          onClick={onClose}
-          aria-label="Close profile"
-          style={{
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            padding: "6px 10px",
-            borderRadius: 8,
-            cursor: "pointer"
-          }}
-        >
-          Close
-        </button>
-      </div>
+        ← Back
+      </button>
+    )}
+
+    <div style={{ fontWeight: 600, fontSize: 16, color: "#0b2a4a" }}>Profile</div>
+  </div>
+
+  <button
+    onClick={onClose}
+    aria-label="Close profile"
+    style={{
+      border: "1px solid #e5e7eb",
+      background: "#fff",
+      padding: "6px 10px",
+      borderRadius: 8,
+      cursor: "pointer",
+      fontSize: 14,
+      lineHeight: 1.2
+    }}
+    onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+    onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+  >
+    Close
+  </button>
+</div>
+
 
       {/* Body */}
       <div style={{ padding: 20 }}>
@@ -585,11 +626,13 @@ const collabsList = dataSource === "api"
               <div
                 key={c.id ?? `${name}-${i}`}
                 onClick={() => {
-    const full = resolveResearcher(c.id);
-    setSelectedResearcher(full ?? { id: c.id, name }); // safe fallback
-    setProfileOpen(true);          // keep modal open / switch person
-    setActiveTab("Overview");      // ensure we always start on Overview
-  }}
+  const full = resolveResearcher(c.id /* or r.id */);
+  if (full) {
+    if (dataSource === 'api') preloadProfile(full.id);
+    navigateToResearcher(full);
+  }
+}}
+
                 style={{
                   flex: "0 0 auto",
                   width: 148,
@@ -602,7 +645,9 @@ const collabsList = dataSource === "api"
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  textAlign: "center"
+                  textAlign: "center",
+                  cursor: "pointer" 
+                  
                 }}
                 title={name}
               >
@@ -1112,12 +1157,14 @@ console.log('collab row sample', rows[0]);
               
               <div
                 key={r.id}
-                 onClick={() => {
-    const full = resolveResearcher(r.id);
-    setSelectedResearcher(full ?? { id: r.id, name: r.name, title: r.title });
-    setProfileOpen(true);
-    setActiveTab("Overview");
-  }}
+                  onClick={() => {
+  const full = resolveResearcher(r.id /* or r.id */);
+  if (full) {
+    if (dataSource === 'api') preloadProfile(full.id);
+    navigateToResearcher(full);
+  }
+}}
+
                 style={{
     background: "#fff",
     border: "1px solid #e5e7eb",
@@ -1192,12 +1239,4 @@ console.log('collab row sample', rows[0]);
   </>,
   document.body
 );
-
-// helper — initials from name
-function getInitials(name?: string) {
-  if (!name) return "??";
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map(p => p[0]?.toUpperCase() ?? "").join("") || "??";
-}
-
 }

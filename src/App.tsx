@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { loadAllData } from './data/api';
 
 
+
 export default function App() {
 // App.tsx
 useEffect(() => {
@@ -29,12 +30,39 @@ useEffect(() => {
 
    const [profileOpen, setProfileOpen] = useState(false);
    const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
+   const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
 
-
-    const handleCloseProfile = () => {
-    setProfileOpen(false);
-    setSelectedResearcher(null); // optional: clear on close
+     const openProfile = (r: Researcher) => {
+    setSelectedResearcher(r);
+    setProfileHistory([r]);     // start a fresh stack
+    setProfileOpen(true);
   };
+
+const pushProfile = (r: Researcher) => {
+  setProfileHistory(prev => {
+    // if empty, seed with the current person first
+    const base = prev.length === 0 && selectedResearcher
+      ? [selectedResearcher]
+      : prev;
+    return [...base, r];
+  });
+  setSelectedResearcher(r);
+};
+  const popProfile = () => {
+    setProfileHistory(prev => {
+      if (prev.length <= 1) return prev;     // nothing to pop
+      const next = prev.slice(0, -1);
+      setSelectedResearcher(next[next.length - 1]);
+      return next;
+    });
+  };
+
+  const handleCloseProfile = () => {
+    setProfileOpen(false);
+    setSelectedResearcher(null);
+    setProfileHistory([]); // clear on close
+  };
+
 
 
   const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
@@ -120,7 +148,10 @@ useEffect(() => {
         person={selectedResearcher}
         dataSource = {dataSource}
          setSelectedResearcher={setSelectedResearcher}   // add this
-         setProfileOpen={setProfileOpen}                 // add this
+         setProfileOpen={setProfileOpen} 
+        pushProfile={pushProfile}
+      popProfile={popProfile}
+      canGoBack={profileHistory.length > 1}              // add this
       />
 
 
