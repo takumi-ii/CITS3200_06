@@ -23,6 +23,19 @@ const dateRange = (s?: string | null, e?: string | null) =>
 
 const nameOf = (id?: string) => mockResearchers.find(r => r.id === id)?.name || id || "Unknown";
 
+// put this above where you build `rows`
+type CollabRow = {
+  id: string;
+  name?: string;
+  email?: string;
+  title?: string;
+  institution?: string;
+  department?: string;
+  total: number;
+  pubCount: number;
+  grantCount: number;
+  photoUrl?: string;
+};
 
 
 const safeArray = <T,>(v?: T[] | null) => (Array.isArray(v) ? v : []);
@@ -488,6 +501,7 @@ const collabsList = dataSource === "api"
       affiliation: c.affiliation,
       photoUrl: c.photo_url,
       total: c.total,
+      
     }))
   : (person?.id
       ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
@@ -500,6 +514,7 @@ const collabsList = dataSource === "api"
             department: r?.department,
             affiliation: (r as any)?.affiliation,
             total: c.total,
+          photoUrl: r?.photoUrl,
           };
         })
       : []);
@@ -535,7 +550,7 @@ const collabsList = dataSource === "api"
               c.institution ??
               c.affiliation ??
               "—";
-
+            console.log('[TopCollab Avatar Props]', { index: i, name, photoUrl: c.photoUrl });
             return (
               <div
                 key={c.id ?? `${name}-${i}`}
@@ -556,12 +571,12 @@ const collabsList = dataSource === "api"
                 title={name}
               >
                 {/* Avatar */}
-                <div style={{ marginBottom: 8 }}>
+               <div style={{ marginBottom: 8, width: 50, height: 50 }}>
                   <ProfileAvatar 
                     photoUrl={c.photoUrl}
                     name={name}
                     size="md"
-                    className="w-12 h-12"
+                   
                   />
                 </div>
 
@@ -992,46 +1007,45 @@ const collabsList = dataSource === "api"
 )}
 
 
+
+
 {/* ALL COLLABORATORS (GRID) */}
 {activeTab === "Collaborators" && (
   <div style={{ marginTop: 16 }}>
     {(() => {
       if (!person?.id) return null;
 
-      // Build rows from API when dataSource === 'api'; otherwise use mock index
-      const rows = (dataSource === "api"
-        ? (collabs || []).map((c: any) => ({
-            id: c.collaboratorId,
-            name: c.name ?? c.collaboratorId,   // name from API (falls back to id)
-            email: c.email ?? undefined,
-            title: c.title ?? undefined,        // from OIMembers.position if present
-            // institution/department not in schema, so omit
-            total: c.total ?? c.pubCount ?? 0,  // API sets total = pubCount
-            pubCount: c.pubCount ?? c.total ?? 0,
-            grantCount: c.grantCount ?? 0,
-          }))
-        : getAllCollaboratorsFor(person.id, collabIdx)
-            .map(c => {
-              const r = findResearcher(c.collaboratorId);
-              return r
-                ? {
-                    id: r.id,
-                    name: r.name,
-                    email: r.email,
-                    title: r.title,
-                    institution: r.institution,
-                    department: r.department,
-                    total: c.total,
-                    pubCount: c.pubCount,
-                    grantCount: c.grantCount
-                  }
-                : null;
-            })
-            .filter(Boolean) as {
-              id: string; name?: string; email?: string; title?: string;
-              institution?: string; department?: string;
-              total: number; pubCount: number; grantCount: number;
-            }[]);
+     // Build rows from API when dataSource === 'api'; otherwise use mock index
+const rows: CollabRow[] = (dataSource === "api"
+  ? (collabs || []).map((c: any): CollabRow => ({
+      id: c.collaboratorId,
+      name: c.name ?? c.collaboratorId,
+      email: c.email ?? undefined,
+      title: c.title ?? undefined,
+      total: c.total ?? c.pubCount ?? 0,
+      pubCount: c.pubCount ?? c.total ?? 0,
+      grantCount: c.grantCount ?? 0,
+      photoUrl: c.photo_url,              // ✅ API → camelCase
+    }))
+  : getAllCollaboratorsFor(person.id, collabIdx)
+      .map(c => {
+        const r = findResearcher(c.collaboratorId);
+        return r && ({
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          title: r.title,
+          institution: r.institution,
+          department: r.department,
+          total: c.total,
+          pubCount: c.pubCount,
+          grantCount: c.grantCount,
+          photoUrl: r.photoUrl,           // ✅ use r.photoUrl (not c.photoUrl)
+        } as CollabRow);
+      })
+      .filter(Boolean) as CollabRow[]
+);
+console.log('collab row sample', rows[0]);
 
       // Sort strongest-first
       rows.sort((a, b) => b.total - a.total || b.pubCount - a.pubCount);
@@ -1058,6 +1072,8 @@ const collabsList = dataSource === "api"
             }}
           >
             {rows.map(r => (
+
+              
               <div
                 key={r.id}
                 style={{
@@ -1066,18 +1082,20 @@ const collabsList = dataSource === "api"
                   borderRadius: 10,
                   padding: 12,
                   display: "grid",
-                  gridTemplateColumns: "40px 1fr",
+                  gridTemplateColumns: "48px 1fr",
                   columnGap: 12,
                   alignItems: "center"
                 }}
               >
+                
                 {/* Avatar */}
-                <ProfileAvatar 
-                  photoUrl={r.photo_url}
-                  name={r.name}
-                  size="sm"
-                  className="w-10 h-10"
-                />
+                <div style={{ width: 50, height: 50 }}>
+  <ProfileAvatar 
+    photoUrl={r.photoUrl}
+    name={r.name}
+    size="md"   // internal ratio & rounding
+  />
+</div>
 
                 {/* Text */}
                 <div>

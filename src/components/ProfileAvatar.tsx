@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface ProfileAvatarProps {
   photoUrl?: string | null;
@@ -9,94 +9,128 @@ interface ProfileAvatarProps {
 
 const sizeClasses = {
   sm: 'w-8 h-8 text-xs',
-  md: 'w-12 h-12 text-sm', 
+  md: 'w-12 h-12 text-sm',
   lg: 'w-16 h-16 text-base',
   xl: 'w-20 h-20 text-lg'
 };
 
-// Map sizes to pixel dimensions for optimal image resolution
-const sizePixels = {
-  sm: 32,   // 8 * 4 (tailwind w-8 = 32px)
-  md: 48,   // 12 * 4 (tailwind w-12 = 48px)
-  lg: 64,   // 16 * 4 (tailwind w-16 = 64px)
-  xl: 80    // 20 * 4 (tailwind w-20 = 80px)
-};
+const sizePixels = { sm: 32, md: 48, lg: 64, xl: 80 };
 
-const getInitials = (name?: string) => {
-  if (!name) return '??';
-  return name
+const getInitials = (name?: string) =>
+  (name || '')
     .split(/\s+/)
     .filter(Boolean)
     .map(s => s[0]?.toUpperCase())
     .slice(0, 2)
     .join('') || '??';
-};
 
-// Optimize image URL for the required size to prevent pixelation
+const isUwaRepo = (u: string) =>
+  /^https?:\/\/api\.research-repository\.uwa\.edu\.au\/ws\/files\//i.test(u);
+
+const hasExtension = (u: string) => /\.[a-z]{3,4}(\?|$)/i.test(u);
+
 const optimizeImageUrl = (url: string, size: keyof typeof sizePixels): string => {
   if (!url) return url;
-  
-  // For Unsplash images, use much higher resolution to ensure quality
   if (url.includes('unsplash.com')) {
-    const targetSize = Math.max(sizePixels[size] * 3, 200); // At least 3x or 200px minimum
-    const optimizedUrl = url.replace(/w=\d+&h=\d+/, `w=${targetSize}&h=${targetSize}&q=95&dpr=2`);
-    console.log(`Optimizing image for size ${size}: ${targetSize}px`, { original: url, optimized: optimizedUrl });
-    return optimizedUrl;
+    const s = Math.max(sizePixels[size] * 3, 200);
+    return url.replace(/w=\d+&h=\d+/, `w=${s}&h=${s}&q=95&dpr=2`);
   }
-  
-  // For other image services, return as-is (could add more optimizations here)
   return url;
 };
 
-export default function ProfileAvatar({ 
-  photoUrl, 
-  name, 
-  size = 'md', 
-  className = '' 
+export default function ProfileAvatar({
+  photoUrl,
+  name,
+  size = 'md',
+  className = ''
 }: ProfileAvatarProps) {
+  const [srcIndex, setSrcIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  const handleImageError = () => {
-    setImageError(true);
-    setImageLoading(false);
-  };
+  // Build a small list of candidate URLs to try if the first fails
+  const candidates = useMemo(() => {
+    const list: string[] = [];
+    if (photoUrl) {
+      const base = optimizeImageUrl(photoUrl, size);
+      list.push(base);
+      if (isUwaRepo(base) && !hasExtension(base)) {
+        // Try common extensions, then ?download=1 as a last resort
+        list.push(`${base}.jpg`);
+        list.push(`${base}.png`);
+        list.push(`${base}?download=1`);
+      }
+    }
+    return list;
+  }, [photoUrl, size]);
 
-  const handleImageLoad = () => {
-    setImageLoading(false);
+  useEffect(() => {
+    // Reset on url change
+    setSrcIndex(0);
     setImageError(false);
-  };
+  }, [photoUrl]);
 
-  const shouldShowImage = photoUrl && !imageError;
-  const optimizedImageUrl = photoUrl ? optimizeImageUrl(photoUrl, size) : '';
+const handleImageError = () => {
+  if (srcIndex < candidates.length - 1) {
+    setSrcIndex(srcIndex + 1);   // 👈 try the next candidate
+  } else {
+    setImageError(true);         // give up only at the end
+  }
+};
 
-  return (
-    <div className={`${sizeClasses[size]} ${className} relative rounded-full overflow-hidden bg-blue-100 flex items-center justify-center`}>
-      {shouldShowImage ? (
+const handleImageLoad = () => {
+  console.log('[ProfileAvatar] image loaded', { name, srcToUse });
+  setHasLoaded(true);
+  setImageError(false);
+};
+
+  const srcToUse = candidates[srcIndex];
+return (
+  <div
+    className={`${sizeClasses[size]} ${className} relative rounded-full overflow-hidden bg-blue-100 flex items-center justify-center`}
+    style={{
+    aspectRatio: '1 / 1',   // keep it square → circle stays circle
+    
+  }}
+  >
+    {srcToUse && !imageError ? (
+      <>
+        {console.log('[ProfileAvatar] rendering <img>', { name, srcToUse })}
         <img
-          src={optimizedImageUrl}
+          src={srcToUse}
           alt={`${name || 'User'} profile picture`}
-          onError={handleImageError}
-          onLoad={handleImageLoad}
+          onError={(e) => {
+            console.warn('[ProfileAvatar] image error', { name, srcToUse });
+            handleImageError();
+          }}
+          onLoad={(e) => {
+            console.log('[ProfileAvatar] image loaded', { name, srcToUse });
+            handleImageLoad();
+          }}
           className="absolute inset-0 w-full h-full object-cover object-center select-none"
-          style={{ 
-            objectFit: 'cover', 
+          style={{
+            objectFit: 'cover',
             objectPosition: 'center',
             imageRendering: '-webkit-optimize-contrast',
-            WebkitImageRendering: '-webkit-optimize-contrast',
-            msInterpolationMode: 'bicubic',
             filter: 'contrast(1.1) saturate(1.1)',
             backfaceVisibility: 'hidden',
-            transform: 'translateZ(0)'
+            transform: 'translateZ(0)',
           }}
-          loading="lazy"
+          loading="eager"       // 👈 force load
           draggable={false}
+          referrerPolicy="no-referrer"
         />
-      ) : (
+      </>
+    ) : (
+      <>
+        {console.log('[ProfileAvatar] rendering initials', { name })}
         <span className="text-blue-600 font-semibold">
           {getInitials(name)}
         </span>
-      )}
-    </div>
-  );
+      </>
+    )}
+  </div>
+);
+
 }
