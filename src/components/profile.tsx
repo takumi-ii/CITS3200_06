@@ -615,12 +615,13 @@ const collabsList = dataSource === "api"
         >
           {collabsList.map((c, i) => {
             const name = c.name ?? "Unknown";
+            const isExternal = name.startsWith("External Researcher");
             const sub =
               c.title ??
               c.department ??
               c.institution ??
               c.affiliation ??
-              "—";
+              (isExternal ? "External Collaborator" : "—");
             console.log('[TopCollab Avatar Props]', { index: i, name, photoUrl: c.photoUrl });
             return (
               <div
@@ -637,8 +638,8 @@ const collabsList = dataSource === "api"
                   flex: "0 0 auto",
                   width: 148,
                   height: 148,
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
+                  background: isExternal ? "#f8fafc" : "#fff",
+                  border: isExternal ? "1px solid #cbd5e1" : "1px solid #e5e7eb",
                   borderRadius: 12,
                   padding: 8,
                   display: "flex",
@@ -646,8 +647,8 @@ const collabsList = dataSource === "api"
                   alignItems: "center",
                   justifyContent: "center",
                   textAlign: "center",
-                  cursor: "pointer" 
-                  
+                  cursor: "pointer",
+                  opacity: isExternal ? 0.85 : 1
                 }}
                 title={name}
               >
