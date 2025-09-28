@@ -119,6 +119,8 @@ useEffect(() => {
         onClose={handleCloseProfile}
         person={selectedResearcher}
         dataSource = {dataSource}
+         setSelectedResearcher={setSelectedResearcher}   // add this
+         setProfileOpen={setProfileOpen}                 // add this
       />
 
 

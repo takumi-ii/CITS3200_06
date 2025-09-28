@@ -5,7 +5,7 @@ import { collabIdx, } from "../data/mockData";
 import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUtils";
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
-import { preloadProfile, getGrantsFor, getAwardsFor } from '../data/api';
+import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '../data/api';
 import { Info,GraduationCap,Book,Users} from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
 
@@ -14,8 +14,11 @@ interface ProfileProps {
   open: boolean;
   onClose: () => void;
   person: Researcher | null;
-  dataSource:'api' | 'mock'; 
+  dataSource: 'api' | 'mock';
+  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>;
+  setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
 const dateRange = (s?: string | null, e?: string | null) =>
@@ -61,9 +64,23 @@ const displayAffiliation = (r: any) =>
 
 
 
-export default function Profile({ open, onClose, person ,dataSource}: ProfileProps) {
+export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
   const [activeTab, setActiveTab] = useState("Overview");
+  const panelRef = React.useRef<HTMLDivElement>(null);
+useEffect(() => {
+  const resetProfileView = () => {
+    setActiveTab("Overview");
+    panelRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  };
+
+  if (open) {
+    resetProfileView();
+  }
+}, [open, person]);
+
+
+
   const [tick, setTick] = useState(0);
 useEffect(() => {
   console.log('[Profile] incoming person', person);
@@ -127,6 +144,18 @@ const awards = useMemo(
   return { ...r, ...c }; // merge collaborator info + counts
 });
 
+// inside Profile component
+const resolveResearcher = (rid?: string) => {
+  if (!rid) return null;
+  if (dataSource === 'api') {
+    const all = getAllResearchers();                 // live store snapshot
+    return all.find((r: any) => r.id === rid || r.uuid === rid) || null;
+  }
+  // mock path
+  return mockResearchers.find(r => r.id === rid) || null;
+};
+
+
 return createPortal(
   <>
     {/* Backdrop */}
@@ -143,6 +172,7 @@ return createPortal(
 
     {/* Modal Panel */}
    <div
+  ref={panelRef} 
   role="dialog"
   aria-modal="true"
   style={{
@@ -554,6 +584,12 @@ const collabsList = dataSource === "api"
             return (
               <div
                 key={c.id ?? `${name}-${i}`}
+                onClick={() => {
+    const full = resolveResearcher(c.id);
+    setSelectedResearcher(full ?? { id: c.id, name }); // safe fallback
+    setProfileOpen(true);          // keep modal open / switch person
+    setActiveTab("Overview");      // ensure we always start on Overview
+  }}
                 style={{
                   flex: "0 0 auto",
                   width: 148,
@@ -1076,16 +1112,26 @@ console.log('collab row sample', rows[0]);
               
               <div
                 key={r.id}
+                 onClick={() => {
+    const full = resolveResearcher(r.id);
+    setSelectedResearcher(full ?? { id: r.id, name: r.name, title: r.title });
+    setProfileOpen(true);
+    setActiveTab("Overview");
+  }}
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  padding: 12,
-                  display: "grid",
-                  gridTemplateColumns: "48px 1fr",
-                  columnGap: 12,
-                  alignItems: "center"
-                }}
+    background: "#fff",
+    border: "1px solid #e5e7eb",
+    borderRadius: 10,
+    padding: 12,
+    display: "grid",
+    gridTemplateColumns: "48px 1fr",
+    columnGap: 12,
+    alignItems: "center",
+    cursor: "pointer",                // indicate clickable
+    transition: "background 0.2s",
+  }}
+   onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+  onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
               >
                 
                 {/* Avatar */}
