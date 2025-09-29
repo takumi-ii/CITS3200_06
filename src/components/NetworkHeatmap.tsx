@@ -1,5 +1,43 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+// NetworkHeatmap.tsx
+// -----------------------------------------------------------------------------
+// Canvas-based network of Expertise and Researchers.
+//
+// What’s new in this patch:
+//   • PANNING is now **middle-mouse (wheel) click & drag** only.
+//     - Left-click is reserved for node interactions (no clashes).
+//     - Hover behaviors remain responsive while not panning.
+//   • Keeps earlier upgrades: top-15 Expertise, concentric rings (exp & res),
+//     toned-down size scaling, widened canvas and ring gaps, HiDPI rendering,
+//     edge caps + idle RAF for performance, background panning, etc.
+//
+// Interaction model:
+//   • Hover Expertise: soft focus preview (unchanged).
+//   • Left-click Expertise: lock/unlock focus (unchanged).
+//   • While focused: hover Researcher highlights their intra-focus links (fixed).
+//   • Middle-click & drag anywhere on the canvas: pan the camera.
+//   • Right-click is ignored; we also suppress the context menu for cleaner UX.
+//
+// Notes:
+//   • Expertise “connectivity” ordering = (#researchers desc) then (sum of pairwise
+//     overlaps desc). Most-connected sits at the center; others form rings outward.
+//   • Researcher placement in focus uses degree within the focus subgraph (excluding
+//     the focused expertise) → inner-to-outer rings.
+//
+// Performance highlights:
+//   • HiDPI scaling without changing logical coordinates.
+//   • O(E) edge rendering via id→node map.
+//   • RAF auto-stops when idle.
+//   • Caps on researcher↔researcher edges (global + per-node).
+// -----------------------------------------------------------------------------
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+
+// Shared store + mocks (same usage as Results/SearchSection.tsx)
+import { getAllResearchers, subscribe } from '../data/api';
+import { mockResearchers } from '../data/mockData';
+
+type DataSource = 'api' | 'mock';
 
 interface NetworkHeatmapProps {
   searchQuery: string;
@@ -8,873 +46,768 @@ interface NetworkHeatmapProps {
     tags: string[];
     researchArea: string;
   };
+  dataSource?: DataSource;
 }
+
+type NodeType = 'expertise' | 'researcher';
 
 interface Node {
   id: string;
   name: string;
-  type: 'researcher' | 'expertise';
-  x: number;
-  y: number;
-  targetX: number;
-  targetY: number;
-  baseX: number;
-  baseY: number;
+  type: NodeType;
+
+  x: number; y: number;           // current (world)
+  targetX: number; targetY: number;
+  baseX: number; baseY: number;   // layout home
+
   radius: number;
   color: string;
+
   connections: string[];
   connectionCount: number;
+
   visible: boolean;
   opacity: number;
   targetOpacity: number;
+
   isExpanded?: boolean;
 }
 
-interface Connection {
+type EdgeType = 'expertise-expertise' | 'expertise-researcher' | 'researcher-researcher';
+
+interface Edge {
   from: string;
   to: string;
-  strength: number;
-  type: 'expertise-expertise' | 'expertise-researcher' | 'researcher-researcher';
+  strength: number;      // 0..1
+  type: EdgeType;
   visible: boolean;
   opacity: number;
   targetOpacity: number;
 }
 
-interface ExpertiseConnections {
-  [expertiseId: string]: {
-    researchers: string[];
-    connectedExpertise: { id: string; connectionCount: number }[];
-  };
-}
-
 interface Transform {
-  x: number;
-  y: number;
-  scale: number;
-  targetX: number;
-  targetY: number;
-  targetScale: number;
+  x: number; y: number; scale: number;
+  targetX: number; targetY: number; targetScale: number;
 }
 
-export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>(0);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+type Researcher = {
+  id: string;
+  name: string;
+  expertise?: string[];
+  publicationsCount?: number;
+};
+
+// ---------- Tunables & Constants ---------------------------------------------
+
+const CANVAS_W = 1400;  // logical space
+const CANVAS_H = 900;
+
+const COLORS = {
+  expertise: '#0891b2',   // teal-600
+  researcher: '#0ea5e9',  // sky-500
+  bg0: '#f0f9ff',
+  bg1: '#e0f2fe',
+};
+
+const LERP = {
+  nodePos: 0.15,
+  nodeOpacity: 0.2,
+  transform: 0.12,
+};
+
+const RENDER = {
+  minTextScale: 0.35,
+  minNodeOpacity: 0.01,
+};
+
+const EXP_RING0 = 260;
+const EXP_RING_GAP = 220;
+const RES_RING0 = 160;
+const RES_RING_GAP = 110;
+
+const MAX_FOCUS_RR_EDGES = 450;
+const MAX_FOCUS_RR_DEGREE = 12;
+
+// ---------- Utility -----------------------------------------------------------
+
+function screenToWorld(
+  sxLogical: number,
+  syLogical: number,
+  logicalW: number,
+  logicalH: number,
+  t: Transform
+) {
+  const cx = logicalW / 2;
+  const cy = logicalH / 2;
+  const x = (sxLogical - cx) / t.scale + (cx - (cx - t.x));
+  const y = (syLogical - cy) / t.scale + (cy - (cy - t.y));
+  return { x, y };
+}
+
+function dist2(ax: number, ay: number, bx: number, by: number) {
+  const dx = ax - bx; const dy = ay - by;
+  return dx * dx + dy * dy;
+}
+
+// toned-down size scaling
+function expertiseRadius(count: number) { return Math.min(96, 38 + 6 * Math.sqrt(Math.max(0, count))); }
+function researcherRadius(expertiseCount: number) { return 24 + Math.min(6, expertiseCount * 2); }
+
+// ---------- Layout helpers ----------------------------------------------------
+
+function circlePositions(count: number, center: { x: number; y: number }, radius: number, startAngle = -Math.PI / 2) {
+  const out: { x: number; y: number; angle: number }[] = [];
+  if (count <= 0) return out;
+  const step = (2 * Math.PI) / count;
+  for (let i = 0; i < count; i++) {
+    const a = startAngle + i * step;
+    out.push({ x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, angle: a });
+  }
+  return out;
+}
+
+function layoutResearchersInRings(
+  focus: Node,
+  researcherNodes: Node[],
+  degreeById: Map<string, number>,
+  ring0 = RES_RING0,
+  ringGap = RES_RING_GAP,
+  ringCapacity = (ringIndex: number) => 8 + ringIndex * 6
+) {
+  const ordered = [...researcherNodes].sort((a, b) => {
+    const da = degreeById.get(a.id) ?? 0;
+    const db = degreeById.get(b.id) ?? 0;
+    if (db !== da) return db - da;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  const rings: Node[][] = [];
+  let idx = 0;
+  for (let ringIx = 0; idx < ordered.length; ringIx++) {
+    const cap = ringCapacity(ringIx);
+    rings.push(ordered.slice(idx, idx + cap));
+    idx += cap;
+  }
+
+  const updated: Node[] = [];
+  for (let r = 0; r < rings.length; r++) {
+    const radius = ring0 + r * ringGap;
+    const ring = rings[r];
+    const pts = circlePositions(ring.length, { x: focus.baseX, y: focus.baseY }, radius, -Math.PI / 2);
+    for (let i = 0; i < ring.length; i++) {
+      const n = ring[i];
+      const p = pts[i];
+      updated.push({ ...n, targetX: p.x, targetY: p.y, targetOpacity: 1, visible: true });
+    }
+  }
+  return updated;
+}
+
+function layoutExpertiseInRings(
+  center: { x: number; y: number },
+  nodes: Node[],
+  ring0 = EXP_RING0,
+  ringGap = EXP_RING_GAP,
+  ringCapacity = (ringIndex: number) => 6 + ringIndex * 8
+) {
+  if (!nodes.length) return nodes;
+
+  const placed: Node[] = [];
+
+  const first = { ...nodes[0] };
+  first.baseX = center.x; first.baseY = center.y;
+  first.x = center.x; first.y = center.y;
+  first.targetX = center.x; first.targetY = center.y;
+  placed.push(first);
+
+  const rest = nodes.slice(1);
+  let idx = 0;
+  for (let ringIx = 0; idx < rest.length; ringIx++) {
+    const cap = ringCapacity(ringIx);
+    const batch = rest.slice(idx, idx + cap);
+    const radius = ring0 + ringIx * ringGap;
+    const pts = circlePositions(batch.length, center, radius, -Math.PI / 2);
+    for (let i = 0; i < batch.length; i++) {
+      const n = { ...batch[i] };
+      const p = pts[i];
+      n.baseX = p.x; n.baseY = p.y;
+      n.x = p.x; n.y = p.y;
+      n.targetX = p.x; n.targetY = p.y;
+      placed.push(n);
+    }
+    idx += cap;
+  }
+  return placed;
+}
+
+// ---------- Connectivity helpers ---------------------------------------------
+
+function buildFocusAdjacency(focusExpertise: string, researcherList: Researcher[]) {
+  const idByIndex = researcherList.map(r => r.id);
+  const expertiseById = new Map<string, Set<string>>();
+  for (const r of researcherList) {
+    const set = new Set((r.expertise || []).filter(e => e && e !== focusExpertise));
+    expertiseById.set(r.id, set);
+  }
+
+  const edges: [string, string, number][] = [];
+  const degree = new Map<string, number>(idByIndex.map(id => [id, 0]));
+
+  for (let i = 0; i < idByIndex.length; i++) {
+    for (let j = i + 1; j < idByIndex.length; j++) {
+      const a = idByIndex[i];
+      const b = idByIndex[j];
+      const ea = expertiseById.get(a)!;
+      const eb = expertiseById.get(b)!;
+      let overlap = 0;
+      for (const e of ea) if (eb.has(e)) overlap++;
+      if (overlap > 0) {
+        const strength = Math.min(1, 0.3 + overlap * 0.35);
+        edges.push([a, b, strength]);
+        degree.set(a, (degree.get(a) || 0) + 1);
+        degree.set(b, (degree.get(b) || 0) + 1);
+      }
+    }
+  }
+  return { edges, degree };
+}
+
+function capEdges(rrEdges: [string, string, number][], maxTotal: number, maxPerNode: number) {
+  const out: [string, string, number][] = [];
+  const deg = new Map<string, number>();
+  const sorted = [...rrEdges].sort((a, b) => b[2] - a[2]);
+  for (const [u, v, s] of sorted) {
+    const du = deg.get(u) || 0;
+    const dv = deg.get(v) || 0;
+    if (du >= maxPerNode || dv >= maxPerNode) continue;
+    out.push([u, v, s]);
+    deg.set(u, du + 1);
+    deg.set(v, dv + 1);
+    if (out.length >= maxTotal) break;
+  }
+  return out;
+}
+
+function rankTopExpertise(expertiseToResearchers: Map<string, Set<string>>, topK: number) {
+  const exps = Array.from(expertiseToResearchers.keys());
+  const counts = new Map<string, number>();
+  for (const e of exps) counts.set(e, expertiseToResearchers.get(e)?.size ?? 0);
+
+  const sharedSum = new Map<string, number>(exps.map(e => [e, 0]));
+  for (let i = 0; i < exps.length; i++) {
+    for (let j = i + 1; j < exps.length; j++) {
+      const a = exps[i], b = exps[j];
+      const A = expertiseToResearchers.get(a) ?? new Set<string>();
+      const B = expertiseToResearchers.get(b) ?? new Set<string>();
+      let shared = 0;
+      for (const id of A) if (B.has(id)) shared++;
+      if (shared > 0) {
+        sharedSum.set(a, (sharedSum.get(a) || 0) + shared);
+        sharedSum.set(b, (sharedSum.get(b) || 0) + shared);
+      }
+    }
+  }
+
+  const ordered = exps.sort((a, b) => {
+    const ca = counts.get(a) || 0;
+    const cb = counts.get(b) || 0;
+    if (cb !== ca) return cb - ca;
+    const sa = sharedSum.get(a) || 0;
+    const sb = sharedSum.get(b) || 0;
+    if (sb !== sa) return sb - sa;
+    return a.localeCompare(b);
+  });
+
+  return ordered.slice(0, topK);
+}
+
+// ---------- Component ---------------------------------------------------------
+
+export default function NetworkHeatmap({ searchQuery, filters, dataSource = 'api' }: NetworkHeatmapProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const dprRef = useRef<number>(typeof window !== 'undefined' ? Math.max(1, Math.min(2.5, window.devicePixelRatio || 1)) : 1);
+
   const [nodes, setNodes] = useState<Node[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+
   const [hoveredExpertise, setHoveredExpertise] = useState<string | null>(null);
   const [clickedExpertise, setClickedExpertise] = useState<string | null>(null);
   const [hoveredResearcher, setHoveredResearcher] = useState<string | null>(null);
-  const [expertiseConnections, setExpertiseConnections] = useState<ExpertiseConnections>({});
+
   const [transform, setTransform] = useState<Transform>({
     x: 0, y: 0, scale: 1,
-    targetX: 0, targetY: 0, targetScale: 1
+    targetX: 0, targetY: 0, targetScale: 1,
   });
 
-  // Generate network data
-  const generateNetworkData = useCallback(() => {
-    const researchers = [
-      { id: 'chen', name: 'Dr. S. Chen', type: 'researcher' as const },
-      { id: 'rodriguez', name: 'Prof. M. Rodriguez', type: 'researcher' as const },
-      { id: 'thompson', name: 'Dr. E. Thompson', type: 'researcher' as const },
-      { id: 'wilson', name: 'Dr. J. Wilson', type: 'researcher' as const },
-      { id: 'park', name: 'Dr. L. Park', type: 'researcher' as const },
-      { id: 'kim', name: 'Dr. R. Kim', type: 'researcher' as const },
-      { id: 'garcia', name: 'Dr. A. Garcia', type: 'researcher' as const },
-      { id: 'lee', name: 'Prof. H. Lee', type: 'researcher' as const },
-      { id: 'patel', name: 'Dr. K. Patel', type: 'researcher' as const },
-      { id: 'nakamura', name: 'Dr. T. Nakamura', type: 'researcher' as const }
-    ];
+  // middle-mouse panning state
+  const isPanningRef = useRef(false);
+  const lastPanRef = useRef<{ sx: number; sy: number } | null>(null);
 
-    const expertiseAreas = [
-      { id: 'climate', name: 'Climate Change', type: 'expertise' as const },
-      { id: 'pollution', name: 'Marine Pollution', type: 'expertise' as const },
-      { id: 'conservation', name: 'Conservation Biology', type: 'expertise' as const },
-      { id: 'ecosystem', name: 'Ecosystem Health', type: 'expertise' as const },
-      { id: 'biodiversity', name: 'Marine Biodiversity', type: 'expertise' as const },
-      { id: 'oceanography', name: 'Physical Oceanography', type: 'expertise' as const }
-    ];
+  const ensureRAF = useCallback(() => { if (rafRef.current == null) rafRef.current = requestAnimationFrame(animate); }, []); // eslint-disable-line
 
-    const researcherExpertiseConnections = [
-      { researcher: 'chen', expertise: 'climate', strength: 0.9 },
-      { researcher: 'chen', expertise: 'conservation', strength: 0.7 },
-      { researcher: 'rodriguez', expertise: 'climate', strength: 0.8 },
-      { researcher: 'rodriguez', expertise: 'oceanography', strength: 0.9 },
-      { researcher: 'thompson', expertise: 'pollution', strength: 0.9 },
-      { researcher: 'thompson', expertise: 'ecosystem', strength: 0.6 },
-      { researcher: 'wilson', expertise: 'pollution', strength: 0.8 },
-      { researcher: 'park', expertise: 'oceanography', strength: 0.8 },
-      { researcher: 'park', expertise: 'climate', strength: 0.6 },
-      { researcher: 'kim', expertise: 'oceanography', strength: 0.7 },
-      { researcher: 'garcia', expertise: 'biodiversity', strength: 0.9 },
-      { researcher: 'garcia', expertise: 'conservation', strength: 0.8 },
-      { researcher: 'lee', expertise: 'ecosystem', strength: 0.9 },
-      { researcher: 'lee', expertise: 'biodiversity', strength: 0.7 },
-      { researcher: 'patel', expertise: 'conservation', strength: 0.8 },
-      { researcher: 'nakamura', expertise: 'biodiversity', strength: 0.8 },
-      { researcher: 'nakamura', expertise: 'ecosystem', strength: 0.7 }
-    ];
+  // ----- Data hookup -----
+  const [storeResearchers, setStoreResearchers] = useState<Researcher[]>(getAllResearchers());
+  useEffect(() => { const unsub = subscribe(() => setStoreResearchers(getAllResearchers())); return () => unsub(); }, []);
+  const sourceResearchers: Researcher[] = useMemo(() => (dataSource === 'mock' ? (mockResearchers as any) : storeResearchers), [dataSource, storeResearchers]);
 
-    // Build expertise connections mapping
-    const expertiseConnectionsMap: ExpertiseConnections = {};
-    expertiseAreas.forEach(expertise => {
-      expertiseConnectionsMap[expertise.id] = {
-        researchers: researcherExpertiseConnections
-          .filter(conn => conn.expertise === expertise.id)
-          .map(conn => conn.researcher),
-        connectedExpertise: []
-      };
+  const filteredResearchers: Researcher[] = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase();
+    return (sourceResearchers || []).filter(r => {
+      const matchesQuery = !q || (r.name || '').toLowerCase().includes(q) || (r.expertise || []).some(e => (e || '').toLowerCase().includes(q));
+      const matchesTags = (filters.tags?.length ?? 0) === 0 || filters.tags.some(tag => (r.expertise || []).some(exp => (exp || '').toLowerCase().includes((tag || '').toLowerCase())));
+      return matchesQuery && matchesTags;
     });
+  }, [sourceResearchers, searchQuery, filters.tags]);
 
-    // Calculate inter-expertise connections
-    expertiseAreas.forEach(expertise1 => {
-      expertiseAreas.forEach(expertise2 => {
-        if (expertise1.id !== expertise2.id) {
-          const shared = expertiseConnectionsMap[expertise1.id].researchers.filter(r =>
-            expertiseConnectionsMap[expertise2.id].researchers.includes(r)
-          );
-          
-          if (shared.length > 0) {
-            const existing = expertiseConnectionsMap[expertise1.id].connectedExpertise
-              .find(conn => conn.id === expertise2.id);
-            
-            if (!existing) {
-              expertiseConnectionsMap[expertise1.id].connectedExpertise.push({
-                id: expertise2.id,
-                connectionCount: shared.length
-              });
-            }
-          }
-        }
-      });
-    });
+  const expertiseToResearchers = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of filteredResearchers) for (const e of (r.expertise || [])) { if (!e) continue; if (!map.has(e)) map.set(e, new Set()); map.get(e)!.add(r.id); }
+    return map;
+  }, [filteredResearchers]);
 
-    // Default canvas dimensions
-    const canvasWidth = 1000;
-    const canvasHeight = 600;
+  const topExpertiseIds = useMemo(() => rankTopExpertise(expertiseToResearchers, 15), [expertiseToResearchers]);
 
-    // Create nodes
-    const allNodes: Node[] = [];
-    
-    // Expertise nodes
-    const expertiseNodes = expertiseAreas.map((expertise, index) => {
-      const researcherCount = expertiseConnectionsMap[expertise.id].researchers.length;
-      const centerX = canvasWidth / 2;
-      const centerY = canvasHeight / 2;
-      const radius = Math.min(canvasWidth, canvasHeight) * 0.32;
-      const angle = (index / expertiseAreas.length) * 2 * Math.PI;
-      const baseX = centerX + Math.cos(angle) * radius;
-      const baseY = centerY + Math.sin(angle) * radius;
-      
+  const idToNode = useMemo(() => { const m = new Map<string, Node>(); for (const n of nodes) m.set(n.id, n); return m; }, [nodes]);
+
+  // ----- Scene building -----
+  const createOverviewScene = useCallback(() => {
+    const center = { x: CANVAS_W / 2, y: CANVAS_H / 2 };
+
+    const expNodesRaw: Node[] = topExpertiseIds.map((exp) => {
+      const researcherCount = (expertiseToResearchers.get(exp)?.size ?? 0);
       return {
-        id: expertise.id,
-        name: expertise.name,
-        type: 'expertise' as const,
-        x: baseX,
-        y: baseY,
-        targetX: baseX,
-        targetY: baseY,
-        baseX,
-        baseY,
-        radius: 50 + researcherCount * 3,
-        color: '#0891b2',
-        connections: [
-          ...expertiseConnectionsMap[expertise.id].researchers,
-          ...expertiseConnectionsMap[expertise.id].connectedExpertise.map(conn => conn.id)
-        ],
+        id: exp, name: exp, type: 'expertise',
+        x: center.x, y: center.y, targetX: center.x, targetY: center.y,
+        baseX: center.x, baseY: center.y,
+        radius: expertiseRadius(researcherCount),
+        color: COLORS.expertise,
+        connections: Array.from(expertiseToResearchers.get(exp) ?? []),
         connectionCount: researcherCount,
-        visible: true,
-        opacity: 1,
-        targetOpacity: 1
+        visible: true, opacity: 1, targetOpacity: 1, isExpanded: false,
       };
     });
 
-    // Researcher nodes
-    const researcherNodes = researchers.map(researcher => {
-      const userExpertise = researcherExpertiseConnections.filter(conn => conn.researcher === researcher.id);
-      
+    const expNodes = layoutExpertiseInRings(center, expNodesRaw, EXP_RING0, EXP_RING_GAP, (r) => 6 + r * 8);
+
+    const resNodes: Node[] = filteredResearchers.map((r) => {
+      const exps = (r.expertise || []).filter(Boolean);
       return {
-        id: researcher.id,
-        name: researcher.name,
-        type: 'researcher' as const,
-        x: canvasWidth / 2,
-        y: canvasHeight / 2,
-        targetX: canvasWidth / 2,
-        targetY: canvasHeight / 2,
-        baseX: canvasWidth / 2,
-        baseY: canvasHeight / 2,
-        radius: 35 + userExpertise.length * 2,
-        color: '#0ea5e9',
-        connections: userExpertise.map(conn => conn.expertise),
-        connectionCount: userExpertise.length,
-        visible: false,
-        opacity: 0,
-        targetOpacity: 0
+        id: r.id, name: r.name, type: 'researcher',
+        x: center.x, y: center.y, targetX: center.x, targetY: center.y,
+        baseX: center.x, baseY: center.y,
+        radius: researcherRadius(exps.length),
+        color: COLORS.researcher,
+        connections: exps, connectionCount: exps.length,
+        visible: false, opacity: 0, targetOpacity: 0,
       };
     });
 
-    allNodes.push(...expertiseNodes, ...researcherNodes);
-
-    // Create connections
-    const allConnections: Connection[] = [];
-
-    // Expertise-expertise connections
-    expertiseAreas.forEach(expertise1 => {
-      expertiseConnectionsMap[expertise1.id].connectedExpertise.forEach(conn => {
-        const exists = allConnections.find(existing => 
-          (existing.from === expertise1.id && existing.to === conn.id) ||
-          (existing.from === conn.id && existing.to === expertise1.id)
-        );
-        
-        if (!exists) {
-          allConnections.push({
-            from: expertise1.id,
-            to: conn.id,
-            strength: Math.min(conn.connectionCount / 3, 1),
-            type: 'expertise-expertise',
-            visible: true,
-            opacity: Math.min(conn.connectionCount / 3 * 0.6, 0.6),
-            targetOpacity: Math.min(conn.connectionCount / 3 * 0.6, 0.6)
+    const expEdges: Edge[] = [];
+    for (let i = 0; i < topExpertiseIds.length; i++) {
+      for (let j = i + 1; j < topExpertiseIds.length; j++) {
+        const a = topExpertiseIds[i], b = topExpertiseIds[j];
+        const A = expertiseToResearchers.get(a) ?? new Set<string>();
+        const B = expertiseToResearchers.get(b) ?? new Set<string>();
+        let shared = 0; for (const id of A) if (B.has(id)) shared++;
+        if (shared > 0) {
+          expEdges.push({
+            from: a, to: b, strength: Math.min(1, 0.2 + shared * 0.12),
+            type: 'expertise-expertise', visible: true,
+            opacity: 0.22 + Math.min(0.45, shared * 0.05),
+            targetOpacity: 0.22 + Math.min(0.45, shared * 0.05),
           });
         }
-      });
-    });
-
-    // Expertise-researcher connections
-    researcherExpertiseConnections.forEach(conn => {
-      allConnections.push({
-        from: conn.expertise,
-        to: conn.researcher,
-        strength: conn.strength,
-        type: 'expertise-researcher',
-        visible: false,
-        opacity: 0,
-        targetOpacity: 0
-      });
-    });
-
-    // Researcher-researcher connections
-    researchers.forEach((researcher1, i) => {
-      researchers.slice(i + 1).forEach(researcher2 => {
-        const researcher1Expertise = researcherExpertiseConnections
-          .filter(conn => conn.researcher === researcher1.id)
-          .map(conn => conn.expertise);
-        const researcher2Expertise = researcherExpertiseConnections
-          .filter(conn => conn.researcher === researcher2.id)
-          .map(conn => conn.expertise);
-        
-        const sharedExpertise = researcher1Expertise.filter(exp => 
-          researcher2Expertise.includes(exp)
-        );
-        
-        if (sharedExpertise.length > 0) {
-          allConnections.push({
-            from: researcher1.id,
-            to: researcher2.id,
-            strength: Math.min(sharedExpertise.length / 2, 1),
-            type: 'researcher-researcher',
-            visible: false,
-            opacity: 0,
-            targetOpacity: 0
-          });
-        }
-      });
-    });
-
-    return { 
-      nodes: allNodes, 
-      connections: allConnections, 
-      expertiseConnections: expertiseConnectionsMap 
-    };
-  }, []);
-
-  // Animation system
-  const animate = useCallback(() => {
-    const lerpFactor = 0.08;
-    let needsUpdate = false;
-
-    setNodes(prevNodes => {
-      const updatedNodes = prevNodes.map(node => {
-        const newX = node.x + (node.targetX - node.x) * lerpFactor;
-        const newY = node.y + (node.targetY - node.y) * lerpFactor;
-        const newOpacity = node.opacity + (node.targetOpacity - node.opacity) * lerpFactor;
-        
-        if (Math.abs(node.targetX - node.x) > 0.5 || 
-            Math.abs(node.targetY - node.y) > 0.5 || 
-            Math.abs(node.targetOpacity - node.opacity) > 0.01) {
-          needsUpdate = true;
-        }
-        
-        return { ...node, x: newX, y: newY, opacity: newOpacity };
-      });
-      return updatedNodes;
-    });
-
-    setConnections(prevConnections => {
-      const updatedConnections = prevConnections.map(conn => {
-        const newOpacity = conn.opacity + (conn.targetOpacity - conn.opacity) * lerpFactor;
-        
-        if (Math.abs(conn.targetOpacity - conn.opacity) > 0.01) {
-          needsUpdate = true;
-        }
-        
-        return { ...conn, opacity: newOpacity };
-      });
-      return updatedConnections;
-    });
-
-    setTransform(prevTransform => {
-      const newX = prevTransform.x + (prevTransform.targetX - prevTransform.x) * lerpFactor;
-      const newY = prevTransform.y + (prevTransform.targetY - prevTransform.y) * lerpFactor;
-      const newScale = prevTransform.scale + (prevTransform.targetScale - prevTransform.scale) * lerpFactor;
-      
-      if (Math.abs(prevTransform.targetX - prevTransform.x) > 0.5 || 
-          Math.abs(prevTransform.targetY - prevTransform.y) > 0.5 || 
-          Math.abs(prevTransform.targetScale - prevTransform.scale) > 0.01) {
-        needsUpdate = true;
-      }
-      
-      return { ...prevTransform, x: newX, y: newY, scale: newScale };
-    });
-
-    if (needsUpdate) {
-      animationRef.current = requestAnimationFrame(animate);
-    } else {
-      // Keep animating at low frequency even when "idle"
-      setTimeout(() => {
-        animationRef.current = requestAnimationFrame(animate);
-      }, 16);
-    }
-  }, []);
-
-  // Calculate researcher layout around expertise
-  const calculateResearcherLayout = useCallback((
-    expertiseNode: Node,
-    researcherNodes: Node[],
-    canvas: HTMLCanvasElement
-  ) => {
-    const baseRadius = 140;
-    
-    return researcherNodes.map((node, index) => {
-      const angle = (index / researcherNodes.length) * 2 * Math.PI;
-      const radiusVariation = Math.sin(index * 1.7) * 25;
-      const radius = baseRadius + radiusVariation;
-      
-      let targetX = expertiseNode.x + Math.cos(angle) * radius;
-      let targetY = expertiseNode.y + Math.sin(angle) * radius;
-
-      // Keep within bounds
-      const margin = node.radius + 15;
-      targetX = Math.max(margin, Math.min(canvas.width - margin, targetX));
-      targetY = Math.max(margin, Math.min(canvas.height - margin, targetY));
-      
-      return {
-        ...node,
-        targetX,
-        targetY,
-        targetOpacity: 0.9,
-        visible: true
-      };
-    });
-  }, []);
-
-  // Handle expertise hover (only zoom/focus, no researcher reveal)
-  // Handle expertise hover (focus should stay until clicked again)
-  const handleExpertiseHover = useCallback((expertiseId: string | null) => {
-    return}, [clickedExpertise, expertiseConnections, nodes]);
-
-  // Handle expertise click (toggle focus mode)
-  const handleExpertiseClick = useCallback((expertiseId: string | null) => {
-    if (clickedExpertise === expertiseId) {
-      // Click the same expertise again to return to overview
-      setClickedExpertise(null);
-      setHoveredResearcher(null);
-
-      setTransform(prev => ({
-        ...prev,
-        targetX: 0,
-        targetY: 0,
-        targetScale: 1
-      }));
-
-      setNodes(prevNodes =>
-        prevNodes.map(node => ({
-          ...node,
-          isExpanded: false,
-          targetOpacity: node.type === 'expertise' ? 1 : 0,
-          visible: node.type === 'expertise'
-        }))
-      );
-
-      setConnections(prevConnections =>
-        prevConnections.map(conn => {
-          if (conn.type === 'expertise-expertise') {
-            return { ...conn, targetOpacity: conn.strength * 0.6, visible: true };
-          }
-          return { ...conn, targetOpacity: 0, visible: false };
-        })
-      );
-    } else {
-      // Lock and focus on clicked expertise
-      setClickedExpertise(expertiseId);
-      setHoveredResearcher(null);
-
-      if (expertiseId && expertiseConnections[expertiseId]) {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const connectedResearchers = expertiseConnections[expertiseId].researchers;
-        const expertiseNode = nodes.find(n => n.id === expertiseId);
-
-        if (!expertiseNode) return;
-
-        const focusScale = 1.8;
-        const focusX = -(expertiseNode.baseX - canvas.width / 2);
-        const focusY = -(expertiseNode.baseY - canvas.height / 2);
-
-        setTransform(prev => ({
-          ...prev,
-          targetX: focusX,
-          targetY: focusY,
-          targetScale: focusScale
-        }));
-
-        // Update node visibility
-        setNodes(prevNodes => {
-          const expertiseNodes = prevNodes.filter(n => n.type === 'expertise');
-          const researcherNodes = prevNodes.filter(n => n.type === 'researcher');
-
-          const updatedExpertiseNodes = expertiseNodes.map(node => ({
-            ...node,
-            isExpanded: node.id === expertiseId,
-            targetOpacity: node.id === expertiseId ? 1 : 0,
-          }));
-
-          const connectedResearcherNodes = researcherNodes.filter(n => 
-            connectedResearchers.includes(n.id)
-          );
-
-          const layoutedResearchers = calculateResearcherLayout(
-            expertiseNode, 
-            connectedResearcherNodes, 
-            canvas
-          );
-
-          const updatedResearcherNodes = researcherNodes.map(node => {
-            const layouted = layoutedResearchers.find(r => r.id === node.id);
-            if (layouted) {
-              return layouted;
-            } else {
-              return { ...node, targetOpacity: 0, visible: false };
-            }
-          });
-
-          return [...updatedExpertiseNodes, ...updatedResearcherNodes];
-        });
-
-        // Show expertise-researcher connections
-        setConnections(prevConnections =>
-          prevConnections.map(conn => {
-            let opacity = 0;
-            let shouldShow = false;
-
-            if (conn.type === 'expertise-expertise') {
-              shouldShow = true;
-              opacity = conn.from === expertiseId || conn.to === expertiseId ? 
-                conn.strength * 0.4 : conn.strength * 0.1;
-            } else if (conn.type === 'expertise-researcher') {
-              shouldShow = conn.from === expertiseId || conn.to === expertiseId;
-              opacity = shouldShow ? conn.strength * 0.7 : 0;
-            }
-
-            return { ...conn, targetOpacity: opacity, visible: shouldShow };
-          })
-        );
       }
     }
-  }, [clickedExpertise, expertiseConnections, nodes, calculateResearcherLayout]);
 
-  // Handle researcher hover (show interconnections when in focus mode)
-  const handleResearcherHover = useCallback((researcherId: string | null) => {
-    if (!clickedExpertise) return; // Only works in focus mode
-    
-    setHoveredResearcher(researcherId);
-    
-    if (researcherId && clickedExpertise && expertiseConnections[clickedExpertise]) {
-      const connectedResearchers = expertiseConnections[clickedExpertise].researchers;
-      
-      // Show researcher-researcher connections for hovered researcher
-      setConnections(prevConnections =>
-        prevConnections.map(conn => {
-          let opacity = 0;
-          let shouldShow = false;
-          
-          if (conn.type === 'expertise-expertise') {
-            shouldShow = true;
-            opacity = conn.from === clickedExpertise || conn.to === clickedExpertise ? 
-              conn.strength * 0.4 : conn.strength * 0.1;
-          } else if (conn.type === 'expertise-researcher') {
-            shouldShow = conn.from === clickedExpertise || conn.to === clickedExpertise;
-            opacity = shouldShow ? conn.strength * 0.7 : 0;
-          } else if (conn.type === 'researcher-researcher') {
-            // Show connections involving the hovered researcher
-            shouldShow = (conn.from === researcherId || conn.to === researcherId) &&
-                        connectedResearchers.includes(conn.from) && 
-                        connectedResearchers.includes(conn.to);
-            opacity = shouldShow ? conn.strength * 0.8 : 0;
-          }
-          
-          return { ...conn, targetOpacity: opacity, visible: shouldShow };
-        })
-      );
-    } else {
-      // Reset to focus mode view (no researcher interconnections)
-      setConnections(prevConnections =>
-        prevConnections.map(conn => {
-          if (conn.type === 'researcher-researcher') {
-            return { ...conn, targetOpacity: 0, visible: false };
-          }
-          return conn;
-        })
-      );
-    }
-  }, [clickedExpertise, expertiseConnections]);
+    setNodes([...expNodes, ...resNodes]);
+    setEdges(expEdges);
 
-  // Transform screen coordinates to world coordinates
-  const screenToWorld = useCallback((screenX: number, screenY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    
-    const worldX = (screenX - canvas.width / 2) / transform.scale - transform.x + canvas.width / 2;
-    const worldY = (screenY - canvas.height / 2) / transform.scale - transform.y + canvas.height / 2;
-    
-    return { x: worldX, y: worldY };
-  }, [transform]);
-
-  // Mouse event handlers
-  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
-    const { x: worldX, y: worldY } = screenToWorld(screenX, screenY);
-
-    // Check for expertise node hover
-    const hoveredExpertiseId = nodes.find(node => {
-      if (node.type !== 'expertise' || node.opacity < 0.1) return false;
-      
-      const distance = Math.sqrt(
-        Math.pow(worldX - node.x, 2) + Math.pow(worldY - node.y, 2)
-      );
-      const adjustedRadius = node.radius / Math.max(1, Math.sqrt(transform.scale));
-      return distance <= adjustedRadius;
-    })?.id || null;
-
-    // Check for researcher node hover (only in focus mode)
-    let hoveredResearcherId = null;
-    if (clickedExpertise) {
-      hoveredResearcherId = nodes.find(node => {
-        if (node.type !== 'researcher' || node.opacity < 0.1) return false;
-        
-        const distance = Math.sqrt(
-          Math.pow(worldX - node.x, 2) + Math.pow(worldY - node.y, 2)
-        );
-        const adjustedRadius = node.radius / Math.max(1, Math.sqrt(transform.scale));
-        return distance <= adjustedRadius;
-      })?.id || null;
-    }
-
-    if (hoveredExpertiseId !== hoveredExpertise) {
-      handleExpertiseHover(hoveredExpertiseId);
-    }
-
-    if (hoveredResearcherId !== hoveredResearcher) {
-      handleResearcherHover(hoveredResearcherId);
-    }
-  }, [nodes, hoveredExpertise, hoveredResearcher, clickedExpertise, transform, screenToWorld, handleExpertiseHover, handleResearcherHover]);
-
-  const handleMouseClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
-    const { x: worldX, y: worldY } = screenToWorld(screenX, screenY);
-
-    // Only expertise nodes can be clicked
-    const clickedExpertiseId = nodes.find(node => {
-      if (node.type !== 'expertise' || node.opacity < 0.1) return false;
-      
-      const distance = Math.sqrt(
-        Math.pow(worldX - node.x, 2) + Math.pow(worldY - node.y, 2)
-      );
-      const adjustedRadius = node.radius / Math.max(1, Math.sqrt(transform.scale));
-      return distance <= adjustedRadius;
-    })?.id || null;
-
-    if (clickedExpertiseId) {
-      handleExpertiseClick(clickedExpertiseId);
-    }
-  }, [nodes, transform, screenToWorld, handleExpertiseClick]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (!clickedExpertise) {
-      handleExpertiseHover(null);
-    }
-    if (clickedExpertise) {
-      handleResearcherHover(null);
-    }
-  }, [clickedExpertise, handleExpertiseHover, handleResearcherHover]);
-
-  // Initialize network data
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    canvas.width = 1000;
-    canvas.height = 600;
-
-    const data = generateNetworkData();
-    setNodes(data.nodes);
-    setConnections(data.connections);
-    setExpertiseConnections(data.expertiseConnections);
-    
-    setTransform({
-      x: 0, y: 0, scale: 1,
-      targetX: 0, targetY: 0, targetScale: 1
-    });
+    setTransform({ x: 0, y: 0, scale: 1, targetX: 0, targetY: 0, targetScale: 1 });
     setHoveredExpertise(null);
     setClickedExpertise(null);
     setHoveredResearcher(null);
-  }, [generateNetworkData]);
 
-  // Start continuous animation loop
-  useEffect(() => {
-    animationRef.current = requestAnimationFrame(animate);
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [animate]);
+    ensureRAF();
+  }, [topExpertiseIds, expertiseToResearchers, filteredResearchers, ensureRAF]);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+  useEffect(() => { createOverviewScene(); }, [createOverviewScene]);
+
+  // ----- Picking -----
+  function pickNodeAt(e: React.MouseEvent<HTMLCanvasElement, MouseEvent>): Node | null {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const sxLogical = (e.clientX - rect.left) * (CANVAS_W / rect.width);
+    const syLogical = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+    const world = screenToWorld(sxLogical, syLogical, CANVAS_W, CANVAS_H, transform);
+
+    let best: Node | null = null;
+    let bestD2 = Infinity;
+    for (const n of nodes) {
+      if (!n.visible || n.opacity < 0.2) continue;
+      const rr = n.type === 'expertise' ? n.radius * 1.2 : n.radius * 1.05;
+      const d2 = dist2(world.x, world.y, n.x, n.y);
+      if (d2 <= rr * rr && d2 < bestD2) { best = n; bestD2 = d2; }
+    }
+    return best;
+  }
+
+  // ----- Focus / layout -----
+  const lockExpertise = useCallback((expertiseId: string) => {
+    const focusNode = nodes.find(n => n.id === expertiseId && n.type === 'expertise');
+    if (!focusNode) return;
+
+    const connectedResIds = Array.from(expertiseToResearchers.get(expertiseId) ?? []);
+    const connectedResearchers = filteredResearchers.filter(r => connectedResIds.includes(r.id));
+
+    const { edges: rrEdges, degree } = buildFocusAdjacency(expertiseId, connectedResearchers);
+    const cappedRREdges = capEdges(rrEdges, MAX_FOCUS_RR_EDGES, MAX_FOCUS_RR_DEGREE);
+
+    const currentResNodes = nodes.filter(n => n.type === 'researcher');
+    const toPlace = currentResNodes.filter(n => connectedResIds.includes(n.id));
+    const placed = layoutResearchersInRings(focusNode, toPlace, degree, RES_RING0, RES_RING_GAP);
+
+    const focusScale = 1.85;
+    const focusX = -(focusNode.baseX - CANVAS_W / 2);
+    const focusY = -(focusNode.baseY - CANVAS_H / 2);
+
+    setTransform(prev => ({ ...prev, targetX: focusX, targetY: focusY, targetScale: focusScale }));
+
+    setNodes(prev => {
+      const exp = prev.filter(n => n.type === 'expertise').map(n => ({ ...n, isExpanded: n.id === expertiseId, targetOpacity: n.id === expertiseId ? 1 : 0.08 }));
+      const res = prev.filter(n => n.type === 'researcher').map(n => {
+        const layouted = placed.find(p => p.id === n.id);
+        if (layouted) return { ...n, ...layouted };
+        return { ...n, targetOpacity: 0, visible: false };
+      });
+      return [...exp, ...res];
+    });
+
+    const newEdges: Edge[] = [];
+    for (const e of edges) {
+      if (e.type !== 'expertise-expertise') continue;
+      const touches = e.from === expertiseId || e.to === expertiseId;
+      newEdges.push({ ...e, visible: true, targetOpacity: touches ? e.strength * 0.45 : e.strength * 0.12 });
+    }
+    for (const rid of connectedResIds) {
+      newEdges.push({ from: expertiseId, to: rid, strength: 0.9, type: 'expertise-researcher', visible: true, opacity: 0, targetOpacity: 0.7 });
+    }
+    for (const [a, b, s] of cappedRREdges) {
+      newEdges.push({ from: a, to: b, strength: s, type: 'researcher-researcher', visible: true, opacity: 0, targetOpacity: 0.5 * s });
+    }
+
+    setEdges(newEdges);
+    setClickedExpertise(expertiseId);
+    setHoveredResearcher(null);
+    ensureRAF();
+  }, [nodes, edges, filteredResearchers, expertiseToResearchers, ensureRAF]);
+
+  const clearFocus = useCallback(() => {
+    setTransform(prev => ({ ...prev, targetX: 0, targetY: 0, targetScale: 1 }));
+    createOverviewScene();
+  }, [createOverviewScene]);
+
+  // ----- Mouse handlers (middle-mouse panning) --------------------------------
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    if (!canvas) return;
+
+    if (isPanningRef.current && lastPanRef.current) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const dx = sx - lastPanRef.current.sx;
+      const dy = sy - lastPanRef.current.sy;
+      lastPanRef.current = { sx, sy };
+
+      setTransform(t => ({
+        ...t,
+        targetX: t.targetX + (dx / t.scale) * (CANVAS_W / rect.width),
+        targetY: t.targetY + (dy / t.scale) * (CANVAS_H / rect.height),
+      }));
+      ensureRAF();
+      return;
+    }
+
+    // HOVER: expertise (overview or focus)
+    const hit = pickNodeAt(e);
+    setHoveredExpertise(hit?.type === 'expertise' ? hit.id : null);
+
+    // HOVER: researcher highlight only when focused
+    if (clickedExpertise) {
+      if (hit?.type === 'researcher') {
+        setHoveredResearcher(hit.id);
+        setEdges(prev =>
+          prev.map(ed => {
+            if (ed.type !== 'researcher-researcher') return ed;
+            const touches = ed.from === hit.id || ed.to === hit.id;
+            return { ...ed, targetOpacity: touches ? Math.min(1, ed.strength * 0.9) : 0.15 * ed.strength };
+          })
+        );
+      } else {
+        setHoveredResearcher(null);
+        setEdges(prev => prev.map(ed => ed.type === 'researcher-researcher' ? { ...ed, targetOpacity: 0.5 * ed.strength } : ed));
       }
-    };
+      ensureRAF();
+    }
+  }, [clickedExpertise, ensureRAF]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredExpertise(null);
+    setHoveredResearcher(null);
+    isPanningRef.current = false;
+    lastPanRef.current = null;
   }, []);
 
-  // Render canvas
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Only start panning with **middle mouse** (button === 1)
+    if (e.button === 1) {
+      e.preventDefault();
+      const canvas = canvasRef.current!;
+      const rect = canvas.getBoundingClientRect();
+      lastPanRef.current = { sx: e.clientX - rect.left, sy: e.clientY - rect.top };
+      isPanningRef.current = true;
+    }
+  }, []);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button === 1) { e.preventDefault(); isPanningRef.current = false; lastPanRef.current = null; }
+  }, []);
+
+  const handleAuxClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Prevent browser auto-scroll on middle click
+    if (e.button === 1) e.preventDefault();
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Optional: suppress right-click context menu over the visualization
+    e.preventDefault();
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // React onClick is left-button only; perfect for node interactions
+    const hit = pickNodeAt(e);
+
+    if (hit?.type === 'expertise') {
+      if (clickedExpertise === hit.id) clearFocus();
+      else lockExpertise(hit.id);
+      return;
+    }
+    // Clicking researchers is a no-op; hover handles highlighting.
+  }, [clickedExpertise, lockExpertise, clearFocus]);
+
+  // ----- Animation loop -------------------------------------------------------
+
+  function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+  const animate = useCallback(() => {
+    let moved = false;
+    const EPS_T = 0.001;
+    const EPS_N = 0.001;
+
+    setTransform(prev => {
+      const nx = lerp(prev.x, prev.targetX, LERP.transform);
+      const ny = lerp(prev.y, prev.targetY, LERP.transform);
+      const ns = lerp(prev.scale, prev.targetScale, LERP.transform);
+      const changed = Math.abs(nx - prev.x) > EPS_T || Math.abs(ny - prev.y) > EPS_T || Math.abs(ns - prev.scale) > EPS_T;
+      moved = moved || changed;
+      return changed ? { ...prev, x: nx, y: ny, scale: ns } : prev;
+    });
+
+    setNodes(prev => {
+      let any = false;
+      const next = prev.map(n => {
+        const x = lerp(n.x, n.targetX, LERP.nodePos);
+        const y = lerp(n.y, n.targetY, LERP.nodePos);
+        const opacity = lerp(n.opacity, n.targetOpacity, LERP.nodeOpacity);
+        const changed = Math.abs(x - n.x) > EPS_N || Math.abs(y - n.y) > EPS_N || Math.abs(opacity - n.opacity) > EPS_N;
+        if (changed) any = true;
+        return changed ? { ...n, x, y, opacity } : n;
+      });
+      moved = moved || any;
+      return any ? next : prev;
+    });
+
+    setEdges(prev => {
+      let any = false;
+      const next = prev.map(e => {
+        const opacity = lerp(e.opacity, e.targetOpacity, LERP.nodeOpacity);
+        if (Math.abs(opacity - e.opacity) > EPS_N) { any = true; return { ...e, opacity }; }
+        return e;
+      });
+      moved = moved || any;
+      return any ? next : prev;
+    });
+
+    if (moved) rafRef.current = requestAnimationFrame(animate);
+    else rafRef.current = null;
+  }, []);
+
+  useEffect(() => { ensureRAF(); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [ensureRAF]);
+
+  // HiDPI canvas
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const dpr = dprRef.current;
+    c.width = Math.floor(CANVAS_W * dpr);
+    c.height = Math.floor(CANVAS_H * dpr);
+  }, []);
+
+  // ----- Drawing --------------------------------------------------------------
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || nodes.length === 0) return;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    let renderFrame: number;
+    const dpr = dprRef.current;
 
-    const render = () => {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
 
-      // Save context for transformations
-      ctx.save();
+    ctx.translate(CANVAS_W / 2, CANVAS_H / 2);
+    ctx.scale(transform.scale, transform.scale);
+    ctx.translate(-CANVAS_W / 2 + transform.x, -CANVAS_H / 2 + transform.y);
 
-      // Apply zoom and pan transformations
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.scale(transform.scale, transform.scale);
-      ctx.translate(-canvas.width / 2 + transform.x, -canvas.height / 2 + transform.y);
+    const grad = ctx.createRadialGradient(
+      CANVAS_W / 2, CANVAS_H / 2, 0,
+      CANVAS_W / 2, CANVAS_H / 2, Math.max(CANVAS_W, CANVAS_H) / 2
+    );
+    grad.addColorStop(0, COLORS.bg0);
+    grad.addColorStop(1, COLORS.bg1);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // Draw background gradient
-      const gradient = ctx.createRadialGradient(
-        canvas.width / 2, canvas.height / 2, 0,
-        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
-      );
-      gradient.addColorStop(0, '#f0f9ff');
-      gradient.addColorStop(1, '#e0f2fe');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // edges
+    for (const e of edges) {
+      if (e.opacity < 0.01) continue;
+      const a = idToNode.get(e.from);
+      const b = idToNode.get(e.to);
+      if (!a || !b || a.opacity < RENDER.minNodeOpacity || b.opacity < RENDER.minNodeOpacity) continue;
 
-      // Draw connections
-      connections.forEach(connection => {
-        if (connection.opacity < 0.01) return;
-        
-        const fromNode = nodes.find(n => n.id === connection.from);
-        const toNode = nodes.find(n => n.id === connection.to);
-        
-        if (fromNode && toNode && fromNode.opacity > 0.01 && toNode.opacity > 0.01) {
-          let strokeColor, lineWidth;
-          
-          if (connection.type === 'expertise-expertise') {
-            strokeColor = `rgba(8, 145, 178, ${connection.opacity})`;
-            lineWidth = Math.max(2, connection.strength * 8) / Math.sqrt(transform.scale);
-          } else if (connection.type === 'expertise-researcher') {
-            strokeColor = `rgba(14, 165, 233, ${connection.opacity})`;
-            lineWidth = (connection.strength * 3 + 1) / Math.sqrt(transform.scale);
-          } else {
-            strokeColor = `rgba(6, 182, 212, ${connection.opacity})`;
-            lineWidth = (connection.strength * 2 + 1) / Math.sqrt(transform.scale);
-          }
-          
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = lineWidth;
-          
-          if (connection.type === 'expertise-expertise') {
-            ctx.beginPath();
-            ctx.moveTo(fromNode.x, fromNode.y);
-            ctx.lineTo(toNode.x, toNode.y);
-            ctx.stroke();
-          } else {
-            // Curved lines for researcher connections
-            const dx = toNode.x - fromNode.x;
-            const dy = toNode.y - fromNode.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const curvature = Math.min(distance * 0.1, 30);
-            
-            const midX = (fromNode.x + toNode.x) / 2;
-            const midY = (fromNode.y + toNode.y) / 2;
-            const ctrlX = midX + (dy / distance) * curvature;
-            const ctrlY = midY - (dx / distance) * curvature;
-            
-            ctx.beginPath();
-            ctx.moveTo(fromNode.x, fromNode.y);
-            ctx.quadraticCurveTo(ctrlX, ctrlY, toNode.x, toNode.y);
-            ctx.stroke();
-          }
-        }
-      });
+      let color = COLORS.expertise;
+      let width = 2 / Math.sqrt(transform.scale);
 
-      // Draw nodes
-      nodes.forEach(node => {
-        if (node.opacity < 0.01) return;
-        
-        const isHoveredExpertise = hoveredExpertise === node.id;
-        const isClickedExpertise = clickedExpertise === node.id;
-        const isHoveredResearcher = hoveredResearcher === node.id;
-        const isExpanded = node.isExpanded;
-        
-        const scale = transform.scale;
-        const adjustedRadius = node.radius / Math.max(1, Math.sqrt(scale));
-        
-        // Node shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-        ctx.shadowBlur = (isHoveredExpertise || isHoveredResearcher ? 20 : (node.type === 'expertise' ? 12 : 8)) / scale;
-        ctx.shadowOffsetX = 3 / scale;
-        ctx.shadowOffsetY = 3 / scale;
-        
-        // Calculate display radius
-        let displayRadius = adjustedRadius;
-        if (isExpanded && node.type === 'expertise') displayRadius *= 1.2;
-        else if (isHoveredExpertise || isHoveredResearcher) displayRadius *= 1.05;
-        
-        // Color with opacity
-        const r = parseInt(node.color.slice(1, 3), 16);
-        const g = parseInt(node.color.slice(3, 5), 16);
-        const b = parseInt(node.color.slice(5, 7), 16);
-        
-        const intensity = node.type === 'expertise' ? 0.9 : 0.8;
-        const alpha = node.opacity * intensity;
-        
-        // Node circle
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, displayRadius, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Node border
-        ctx.shadowColor = 'transparent';
-        const borderColor = isHoveredExpertise || isExpanded || isClickedExpertise || isHoveredResearcher ? 
-          '#ffffff' : `rgba(255, 255, 255, ${node.opacity * 0.9})`;
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = (isHoveredExpertise || isExpanded || isClickedExpertise || isHoveredResearcher ? 4 : 2) / scale;
-        ctx.stroke();
-        
-        // Expansion indicator for expertise nodes
-        if (node.type === 'expertise' && node.connectionCount > 0 && !isExpanded && !isClickedExpertise) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.8})`;
-          ctx.strokeStyle = `rgba(255, 255, 255, ${node.opacity * 0.8})`;
-          ctx.lineWidth = 2 / scale;
-          
-          const plusSize = displayRadius * 0.3;
-          ctx.beginPath();
-          ctx.moveTo(node.x - plusSize, node.y);
-          ctx.lineTo(node.x + plusSize, node.y);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(node.x, node.y - plusSize);
-          ctx.lineTo(node.x, node.y + plusSize);
-          ctx.stroke();
-        }
-        
-        // Connection count indicator
-        if (node.type === 'expertise' && node.connectionCount > 0 && scale > 0.5) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.9})`;
-          const countRadius = Math.min(14, node.connectionCount * 1.5 + 8) / scale;
-          ctx.beginPath();
-          ctx.arc(node.x + displayRadius * 0.65, node.y - displayRadius * 0.65, countRadius, 0, 2 * Math.PI);
-          ctx.fill();
-          
-          ctx.fillStyle = node.color;
-          ctx.font = `bold ${Math.max(8, 11 / scale)}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(node.connectionCount.toString(), 
-                      node.x + displayRadius * 0.65, 
-                      node.y - displayRadius * 0.65);
-        }
-        
-        // Node text
-        if (node.opacity > 0.2 && scale > 0.3) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity})`;
-          const baseFontSize = node.type === 'expertise' ? 
-            (isHoveredExpertise ? 14 : 12) : (isHoveredResearcher ? 12 : 10);
-          const fontSize = Math.max(8, baseFontSize / scale);
-          ctx.font = `${node.type === 'expertise' ? 'bold' : ''} ${fontSize}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          if (scale < 0.8) {
-            const abbreviated = node.name.length > 10 ? node.name.substring(0, 10) + '...' : node.name;
-            ctx.fillText(abbreviated, node.x, node.y);
-          } else {
-            const words = node.name.split(' ');
-            if (words.length > 1 && node.name.length > 15) {
-              words.forEach((word, index) => {
-                ctx.fillText(word, node.x, node.y + (index - (words.length - 1) / 2) * (fontSize + 2));
-              });
-            } else {
-              ctx.fillText(node.name, node.x, node.y);
-            }
-          }
-        }
-        
-        // Type indicator for researcher nodes
-        if (node.type === 'researcher' && node.opacity > 0.4 && scale > 0.7) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.7})`;
-          ctx.font = `${Math.max(6, 8 / scale)}px Arial`;
-          ctx.fillText('researcher', node.x, node.y + displayRadius + 14 / scale);
-        }
-      });
-
-      ctx.restore();
-      renderFrame = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      if (renderFrame) {
-        cancelAnimationFrame(renderFrame);
+      if (e.type === 'expertise-researcher') {
+        color = `rgba(14, 165, 233, ${e.opacity})`;
+        width = (e.strength * 2.5 + 1) / Math.sqrt(transform.scale);
+      } else if (e.type === 'researcher-researcher') {
+        color = `rgba(6, 182, 212, ${e.opacity})`;
+        width = (e.strength * 1.8 + 0.8) / Math.sqrt(transform.scale);
+      } else {
+        color = `rgba(8, 145, 178, ${e.opacity})`;
+        width = Math.max(1.5, e.strength * 6) / Math.sqrt(transform.scale);
       }
-    };
-  }, [nodes, connections, hoveredExpertise, clickedExpertise, hoveredResearcher, transform]);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+
+      if (e.type === 'expertise-expertise') {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      } else {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.max(1e-3, Math.hypot(dx, dy));
+        const curvature = Math.min(d * 0.1, 26);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const cx = mx + (dy / d) * curvature;
+        const cy = my - (dx / d) * curvature;
+
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    // nodes
+    for (const n of nodes) {
+      if (n.opacity < RENDER.minNodeOpacity) continue;
+
+      const scale = transform.scale;
+      const adjustedRadius = n.radius / Math.max(1, Math.sqrt(scale));
+      const isHoveredE = hoveredExpertise === n.id && n.type === 'expertise';
+      const isHoveredR = hoveredResearcher === n.id && n.type === 'researcher';
+      const isExpanded = !!n.isExpanded;
+
+      let displayRadius = adjustedRadius;
+      if (isExpanded && n.type === 'expertise') displayRadius *= 1.15;
+      else if (isHoveredE || isHoveredR) displayRadius *= 1.05;
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      ctx.shadowBlur = (isHoveredE || isHoveredR ? 14 : (n.type === 'expertise' ? 8 : 6)) / scale;
+      ctx.shadowOffsetX = 2 / scale;
+      ctx.shadowOffsetY = 2 / scale;
+
+      const r = parseInt(n.color.slice(1, 3), 16);
+      const g = parseInt(n.color.slice(3, 5), 16);
+      const b = parseInt(n.color.slice(5, 7), 16);
+      const baseAlpha = n.type === 'expertise' ? (isExpanded ? 0.95 : 0.85) : 0.9;
+
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, baseAlpha * n.opacity))})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, displayRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.lineWidth = 2 / Math.sqrt(scale);
+      ctx.strokeStyle = `rgba(255,255,255,${0.7 * n.opacity})`;
+      ctx.stroke();
+
+      if (n.type === 'expertise' && n.connectionCount > 0 && transform.scale > 0.55) {
+        const badgeR = Math.max(11, Math.min(16, displayRadius * 0.26));
+        ctx.fillStyle = `rgba(255,255,255,${0.95 * n.opacity})`;
+        ctx.beginPath();
+        ctx.arc(n.x + displayRadius * 0.65, n.y - displayRadius * 0.65, badgeR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = n.color;
+        ctx.font = `bold ${Math.max(8, 10 / scale)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(n.connectionCount), n.x + displayRadius * 0.65, n.y - displayRadius * 0.65);
+      }
+
+      if (n.opacity > 0.2 && transform.scale > RENDER.minTextScale) {
+        ctx.fillStyle = `rgba(255,255,255,${n.opacity})`;
+        const baseFont = n.type === 'expertise' ? (isHoveredE ? 14 : 12) : (isHoveredR ? 12 : 10);
+        const fontSize = Math.max(8, baseFont / scale);
+        ctx.font = `${n.type === 'expertise' ? 'bold ' : ''}${fontSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (n.type === 'expertise' && n.name.length > 16) {
+          const words = n.name.split(' ');
+          const lines: string[] = [];
+          let line = '';
+          for (const w of words) {
+            const test = line ? `${line} ${w}` : w;
+            if (test.length > 12) { if (line) lines.push(line); line = w; }
+            else { line = test; }
+          }
+          if (line) lines.push(line);
+          lines.forEach((ln, i) => ctx.fillText(ln, n.x, n.y + (i - (lines.length - 1) / 2) * (fontSize + 2)));
+        } else {
+          const short = transform.scale < 0.8 && n.name.length > 14 ? n.name.slice(0, 14) + '…' : n.name;
+          ctx.fillText(short, n.x, n.y);
+        }
+      }
+
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+  }, [nodes, edges, transform, hoveredExpertise, hoveredResearcher, idToNode]);
+
+  // ----- Render ---------------------------------------------------------------
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-blue-50 py-12">
@@ -885,40 +818,52 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
               Research Expertise Network
             </CardTitle>
             <p className="text-gray-600 text-center">
-              Hover to focus on expertise areas. Click to lock focus and reveal researchers. 
-              In focus mode, hover researchers to see their collaborations.
+              Hover to preview. Left-click an expertise to lock focus and reveal its team.
+              <span className="ml-1 font-medium">Middle-click (mouse wheel) & drag to pan.</span>
             </p>
           </CardHeader>
           <CardContent>
             <div className="flex justify-center">
               <canvas
                 ref={canvasRef}
+                width={Math.floor(CANVAS_W * dprRef.current)}
+                height={Math.floor(CANVAS_H * dprRef.current)}
+                className="border border-blue-200 rounded-lg shadow-inner cursor-auto"
                 onMouseMove={handleMouseMove}
-                onClick={handleMouseClick}
                 onMouseLeave={handleMouseLeave}
-                className="border border-blue-200 rounded-lg shadow-inner cursor-pointer"
-                style={{ maxWidth: '100%', height: 'auto' }}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+                onAuxClick={handleAuxClick}
+                onContextMenu={handleContextMenu}
+                onClick={handleClick}
+                style={{ width: `${CANVAS_W}px`, height: 'auto', maxWidth: '100%' }}
               />
             </div>
-            
+
             <div className="mt-6 flex justify-center gap-8">
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-teal-600"></div>
-                <span className="text-sm text-gray-600">Expertise Areas</span>
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: COLORS.expertise }} />
+                <span className="text-sm text-gray-600">Expertise (Top 15)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS.researcher }} />
                 <span className="text-sm text-gray-600">Researchers</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-6 h-1 bg-teal-600 rounded"></div>
+                <div className="w-6 h-1 rounded" style={{ backgroundColor: COLORS.expertise }} />
                 <span className="text-sm text-gray-600">Connections</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-white border-2 border-teal-600 relative flex items-center justify-center">
                   <span className="text-xs text-teal-600">🔒</span>
                 </div>
-                <span className="text-sm text-gray-600">Click to Lock</span>
+                <span className="text-sm text-gray-600">Left-click to Lock</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full border border-gray-300 grid place-items-center">
+                  <span className="text-xs">🖱️</span>
+                </div>
+                <span className="text-sm text-gray-600">Middle-click & drag to Pan</span>
               </div>
             </div>
 
@@ -936,19 +881,17 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
                   )}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {clickedExpertise 
-                    ? hoveredResearcher
-                      ? 'Showing collaborations for highlighted researcher'
-                      : 'Hover over researchers to see their collaborations'
-                    : 'Click to lock focus and reveal research team'
-                  }
+                  {clickedExpertise
+                    ? (hoveredResearcher
+                        ? 'Showing collaborations for highlighted researcher • middle-drag to pan'
+                        : 'Hover researchers to see their collaborations • middle-drag to pan')
+                    : 'Left-click to lock focus and reveal research team'}
                 </p>
               </div>
             )}
 
             <div className="mt-4 text-center text-xs text-gray-500">
-              <p>Hover: Focus • Click: Lock & reveal team • In focus mode: Hover researchers for collaborations</p>
-              <p>Click the same expertise area again to return to overview</p>
+              <p>Hover: Preview • Left-click Expertise: Lock/Unlock • Middle-click & drag: Pan • Hover Researcher (when focused): Highlight collaborators</p>
             </div>
           </CardContent>
         </Card>
