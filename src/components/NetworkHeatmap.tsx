@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { X } from 'lucide-react';
-import { getAllResearchers, getAllOutcomes } from '../data/api';  // Added API imports
-import { Researcher } from '../data/mockData';  // Import the Researcher type for better type checking
+import { getAllResearchers, subscribe } from '../data/api';
+import type { Researcher } from '../data/api';
 
+// Interfaces
 interface NetworkHeatmapProps {
   searchQuery: string;
   filters: {
@@ -65,6 +66,13 @@ interface ViewMode {
   targetName: string | null;
 }
 
+// Helper: normalize values into [0.1, 1.0]
+function normalizeToRange(value: number, min: number, max: number) {
+  if (min === max) return 0.55;
+  return 0.1 + (0.9 * (value - min)) / (max - min);
+}
+
+
 export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
@@ -80,6 +88,13 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     x: 0, y: 0, scale: 1,
     targetX: 0, targetY: 0, targetScale: 1
   });
+
+  // 🔴 NEW: keep a live snapshot of researchers from the central store
+  const [storeResearchers, setStoreResearchers] = useState<Researcher[]>(getAllResearchers());
+  useEffect(() => {
+    const unsub = subscribe(() => setStoreResearchers(getAllResearchers()));
+    return () => unsub();
+  }, []);
   
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>({
@@ -95,99 +110,48 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
 
   // Generate network data
   const generateNetworkData = useCallback(() => {
-    const researchers = [
-      { id: 'chen', name: 'Dr. S. Chen', type: 'researcher' as const },
-      { id: 'rodriguez', name: 'Prof. M. Rodriguez', type: 'researcher' as const },
-      { id: 'thompson', name: 'Dr. E. Thompson', type: 'researcher' as const },
-      { id: 'wilson', name: 'Dr. J. Wilson', type: 'researcher' as const },
-      { id: 'park', name: 'Dr. L. Park', type: 'researcher' as const },
-      { id: 'kim', name: 'Dr. R. Kim', type: 'researcher' as const },
-      { id: 'garcia', name: 'Dr. A. Garcia', type: 'researcher' as const },
-      { id: 'lee', name: 'Prof. H. Lee', type: 'researcher' as const },
-      { id: 'patel', name: 'Dr. K. Patel', type: 'researcher' as const },
-      { id: 'nakamura', name: 'Dr. T. Nakamura', type: 'researcher' as const }
-    ];
-    // const researchers: Researcher[] = getAllResearchers();
+    // 🔁 Derive everything from real researchers in the store
+    const slug = (s: string) => (s || '').toLowerCase().replace(/\s+/g, '-');
+    const researchers = storeResearchers.map(r => ({
+      id: String(r.id),
+      name: r.name || String(r.id),
+      type: 'researcher' as const,
+      expertise: Array.isArray(r.expertise) ? r.expertise : [],
+    }));
 
-    const expertiseAreas = [
-      { id: 'climate', name: 'Climate Change', type: 'expertise' as const },
-      { id: 'pollution', name: 'Marine Pollution', type: 'expertise' as const },
-      { id: 'conservation', name: 'Conservation Biology', type: 'expertise' as const },
-      { id: 'ecosystem', name: 'Ecosystem Health', type: 'expertise' as const },
-      { id: 'biodiversity', name: 'Marine Biodiversity', type: 'expertise' as const },
-      { id: 'oceanography', name: 'Physical Oceanography', type: 'expertise' as const },
-      { id: 'coral', name: 'Coral Reef Health', type: 'expertise' as const },
-      { id: 'fisheries', name: 'Fisheries Science', type: 'expertise' as const },
-      { id: 'chemistry', name: 'Marine Chemistry', type: 'expertise' as const },
-      { id: 'geology', name: 'Marine Geology', type: 'expertise' as const },
-      { id: 'microbiology', name: 'Marine Microbiology', type: 'expertise' as const },
-      { id: 'acoustics', name: 'Marine Acoustics', type: 'expertise' as const },
-      { id: 'remote', name: 'Remote Sensing', type: 'expertise' as const },
-      { id: 'modeling', name: 'Ocean Modeling', type: 'expertise' as const },
-      { id: 'policy', name: 'Marine Policy', type: 'expertise' as const },
-      { id: 'genetics', name: 'Marine Genetics', type: 'expertise' as const }
-    ];
+    // Build expertise universe from researcher.expertise
+    const expertiseNameSet = new Set<string>();
+    researchers.forEach(r => r.expertise.forEach(e => e && expertiseNameSet.add(e)));
+    const expertiseAreas = Array.from(expertiseNameSet).map(name => ({
+      id: slug(name),
+      name,
+      type: 'expertise' as const,
+    }));
 
-    const researcherExpertiseConnections = [
-      { researcher: 'chen', expertise: 'climate', strength: 0.9 },
-      { researcher: 'chen', expertise: 'conservation', strength: 0.7 },
-      { researcher: 'chen', expertise: 'modeling', strength: 0.8 },
-      { researcher: 'rodriguez', expertise: 'climate', strength: 0.8 },
-      { researcher: 'rodriguez', expertise: 'oceanography', strength: 0.9 },
-      { researcher: 'rodriguez', expertise: 'remote', strength: 0.7 },
-      { researcher: 'thompson', expertise: 'pollution', strength: 0.9 },
-      { researcher: 'thompson', expertise: 'ecosystem', strength: 0.6 },
-      { researcher: 'thompson', expertise: 'chemistry', strength: 0.8 },
-      { researcher: 'wilson', expertise: 'pollution', strength: 0.8 },
-      { researcher: 'wilson', expertise: 'policy', strength: 0.7 },
-      { researcher: 'park', expertise: 'oceanography', strength: 0.8 },
-      { researcher: 'park', expertise: 'climate', strength: 0.6 },
-      { researcher: 'park', expertise: 'geology', strength: 0.9 },
-      { researcher: 'kim', expertise: 'oceanography', strength: 0.7 },
-      { researcher: 'kim', expertise: 'acoustics', strength: 0.9 },
-      { researcher: 'garcia', expertise: 'biodiversity', strength: 0.9 },
-      { researcher: 'garcia', expertise: 'conservation', strength: 0.8 },
-      { researcher: 'garcia', expertise: 'coral', strength: 0.9 },
-      { researcher: 'garcia', expertise: 'genetics', strength: 0.7 },
-      { researcher: 'lee', expertise: 'ecosystem', strength: 0.9 },
-      { researcher: 'lee', expertise: 'biodiversity', strength: 0.7 },
-      { researcher: 'lee', expertise: 'microbiology', strength: 0.8 },
-      { researcher: 'patel', expertise: 'conservation', strength: 0.8 },
-      { researcher: 'patel', expertise: 'fisheries', strength: 0.9 },
-      { researcher: 'nakamura', expertise: 'biodiversity', strength: 0.8 },
-      { researcher: 'nakamura', expertise: 'ecosystem', strength: 0.7 },
-      { researcher: 'nakamura', expertise: 'coral', strength: 0.8 }
-    ];
-
-    // Build expertise connections mapping
+    // Map expertise -> researcher IDs
     const expertiseConnectionsMap: ExpertiseConnections = {};
-    expertiseAreas.forEach(expertise => {
-      expertiseConnectionsMap[expertise.id] = {
-        researchers: researcherExpertiseConnections
-          .filter(conn => conn.expertise === expertise.id)
-          .map(conn => conn.researcher),
-        connectedExpertise: []
-      };
+    expertiseAreas.forEach(exp => { expertiseConnectionsMap[exp.id] = { researchers: [], connectedExpertise: [] };});
+    researchers.forEach(r => {
+      (r.expertise || []).forEach(name => {
+        const id = slug(name);
+        if (!expertiseConnectionsMap[id]) {
+          expertiseConnectionsMap[id] = { researchers: [], connectedExpertise: [] };
+        }
+        expertiseConnectionsMap[id].researchers.push(r.id);
+      });
     });
 
-    // Calculate inter-expertise connections
-    expertiseAreas.forEach(expertise1 => {
-      expertiseAreas.forEach(expertise2 => {
-        if (expertise1.id !== expertise2.id) {
-          const shared = expertiseConnectionsMap[expertise1.id].researchers.filter(r =>
-            expertiseConnectionsMap[expertise2.id].researchers.includes(r)
-          );
-          
-          if (shared.length > 0) {
-            const existing = expertiseConnectionsMap[expertise1.id].connectedExpertise
-              .find(conn => conn.id === expertise2.id);
-            
-            if (!existing) {
-              expertiseConnectionsMap[expertise1.id].connectedExpertise.push({
-                id: expertise2.id,
-                connectionCount: shared.length
-              });
-            }
+    // Inter-expertise shared-researcher counts
+    expertiseAreas.forEach(a => {
+      expertiseAreas.forEach(b => {
+        if (a.id === b.id) return;
+        const shared = expertiseConnectionsMap[a.id].researchers.filter(rid =>
+          expertiseConnectionsMap[b.id].researchers.includes(rid)
+        );
+        if (shared.length > 0) {
+          const exists = expertiseConnectionsMap[a.id].connectedExpertise.find(c => c.id === b.id);
+          if (!exists) {
+            expertiseConnectionsMap[a.id].connectedExpertise.push({ id: b.id, connectionCount: shared.length });
           }
         }
       });
@@ -208,6 +172,18 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       }))
       .sort((a, b) => b.researcherCount - a.researcherCount)
       .slice(0, 15);
+    // ---- (1) SIZE CAP: limit expertise node scaling to 2x smallest ----
+    // We map counts -> radii in the range [minSize, maxSize] with maxSize = 2 * minSize
+    const sizeCounts = sortedExpertiseAreas.map(e => e.researcherCount);
+    const countMin = sizeCounts.length ? Math.min(...sizeCounts) : 0;
+    const countMax = sizeCounts.length ? Math.max(...sizeCounts) : 1;
+    const minSize = 42;           // smallest expertise node radius (px)
+    const maxSize = minSize * 2;  // enforce <= 2x ratio
+    const scaleRadius = (count: number) => {
+      if (countMax === countMin) return (minSize + maxSize) / 2;
+      const t = (count - countMin) / (countMax - countMin);
+      return minSize + t * (maxSize - minSize);
+    };
 
     // Expertise nodes arranged in concentric rings
     const expertiseNodes = sortedExpertiseAreas.map((expertise, index) => {
@@ -222,11 +198,13 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         angle = 0;
       } else if (index <= 6) {
         // Inner ring - 6 nodes
-        radius = Math.min(canvasWidth, canvasHeight) * 0.18;
+        // ---- (3) MORE SPACING ----
+        radius = Math.min(canvasWidth, canvasHeight) * 0.24;
+
         angle = ((index - 1) / 6) * 2 * Math.PI;
       } else {
-        // Outer ring - remaining nodes
-        radius = Math.min(canvasWidth, canvasHeight) * 0.3;
+        // ---- (3) MORE SPACING ----
+        radius = Math.min(canvasWidth, canvasHeight) * 0.42;
         angle = ((index - 7) / (sortedExpertiseAreas.length - 7)) * 2 * Math.PI;
       }
       
@@ -243,7 +221,8 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         targetY: baseY,
         baseX,
         baseY,
-        radius: 45 + expertise.researcherCount * 4,
+        // ---- (1) SIZE CAP APPLIED HERE ----
+        radius: scaleRadius(expertise.researcherCount),
         color: '#0891b2',
         connections: [
           ...expertiseConnectionsMap[expertise.id].researchers,
@@ -256,13 +235,12 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       };
     });
 
-    // Researcher nodes
-    const researcherNodes = researchers.map(researcher => {
-      const userExpertise = researcherExpertiseConnections.filter(conn => conn.researcher === researcher.id);
-      
+    // Researcher nodes (connectionCount = number of expertise)
+    const researcherNodes = researchers.map(r => {
+      const exps = (r.expertise || []).map(slug);
       return {
-        id: researcher.id,
-        name: researcher.name,
+        id: r.id,
+        name: r.name,
         type: 'researcher' as const,
         x: canvasWidth / 2,
         y: canvasHeight / 2,
@@ -270,10 +248,10 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         targetY: canvasHeight / 2,
         baseX: canvasWidth / 2,
         baseY: canvasHeight / 2,
-        radius: 35 + userExpertise.length * 2,
+        radius: 35 + exps.length * 2,
         color: '#0ea5e9',
-        connections: userExpertise.map(conn => conn.expertise),
-        connectionCount: userExpertise.length,
+        connections: exps,
+        connectionCount: exps.length,
         visible: false,
         opacity: 0,
         targetOpacity: 0
@@ -285,7 +263,32 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     // Create connections
     const allConnections: Connection[] = [];
 
-    // Expertise-expertise connections
+    // Expertise-researcher connections with normalized strength
+    // Strength is based on expertise popularity (how many researchers have it)
+    const expPopularity = new Map<string, number>();
+    expertiseAreas.forEach(e => expPopularity.set(e.id, expertiseConnectionsMap[e.id].researchers.length || 1));
+    const popValues = Array.from(expPopularity.values());
+    const popMin = Math.min(...popValues);
+    const popMax = Math.max(...popValues);
+
+    researchers.forEach(r => {
+      (r.expertise || []).forEach(name => {
+        const expId = slug(name);
+        const raw = expPopularity.get(expId) || 1;
+        const strength = normalizeToRange(raw, popMin, popMax);
+        allConnections.push({
+          from: expId,
+          to: r.id,
+          strength,
+          type: 'expertise-researcher',
+          visible: false,
+          opacity: 0,
+          targetOpacity: 0,
+        });
+      });
+    });
+
+    // Expertise-expertise connections (shared researchers)
     expertiseAreas.forEach(expertise1 => {
       expertiseConnectionsMap[expertise1.id].connectedExpertise.forEach(conn => {
         const exists = allConnections.find(existing => 
@@ -307,42 +310,23 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       });
     });
 
-    // Expertise-researcher connections
-    researcherExpertiseConnections.forEach(conn => {
-      allConnections.push({
-        from: conn.expertise,
-        to: conn.researcher,
-        strength: conn.strength,
-        type: 'expertise-researcher',
-        visible: false,
-        opacity: 0,
-        targetOpacity: 0
-      });
-    });
 
     // Researcher-researcher connections
-    researchers.forEach((researcher1, i) => {
-      researchers.slice(i + 1).forEach(researcher2 => {
-        const researcher1Expertise = researcherExpertiseConnections
-          .filter(conn => conn.researcher === researcher1.id)
-          .map(conn => conn.expertise);
-        const researcher2Expertise = researcherExpertiseConnections
-          .filter(conn => conn.researcher === researcher2.id)
-          .map(conn => conn.expertise);
-        
-        const sharedExpertise = researcher1Expertise.filter(exp => 
-          researcher2Expertise.includes(exp)
-        );
-        
-        if (sharedExpertise.length > 0) {
+    researchers.forEach((r1, i) => {
+      const e1 = new Set((r1.expertise || []).map(slug));
+      researchers.slice(i + 1).forEach(r2 => {
+        const e2 = new Set((r2.expertise || []).map(slug));
+        const shared: string[] = [];
+        e1.forEach(id => { if (e2.has(id)) shared.push(id); });
+        if (shared.length > 0) {
           allConnections.push({
-            from: researcher1.id,
-            to: researcher2.id,
-            strength: Math.min(sharedExpertise.length / 2, 1),
+            from: r1.id,
+            to: r2.id,
+            strength: Math.min(shared.length / 2, 1),
             type: 'researcher-researcher',
             visible: false,
             opacity: 0,
-            targetOpacity: 0
+            targetOpacity: 0,
           });
         }
       });
@@ -353,7 +337,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       connections: allConnections, 
       expertiseConnections: expertiseConnectionsMap 
     };
-  }, []);
+  }, [storeResearchers]);
 
   // Animation system
   const animate = useCallback(() => {
@@ -374,6 +358,33 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         
         return { ...node, x: newX, y: newY, opacity: newOpacity };
       });
+
+      // ---- (3) SIMPLE COLLISION AVOIDANCE FOR EXPERTISE NODES ----
+      // Push overlapping expertise nodes apart a little each frame.
+      const sepPadding = 16;      // extra spacing between bubbles
+      const sepStrength = 0.12;   // how strongly to push apart
+      for (let i = 0; i < updatedNodes.length; i++) {
+        const a = updatedNodes[i];
+        if (a.type !== 'expertise' || a.opacity < 0.05) continue;
+        for (let j = i + 1; j < updatedNodes.length; j++) {
+          const b = updatedNodes[j];
+          if (b.type !== 'expertise' || b.opacity < 0.05) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist === 0) dist = 0.001;
+          const minDist = a.radius + b.radius + sepPadding;
+          if (dist < minDist) {
+            const overlap = minDist - dist;
+            const ux = dx / dist;
+            const uy = dy / dist;
+            const push = (overlap * sepStrength) / 2;
+            a.x -= ux * push; a.y -= uy * push;
+            b.x += ux * push; b.y += uy * push;
+            needsUpdate = true;
+          }
+        }
+      }
       return updatedNodes;
     });
 
@@ -420,29 +431,97 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     researcherNodes: Node[],
     canvas: HTMLCanvasElement
   ) => {
-    const baseRadius = 140;
-    
-    return researcherNodes.map((node, index) => {
-      const angle = (index / researcherNodes.length) * 2 * Math.PI;
-      const radiusVariation = Math.sin(index * 1.7) * 25;
-      const radius = baseRadius + radiusVariation;
-      
-      let targetX = expertiseNode.x + Math.cos(angle) * radius;
-      let targetY = expertiseNode.y + Math.sin(angle) * radius;
+    // Concentric-ring layout:
+    // - Sort researchers by total connectivity (connectionCount) descending.
+    // - Pack into rings from inside out, ensuring no overlap in each ring by
+    //   reserving angular "slots" based on node diameter at that radius.
+    // - Inner rings contain the most connected researchers.
 
-      // Keep within bounds
-      const margin = node.radius + 15;
-      targetX = Math.max(margin, Math.min(canvas.width - margin, targetX));
-      targetY = Math.max(margin, Math.min(canvas.height - margin, targetY));
-      
-      return {
-        ...node,
-        targetX,
-        targetY,
-        targetOpacity: 0.9,
-        visible: true
-      };
+    // Safety: if nothing to place, return early.
+    if (!researcherNodes.length) return [];
+
+    // 1) Sort: most connected (and largest) first → inner rings.
+    const sorted = [...researcherNodes].sort((a, b) => {
+      if (b.connectionCount !== a.connectionCount) return b.connectionCount - a.connectionCount;
+      // tie-break by radius so larger bubbles get precedence
+      return b.radius - a.radius;
     });
+
+    // 2) Ring parameters
+    // Inner radius should comfortably clear the expertise node.
+    const innerRadius = Math.max(160, expertiseNode.radius + 70);
+    // Distance between rings. Needs to exceed largest expected diameter to avoid ring collisions.
+    const ringGap = 110;
+    // Extra padding between adjacent nodes along a ring arc.
+    const padding = 14;
+
+    // Helper: angular width needed for a node at the given ring radius.
+    const angularWidthAt = (node: Node, ringR: number) => {
+      // half-chord approximation; clamp to avoid asin domain errors
+      const halfChord = (node.radius * 1.15 + padding) / Math.max(1, ringR);
+      const clamped = Math.min(0.99, Math.max(0.02, halfChord));
+      return 2 * Math.asin(clamped);
+    };
+
+    // 3) Greedy packing of nodes into rings by angular capacity (<= 2π)
+    type Ring = { radius: number; nodes: Node[]; angles?: number[] };
+    const rings: Ring[] = [];
+
+    let i = 0;
+    let ringIndex = 0;
+    while (i < sorted.length) {
+      const radius = innerRadius + ringIndex * ringGap;
+      const ringNodes: Node[] = [];
+      let usedAngle = 0;
+
+      // Always place at least one node in a ring
+      while (i < sorted.length) {
+        const candidate = sorted[i];
+        const w = angularWidthAt(candidate, radius);
+        if (ringNodes.length > 0 && usedAngle + w > 2 * Math.PI) break;
+        ringNodes.push(candidate);
+        usedAngle += w;
+        i++;
+      }
+      rings.push({ radius, nodes: ringNodes });
+      ringIndex++;
+    }
+
+    // 4) Assign angles within each ring using the exact angular widths,
+    //    distributing from the top (−π/2) around clockwise.
+    const laidOut: Node[] = [];
+    rings.forEach(ring => {
+      let theta = -Math.PI / 2; // start at 12 o'clock
+      ring.angles = [];
+      ring.nodes.forEach(node => {
+        const w = angularWidthAt(node, ring.radius);
+        theta += w / 2; // center of the slot
+        ring.angles!.push(theta);
+        theta += w / 2;
+      });
+
+      // 5) Convert polar -> Cartesian, clamp to canvas bounds
+      ring.nodes.forEach((node, idx) => {
+        const a = ring.angles![idx];
+        let targetX = expertiseNode.x + Math.cos(a) * ring.radius;
+        let targetY = expertiseNode.y + Math.sin(a) * ring.radius;
+
+        // Keep within canvas bounds to avoid clipping
+        const margin = node.radius + 18;
+        targetX = Math.max(margin, Math.min(canvas.width - margin, targetX));
+        targetY = Math.max(margin, Math.min(canvas.height - margin, targetY));
+
+        laidOut.push({
+          ...node,
+          targetX,
+          targetY,
+          targetOpacity: 0.95,
+          visible: true
+        });
+      });
+    });
+
+    return laidOut;
   }, []);
 
   // Handle expertise hover (only enlargement effect, no focus/zoom)
@@ -484,8 +563,10 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       return; // Already viewing this expertise
     }
     
-    if (expertiseId && expertiseConnections[expertiseId]) {
-      const expertiseNode = nodes.find(n => n.id === expertiseId);
+    if (expertiseId) {
+      // ---- (2) HARD CLEAR + REBUILD A TINY GRAPH FOR THIS FOCUS ----
+      const fullData = generateNetworkData();
+      const expertiseNode = fullData.nodes.find(n => n.id === expertiseId && n.type === 'expertise');
       if (!expertiseNode) return;
 
       // Set expertise view mode
@@ -501,12 +582,12 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const connectedResearchers = expertiseConnections[expertiseId].researchers;
+      const connectedResearchers = (fullData.expertiseConnections[expertiseId] || { researchers: [] }).researchers;
       
-      // Enhanced zoom for locked focus
+      // Enhanced zoom for locked focus - use current position, not base position
       const focusScale = 1.8;
-      const focusX = -(expertiseNode.baseX - canvas.width / 2);
-      const focusY = -(expertiseNode.baseY - canvas.height / 2);
+      const focusX = -(expertiseNode.x - canvas.width / 2);
+      const focusY = -(expertiseNode.y - canvas.height / 2);
 
       setTransform(prev => ({
         ...prev,
@@ -515,73 +596,42 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         targetScale: focusScale
       }));
       
-      // Show researchers and grey out other nodes
-      setNodes(prevNodes => {
-        const expertiseNodes = prevNodes.filter(n => n.type === 'expertise');
-        const researcherNodes = prevNodes.filter(n => n.type === 'researcher');
-        
-        const updatedExpertiseNodes = expertiseNodes.map(node => ({
-          ...node,
-          isExpanded: node.id === expertiseId,
-          // Make non-focused expertise very transparent
-          targetOpacity: node.id === expertiseId ? 1 : 0.15
-        }));
-
-        const connectedResearcherNodes = researcherNodes.filter(n => 
-          connectedResearchers.includes(n.id)
-        );
-        
-        const layoutedResearchers = calculateResearcherLayout(
-          expertiseNode, 
-          connectedResearcherNodes, 
-          canvas
-        );
-
-        const updatedResearcherNodes = researcherNodes.map(node => {
-          const layouted = layoutedResearchers.find(r => r.id === node.id);
-          if (layouted) {
-            // Make connected researchers solid/opaque
-            return { ...layouted, targetOpacity: 1 };
-          } else {
-            return { ...node, targetOpacity: 0, visible: false };
-          }
-        });
-
-        return [...updatedExpertiseNodes, ...updatedResearcherNodes];
-      });
-      
-      // Show expertise-researcher connections with transparency for non-focused
-      setConnections(prevConnections =>
-        prevConnections.map(conn => {
-          let opacity = 0;
-          let shouldShow = false;
-          
-          if (conn.type === 'expertise-expertise') {
-            shouldShow = true;
-            // Make non-focused expertise connections very transparent
-            opacity = conn.from === expertiseId || conn.to === expertiseId ? 
-              conn.strength * 0.4 : conn.strength * 0.05;
-          } else if (conn.type === 'expertise-researcher') {
-            shouldShow = conn.from === expertiseId || conn.to === expertiseId;
-            // Make connected researcher lines solid
-            opacity = shouldShow ? conn.strength * 0.8 : 0;
-          }
-          
-          return { ...conn, targetOpacity: opacity, visible: shouldShow };
-        })
+      // Build a minimal node list: just the focused expertise + its researchers
+      const researcherNodes = fullData.nodes.filter(
+        n => n.type === 'researcher' && connectedResearchers.includes(n.id)
       );
+      const layoutedResearchers = calculateResearcherLayout(
+        expertiseNode as Node,
+        researcherNodes as Node[],
+        canvas
+      ).map(n => ({ ...n, targetOpacity: 1 } as Node));
+
+      const focusedExpertise: Node = {
+        ...(expertiseNode as Node),
+        isExpanded: true,
+        targetOpacity: 1,
+        visible: true
+      };
+      setNodes([focusedExpertise, ...layoutedResearchers]);
+      
+      // Only the relevant expertise->researcher connections
+      const focusedConnections = fullData.connections.filter(
+        c => c.type === 'expertise-researcher' && (c.from === expertiseId || c.to === expertiseId)
+      ).map(c => ({ ...c, targetOpacity: c.strength * 0.8, visible: true }));
+      setConnections(focusedConnections);
     }
-  }, [viewMode, expertiseConnections, nodes, calculateResearcherLayout]);
+  }, [viewMode, calculateResearcherLayout, generateNetworkData]);
 
   // Handle researcher click (show their expertise areas)
   const handleResearcherClick = useCallback((researcherId: string | null) => {
     if (!researcherId) return;
-    
-    const researcherNode = nodes.find(n => n.id === researcherId);
+    // ---- (2) HARD CLEAR + REBUILD FOR RESEARCHER FOCUS ----
+    const fullData = generateNetworkData();
+    const researcherNode = fullData.nodes.find(n => n.id === researcherId && n.type === 'researcher');
     if (!researcherNode) return;
 
     // Get researcher's expertise areas
-    const researcherExpertise = connections
+    const researcherExpertise = fullData.connections
       .filter(conn => conn.type === 'expertise-researcher' && conn.to === researcherId)
       .map(conn => conn.from);
 
@@ -608,59 +658,37 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     }));
 
     // Show researcher's expertise areas in concentric rings
-    setNodes(prevNodes => {
-      const expertiseNodes = prevNodes.filter(n => n.type === 'expertise');
-      const researcherNodes = prevNodes.filter(n => n.type === 'researcher');
-      
-      // Arrange relevant expertise nodes around researcher
-      const relevantExpertiseNodes = expertiseNodes.filter(n => 
-        researcherExpertise.includes(n.id)
-      );
-
-      const updatedExpertiseNodes = expertiseNodes.map(node => {
-        if (researcherExpertise.includes(node.id)) {
-          const index = relevantExpertiseNodes.findIndex(n => n.id === node.id);
-          const radius = 140;
-          const angle = (index / relevantExpertiseNodes.length) * 2 * Math.PI;
-          const targetX = researcherNode.x + Math.cos(angle) * radius;
-          const targetY = researcherNode.y + Math.sin(angle) * radius;
-          
-          return {
-            ...node,
-            targetX: Math.max(node.radius, Math.min(canvas.width - node.radius, targetX)),
-            targetY: Math.max(node.radius, Math.min(canvas.height - node.radius, targetY)),
-            targetOpacity: 0.9,
-            visible: true
-          };
-        } else {
-          return { ...node, targetOpacity: 0, visible: false };
-        }
-      });
-
-      const updatedResearcherNodes = researcherNodes.map(node => ({
+    // Arrange only relevant expertise nodes around this researcher
+    const relevantExpertiseNodes = fullData.nodes.filter(
+      n => n.type === 'expertise' && researcherExpertise.includes(n.id)
+    ) as Node[];
+    const arrangedExpertise = relevantExpertiseNodes.map((node, index) => {
+      const radius = 170; // slightly larger than before for spacing
+      const angle = (index / relevantExpertiseNodes.length) * 2 * Math.PI;
+      const targetX = (researcherNode as Node).x + Math.cos(angle) * radius;
+      const targetY = (researcherNode as Node).y + Math.sin(angle) * radius;
+      return {
         ...node,
-        targetOpacity: node.id === researcherId ? 1 : 0,
-        visible: node.id === researcherId
-      }));
-
-      return [...updatedExpertiseNodes, ...updatedResearcherNodes];
+        targetX: Math.max(node.radius, Math.min(canvas.width - node.radius, targetX)),
+        targetY: Math.max(node.radius, Math.min(canvas.height - node.radius, targetY)),
+        targetOpacity: 0.9,
+        visible: true
+      } as Node;
     });
 
-    // Show connections
-    setConnections(prevConnections =>
-      prevConnections.map(conn => {
-        let opacity = 0;
-        let shouldShow = false;
-        
-        if (conn.type === 'expertise-researcher' && conn.to === researcherId) {
-          shouldShow = true;
-          opacity = conn.strength * 0.8;
-        }
-        
-        return { ...conn, targetOpacity: opacity, visible: shouldShow };
-      })
-    );
-  }, [nodes, connections]);
+    const focusedResearcher: Node = {
+      ...(researcherNode as Node),
+      targetOpacity: 1,
+      visible: true
+    };
+    setNodes([focusedResearcher, ...arrangedExpertise]);
+
+    // Only the connections related to this researcher
+    const relConnections = fullData.connections.filter(
+      c => c.type === 'expertise-researcher' && c.to === researcherId
+    ).map(c => ({ ...c, targetOpacity: c.strength * 0.8, visible: true }));
+    setConnections(relConnections);
+  }, [generateNetworkData]);
 
   // Exit to overview mode
   const exitToOverview = useCallback(() => {
@@ -679,27 +707,12 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       targetY: 0,
       targetScale: 1
     }));
-    
-    setNodes(prevNodes => 
-      prevNodes.map(node => ({
-        ...node,
-        isExpanded: false,
-        targetX: node.baseX,
-        targetY: node.baseY,
-        targetOpacity: node.type === 'expertise' ? 1 : 0,
-        visible: node.type === 'expertise'
-      }))
-    );
-    
-    setConnections(prevConnections =>
-      prevConnections.map(conn => {
-        if (conn.type === 'expertise-expertise') {
-          return { ...conn, targetOpacity: conn.strength * 0.6, visible: true };
-        }
-        return { ...conn, targetOpacity: 0, visible: false };
-      })
-    );
-  }, []);
+    // ---- (2) HARD CLEAR: rebuild a fresh overview graph ----
+    const data = generateNetworkData();
+    setNodes(data.nodes);
+    setConnections(data.connections);
+    setExpertiseConnections(data.expertiseConnections);
+  }, [generateNetworkData]);
 
   // Handle researcher hover (only enlargement effect, no connection changes)
   const handleResearcherHover = useCallback((researcherId: string | null) => {
@@ -858,6 +871,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     canvas.width = 1400;
     canvas.height = 800;
 
+    // Rebuild from current store snapshot (runs initially and whenever storeResearchers changes)
     const data = generateNetworkData();
     setNodes(data.nodes);
     setConnections(data.connections);
@@ -875,7 +889,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       targetId: null,
       targetName: null
     });
-  }, [generateNetworkData]);
+  }, [generateNetworkData, storeResearchers]);
 
   // Global mouse event listeners for dragging
   useEffect(() => {
@@ -950,15 +964,19 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       ctx.scale(transform.scale, transform.scale);
       ctx.translate(-canvas.width / 2 + transform.x, -canvas.height / 2 + transform.y);
 
-      // Draw background gradient
+      // ---- (4) "INFINITE" BACKGROUND ----
+      // Instead of a finite box, fill a very large world-space area so you never see edges.
+      const BG_SIZE = 50000; // 50k px in all directions is effectively "infinite" for UX
+      const worldCenterX = canvas.width / 2 + transform.x;
+      const worldCenterY = canvas.height / 2 + transform.y;
       const gradient = ctx.createRadialGradient(
-        canvas.width / 2, canvas.height / 2, 0,
-        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+        worldCenterX, worldCenterY, 0,
+        worldCenterX, worldCenterY, BG_SIZE * 0.6
       );
       gradient.addColorStop(0, '#f0f9ff');
       gradient.addColorStop(1, '#e0f2fe');
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(worldCenterX - BG_SIZE, worldCenterY - BG_SIZE, BG_SIZE * 2, BG_SIZE * 2);
 
       // Draw connections
       connections.forEach(connection => {
@@ -1032,33 +1050,22 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         if (isExpanded && node.type === 'expertise') displayRadius *= 1.2;
         else if (isHoveredExpertise || isHoveredResearcher) displayRadius *= 1.05;
         
-        // Color with opacity
-        const r = parseInt(node.color.slice(1, 3), 16);
-        const g = parseInt(node.color.slice(3, 5), 16);
-        const b = parseInt(node.color.slice(5, 7), 16);
-        
-        const intensity = node.type === 'expertise' ? 0.9 : 0.8;
-        const alpha = node.opacity * intensity;
-        
-        // Node circle
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        // Node circle (solid)
+        ctx.fillStyle = node.color;
         ctx.beginPath();
         ctx.arc(node.x, node.y, displayRadius, 0, 2 * Math.PI);
         ctx.fill();
         
         // Node border
         ctx.shadowColor = 'transparent';
-        const borderColor = isHoveredExpertise || isExpanded || isClickedExpertise || isHoveredResearcher ? 
-          '#ffffff' : `rgba(255, 255, 255, ${node.opacity * 0.9})`;
+        const borderColor = '#ffffff';
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = (isHoveredExpertise || isExpanded || isClickedExpertise || isHoveredResearcher ? 4 : 2) / scale;
         ctx.stroke();
-        
-        // Removed crosshairs as requested
-        
+                
         // Connection count indicator
         if (node.type === 'expertise' && node.connectionCount > 0 && scale > 0.5) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.9})`;
+          ctx.fillStyle = '#ffffff';
           const countRadius = Math.min(14, node.connectionCount * 1.5 + 8) / scale;
           ctx.beginPath();
           ctx.arc(node.x + displayRadius * 0.65, node.y - displayRadius * 0.65, countRadius, 0, 2 * Math.PI);
@@ -1075,7 +1082,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         
         // Node text
         if (node.opacity > 0.2 && scale > 0.3) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity})`;
+          ctx.fillStyle = '#ffffff';
           const baseFontSize = node.type === 'expertise' ? 
             (isHoveredExpertise ? 14 : 12) : (isHoveredResearcher ? 12 : 10);
           const fontSize = Math.max(8, baseFontSize / scale);
@@ -1100,7 +1107,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         
         // Type indicator for researcher nodes
         if (node.type === 'researcher' && node.opacity > 0.4 && scale > 0.7) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.7})`;
+          ctx.fillStyle = '#ffffff';
           ctx.font = `${Math.max(6, 8 / scale)}px Arial`;
           ctx.fillText('researcher', node.x, node.y + displayRadius + 14 / scale);
         }

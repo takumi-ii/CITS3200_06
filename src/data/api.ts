@@ -12,6 +12,19 @@ export type Researcher = {
   // ...
 };
 
+export type ExpertiseArea = {
+  id: ID;
+  name: string;
+  type: 'expertise';
+};
+
+export type ResearcherExpertiseConnection = {
+  researcher: ID;
+  expertise: ID;
+  strength: number;
+};
+
+
 export type Outcome = {
   id: ID;
   title: string;
