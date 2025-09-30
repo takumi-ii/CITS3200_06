@@ -621,14 +621,6 @@ def grants_for_researcher(rid: str):
             for r in rows
         ])
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path: str):
-    target = BUILD_DIR / path
-    if path and target.exists() and target.is_file():
-        return send_from_directory(BUILD_DIR, path)
-    return send_from_directory(BUILD_DIR, "index.html")
-
 # ---------------------------------------------------------------------------
 # Search endpoint with simple weighted ranking
 # Ranking priority (highest to lowest):
@@ -804,6 +796,44 @@ def get_collaborators(rid):
 
     return jsonify(rows)
 
+@app.get("/api/researchers/<rid1>/shared-outputs/<rid2>")
+def get_shared_outputs(rid1, rid2):
+    """
+    Get all research outputs that both researchers collaborated on.
+    Works for both internal UWA researchers and external collaborators.
+    """
+    rows = query("""
+        SELECT DISTINCT
+          ro.uuid,
+          ro.name AS title,
+          ro.publication_year AS year,
+          ro.journal_name AS journal,
+          ro.abstract,
+          ro.num_citations AS citations,
+          ro.link_to_paper AS url,
+          ro.publisher_name AS publisher
+        FROM OIResearchOutputs ro
+        JOIN OIResearchOutputsCollaborators c1 ON c1.ro_uuid = ro.uuid
+        JOIN OIResearchOutputsCollaborators c2 ON c2.ro_uuid = ro.uuid
+        WHERE c1.researcher_uuid = ?
+          AND c2.researcher_uuid = ?
+          AND c1.researcher_uuid != c2.researcher_uuid
+        ORDER BY ro.publication_year DESC NULLS LAST, ro.name
+    """, (rid1, rid2))
+
+    # Add authors for each output
+    for row in rows:
+        authors = query("""
+            SELECT COALESCE(m.name, c.researcher_uuid) AS name
+            FROM OIResearchOutputsCollaborators c
+            LEFT JOIN OIMembers m ON m.uuid = c.researcher_uuid
+            WHERE c.ro_uuid = ?
+            ORDER BY c.id
+        """, (row['uuid'],))
+        row['authors'] = [a['name'] for a in authors]
+    
+    return jsonify(rows)
+
 @app.route('/api/pure/<path:resource>')
 def pure_proxy(resource: str):
     if not PURE_BASE or not PURE_KEY:
@@ -829,10 +859,16 @@ def pure_proxy(resource: str):
         return jsonify({"error": str(e)}), 502
 # ------------------ end API routes ------------------
 
+# SPA catch-all route (MUST be last so API routes win)
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve(path: str):
+    target = BUILD_DIR / path
+    if path and target.exists() and target.is_file():
+        return send_from_directory(BUILD_DIR, path)
+    return send_from_directory(BUILD_DIR, "index.html")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
-else:
-    # When imported (e.g., by a WSGI server), register the SPA route last so API routes win
-    pass
 

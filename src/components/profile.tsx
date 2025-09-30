@@ -71,6 +71,13 @@ export default function Profile({ open, onClose, person ,dataSource,setProfileOp
   console.log('[Profile] rid =', person?.id);
   const [activeTab, setActiveTab] = useState("Overview");
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const [sharedOutputsModal, setSharedOutputsModal] = useState<{open: boolean, collaborator: any, outputs: any[]}>({
+    open: false,
+    collaborator: null,
+    outputs: []
+  });
+  const [loadingSharedOutputs, setLoadingSharedOutputs] = useState(false);
+
 useEffect(() => {
   const resetProfileView = () => {
     setActiveTab("Overview");
@@ -89,6 +96,30 @@ const navigateToResearcher = (full: Researcher) => {
     // backward-compat behaviour
     setSelectedResearcher?.(full);
     setProfileOpen?.(true);
+  }
+};
+
+const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: string) => {
+  if (!person?.id || dataSource !== 'api') return;
+  
+  setLoadingSharedOutputs(true);
+  try {
+    const response = await fetch(`/api/researchers/${person.id}/shared-outputs/${collaboratorId}`);
+    const outputs = await response.json();
+    setSharedOutputsModal({
+      open: true,
+      collaborator: { id: collaboratorId, name: collaboratorName },
+      outputs
+    });
+  } catch (error) {
+    console.error('Failed to fetch shared outputs:', error);
+    setSharedOutputsModal({
+      open: true,
+      collaborator: { id: collaboratorId, name: collaboratorName },
+      outputs: []
+    });
+  } finally {
+    setLoadingSharedOutputs(false);
   }
 };
 
@@ -692,16 +723,25 @@ const collabsList = dataSource === "api"
                 >
                   {sub}
                 </div>
-                {/* Shared count */}
+                {/* Shared count - clickable */}
 <div
+  onClick={(e) => {
+    e.stopPropagation();
+    fetchSharedOutputs(c.id!, name);
+  }}
   style={{
     color: "#4338ca",
     fontSize: 12,
     fontWeight: 600,
-    marginTop: 6
+    marginTop: 6,
+    cursor: "pointer",
+    textDecoration: "underline",
+    textDecorationStyle: "dotted"
   }}
+  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
+  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
 >
-  {c.total} shared collaborations
+  {c.total} shared collaboration{c.total !== 1 ? 's' : ''}
 </div>
               </div>
             );
@@ -1208,9 +1248,25 @@ console.log('collab row sample', rows[0]);
                     </div>
                   )}
 
-                  {/* Shared counts */}
-                  <div style={{ color: "#4338ca", fontSize: 12, fontWeight: 600, marginTop: 6 }}>
-                    {r.total} shared collaborations
+                  {/* Shared counts - clickable */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchSharedOutputs(r.id, r.name || r.id);
+                    }}
+                    style={{ 
+                      color: "#4338ca", 
+                      fontSize: 12, 
+                      fontWeight: 600, 
+                      marginTop: 6,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      textDecorationStyle: "dotted"
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
+                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
+                  >
+                    {r.total} shared collaboration{r.total !== 1 ? 's' : ''}
                     {/* <span style={{ color: "#6b7280", fontWeight: 500 }}>
                       {" "}· {r.pubCount} outputs · {r.grantCount} grants
                     </span> */}
@@ -1237,6 +1293,179 @@ console.log('collab row sample', rows[0]);
         
       </div>
     </div>
+
+    {/* Shared Outputs Modal */}
+    {sharedOutputsModal.open && createPortal(
+      <>
+        {/* Backdrop */}
+        <div
+          onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 2147483648
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Modal Panel */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "70vw",
+            maxHeight: "80vh",
+            background: "#fff",
+            borderRadius: 14,
+            boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
+            zIndex: 2147483649,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "16px 20px",
+              borderBottom: "1px solid #eee",
+              background: "#f8fafc",
+              position: "sticky",
+              top: 0,
+              zIndex: 1
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 18, color: "#0b2a4a" }}>
+                Shared Research Outputs
+              </div>
+              <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>
+                Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}
+              </div>
+            </div>
+            <button
+              onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+              aria-label="Close modal"
+              style={{
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                padding: "8px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 14
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+              onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+            >
+              Close
+            </button>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: 20 }}>
+            {loadingSharedOutputs ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
+                Loading shared research outputs...
+              </div>
+            ) : sharedOutputsModal.outputs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af" }}>
+                No shared research outputs found.
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16, color: "#374151", fontSize: 14 }}>
+                  Found <strong>{sharedOutputsModal.outputs.length}</strong> shared research output{sharedOutputsModal.outputs.length !== 1 ? 's' : ''}
+                </div>
+
+                {/* List of shared outputs */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+                  {sharedOutputsModal.outputs.map((output: any) => (
+                    <div
+                      key={output.uuid}
+                      style={{
+                        background: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: 16
+                      }}
+                    >
+                      {/* Title */}
+                      <div style={{ fontWeight: 600, color: "#0b2a4a", fontSize: 16, marginBottom: 8 }}>
+                        {output.url ? (
+                          <a
+                            href={output.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "inherit", textDecoration: "none" }}
+                          >
+                            {output.title}
+                          </a>
+                        ) : (
+                          output.title
+                        )}
+                      </div>
+
+                      {/* Meta row: year, journal */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>
+                        {output.year && <span>({output.year})</span>}
+                        {output.journal && (
+                          <>
+                            {output.year && <span>·</span>}
+                            <span>{output.journal}</span>
+                          </>
+                        )}
+                        {output.publisher && (
+                          <>
+                            <span>·</span>
+                            <span>{output.publisher}</span>
+                          </>
+                        )}
+                        {output.citations !== null && output.citations !== undefined && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: "#059669", fontWeight: 500 }}>
+                              {output.citations} citation{output.citations !== 1 ? 's' : ''}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Authors */}
+                      {output.authors && output.authors.length > 0 && (
+                        <div style={{ color: "#374151", fontSize: 13, marginBottom: 8 }}>
+                          <strong>Authors:</strong> {output.authors.join(", ")}
+                        </div>
+                      )}
+
+                      {/* Abstract (collapsible) */}
+                      {output.abstract && (
+                        <details style={{ marginTop: 8 }}>
+                          <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>
+                            Show abstract
+                          </summary>
+                          <div style={{ color: "#374151", fontSize: 13, marginTop: 8, whiteSpace: "pre-wrap" }}>
+                            {output.abstract}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </>,
+      document.body
+    )}
   </>,
   document.body
 );
