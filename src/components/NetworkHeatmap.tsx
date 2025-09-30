@@ -1139,7 +1139,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
             </p>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-center relative">
+            <div className="flex justify-center relative isolate">
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
@@ -1148,13 +1148,13 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
                 onClick={handleMouseClick}
                 onMouseLeave={handleMouseLeave}
                 onContextMenu={(e) => e.preventDefault()}
-                className="border border-blue-200 rounded-lg shadow-inner cursor-pointer"
+                 className="relative z-0 border border-blue-200 rounded-lg shadow-inner cursor-pointer"
                 style={{ maxWidth: '100%', height: 'auto' }}
               />
               
               {/* View Mode Popup */}
               {viewMode.type !== 'overview' && (
-                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm border border-blue-200 rounded-lg px-4 py-3 shadow-lg">
+                <div className="absolute z-[9999] top-4 right-4 bg-white border border-blue-200 rounded-lg px-4 py-3 shadow-lg pointer-events-auto">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex-1">
                       <div className="text-sm font-medium text-blue-900">
