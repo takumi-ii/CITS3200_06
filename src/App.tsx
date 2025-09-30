@@ -4,14 +4,77 @@ import SearchSection from './components/SearchSection';
 import FilterSidebar from './components/FilterSidebar';
 import ResultsSection from './components/ResultsSection';
 import NetworkHeatmap from './components/NetworkHeatmap';
+import Profile from './components/profile';
+import { Researcher } from './data/mockData';
+import { useEffect } from "react";
+import { loadAllData } from './data/api';
+
+
 
 export default function App() {
+// App.tsx
+useEffect(() => {
+  console.log('App: calling loadAllData');
+  loadAllData();
+}, []);
+
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     yearRange: [2020, 2024],
     tags: [],
     researchArea: ''
   });
+
+
+
+   const [profileOpen, setProfileOpen] = useState(false);
+   const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
+   const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
+
+     const openProfile = (r: Researcher) => {
+    setSelectedResearcher(r);
+    setProfileHistory([r]);     // start a fresh stack
+    setProfileOpen(true);
+  };
+
+const pushProfile = (r: Researcher) => {
+  setProfileHistory(prev => {
+    // if empty, seed with the current person first
+    const base = prev.length === 0 && selectedResearcher
+      ? [selectedResearcher]
+      : prev;
+    return [...base, r];
+  });
+  setSelectedResearcher(r);
+};
+  const popProfile = () => {
+    setProfileHistory(prev => {
+      if (prev.length <= 1) return prev;     // nothing to pop
+      const next = prev.slice(0, -1);
+      setSelectedResearcher(next[next.length - 1]);
+      return next;
+    });
+  };
+
+  const handleCloseProfile = () => {
+    setProfileOpen(false);
+    setSelectedResearcher(null);
+    setProfileHistory([]); // clear on close
+  };
+
+
+
+  const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
+
+  const toggleDataSource = () => {
+    setDataSource(prev => (prev === 'mock' ? 'api' : 'mock'));
+  };
+
+
+
+  
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,6 +103,14 @@ export default function App() {
       <span>Expeditions</span>
       <span>Resources</span>
       <span>Awards</span>
+       <button
+        onClick={toggleDataSource}
+        className="ml-4 px-3 py-1 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
+      >
+        {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
+      </button>
+
+      
     </div>
   </div>
 </nav>
@@ -49,20 +120,45 @@ export default function App() {
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+{/* Main Content Area */}
+<div className="max-w-7xl mx-auto px-6 py-8">
+  <div className="flex gap-8">
+    {/* Filter Sidebar: fixed width, no shrink, own scroll */}
+    <div className="basis-80 shrink-0 sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto">
+      <FilterSidebar filters={filters} setFilters={setFilters} />
+    </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex gap-8">
-          {/* Filter Sidebar */}
-          <FilterSidebar filters={filters} setFilters={setFilters} />
-          
-          {/* Results Section */}
-          <ResultsSection searchQuery={searchQuery} filters={filters} />
-        </div>
-      </div>
+    {/* Results Section: takes remaining space, can wrap, own scroll */}
+    <div className="flex-1 min-w-0 h-[calc(100vh-8rem)] overflow-y-auto">
+      <ResultsSection
+        searchQuery={searchQuery}
+        filters={filters}
+        setProfileOpen={setProfileOpen}
+        setSelectedResearcher={setSelectedResearcher}
+        dataSource={dataSource}
+      />
+    </div>
+  </div>
+</div>
+
+
+       <Profile
+        open={profileOpen}
+        onClose={handleCloseProfile}
+        person={selectedResearcher}
+        dataSource = {dataSource}
+         setSelectedResearcher={setSelectedResearcher}   // add this
+         setProfileOpen={setProfileOpen} 
+        pushProfile={pushProfile}
+      popProfile={popProfile}
+      canGoBack={profileHistory.length > 1}              // add this
+      />
+
 
       {/* Network Heatmap */}
       <NetworkHeatmap searchQuery={searchQuery} filters={filters} />
     </div>
+
+    
   );
 }

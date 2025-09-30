@@ -1900,6 +1900,14 @@
 			var(--tw-gradient-to) var(--tw-gradient-to-position)
 		);
 	}
+	/* 3-line clamp utility */
+.bioClamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;     /* number of lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;    /* keep long tokens from pushing layout */
+}
 
 	.to-blue-50 {
 		--tw-gradient-to: var(--color-blue-50);

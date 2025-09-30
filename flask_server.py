@@ -16,13 +16,15 @@ except Exception:
     pass
 
 # -------------------- DB helpers --------------------
-DB_PATH = "data.db"
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = os.environ.get("DB_PATH", str((BASE_DIR / "data.db").resolve()))
 
 def get_db():
     """Open a connection with Row access by column name."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+    
 
 def recent_outputs_for(researcher_uuid: str, limit: int = 2):
     """Return the N most recent outputs (fallback ordering by rowid)."""
@@ -42,6 +44,63 @@ def recent_outputs_for(researcher_uuid: str, limit: int = 2):
         )
         return [dict(r) for r in cur.fetchall()]
 # ---------------------------------------------------
+
+def _to_int_or_none(v):
+    try:
+        if v is None or v == "":
+            return None
+        return int(v)
+    except Exception:
+        return None
+
+def _pub_tile(title: str, journal: str | None = None, year: int | None = None):
+    # Frontend expects ResearcherTilePub: { title, year:number, journal? }
+    # We don’t have a year column in OIResearchOutputs; default to None (UI tolerates)
+    return {
+        "title": title or "Untitled",
+        "journal": journal or "",
+        "year": year if isinstance(year, int) else None,
+    }
+
+# --- helpers: table/column detection + safe getters -------------------------
+def _table_cols(conn, table: str) -> set[str]:
+    try:
+        cur = conn.execute(f"PRAGMA table_info({table})")
+        return {r["name"] for r in cur.fetchall()}
+    except sqlite3.Error:
+        return set()
+
+def _get_one(conn, sql: str, params: tuple = ()):
+    try:
+        cur = conn.execute(sql, params)
+        return cur.fetchone()
+    except sqlite3.Error:
+        return None
+
+def _get_all(conn, sql: str, params: tuple = ()):
+    try:
+        cur = conn.execute(sql, params)
+        return cur.fetchall()
+    except sqlite3.Error:
+        return []
+
+def _first_nonempty(row: dict, *candidates: str, default: str | None = ""):
+    for c in candidates:
+        if c in row and row[c]:
+            return row[c]
+    return default
+
+def _norm_url(v: str | None) -> str | None:
+    return (v or "").strip() or None
+
+def query(sql: str, params=()):
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        cur = con.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        con.close()
 
 BASE_DIR = Path(__file__).resolve().parent
 BUILD_DIR = (BASE_DIR / "build").resolve()   # change to "dist" if you keep Vite default
@@ -63,6 +122,7 @@ def _no_cache_for_html(resp: Response):
 @app.route("/healthz")
 def healthz():
     return {"status": "ok"}
+
 
 # -------------------- API routes --------------------
 @app.route("/api/oimembers")
@@ -198,126 +258,308 @@ def get_oiresearchoutputs():
 
     return {"research_outputs": research_outputs}
 
+@app.route("/api/_debug_db")
+def _debug_db():
+    try:
+        with get_db() as conn:
+            db_file = conn.execute("PRAGMA database_list").fetchone()["file"]
+            # table list
+            tables = [r["name"] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            ).fetchall()]
+            counts = {}
+            for t in ["OIMembers", "OIMembersMetaInfo", "OIExpertise",
+                      "OIResearchOutputs", "OIResearchOutputsCollaborators",
+                      "OIResearchOutputsToGrants"]:
+                try:
+                    counts[t] = conn.execute(f"SELECT COUNT(*) AS c FROM {t}").fetchone()["c"]
+                except sqlite3.Error:
+                    counts[t] = "missing"
+            # sample row
+            sample = None
+            if "OIMembers" in tables:
+                sample = conn.execute(
+                    "SELECT uuid, name, position, first_title FROM OIMembers LIMIT 1"
+                ).fetchone()
+                sample = dict(sample) if sample else None
+            return jsonify({
+                "db_path": db_file,
+                "tables": tables,
+                "counts": counts,
+                "sample_member": sample
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/researchers")
 def api_researchers():
+    """
+    Returns UWA researchers only (excludes external collaborators) in the mock-aligned shape, with:
+      - title <- OIMembers.first_title
+      - role  <- OIMembers.position
+      - counts from OIMembersMetaInfo (num_research_outputs, num_grants, num_collaborations)
+      - recentPublications via OIResearchOutputsCollaborators -> OIResearchOutputs
+      - grantIds via OIResearchOutputsCollaborators -> OIResearchOutputsToGrants
+      - collaboratorIds as co-authors on shared outputs
+      - awardIds empty (no awards table in schema)
+    
+    Note: External collaborators (position='External Collaborator') are filtered out to improve 
+    performance and show only UWA staff. External collaborators with real names are still 
+    available via the /api/researchers/{id}/collaborators endpoint.
+    """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
         "name": "Test Researcher",
-        "title": "Test Title",
-        "department": "Test Department",
+        "title": "Researcher",
+        "role": "Researcher",
+        "department": "",
+        "email": "test@example.org",
+        "phone": None,
+        "photoUrl": None,
+        "profileUrl": None,
         "expertise": ["Test Expertise"],
-        "publications": 1,
-        "grants": 0,
-        "collaborations": 0,
-        "location": "Perth, Australia",
-        "bio": "This is a TEST researcher returned because the database is empty or unavailable.",
-        "recentPublications": [
-            {"title": "Test Publication", "year": 2024, "journal": "Test Journal"}
-        ],
+        "publicationsCount": 0,
+        "grantsCount": 0,
+        "collaboratorsCount": 0,
+        "bio": "",
+        "recentPublications": [_pub_tile("Test Publication", "", None)],
+        "grantIds": [],
+        "collaboratorIds": [],
+        "awardIds": [],
     }
 
-    sql = """
-      SELECT
-        m.uuid,
-        m.name,
-        m.education,
-        m.bio,
-        GROUP_CONCAT(e.field, '||') AS expertise_concat,
-        COALESCE(pub.cnt, 0) AS publications
-      FROM OIMembers m
-      LEFT JOIN OIExpertise e
-        ON e.researcher_uuid = m.uuid
-      LEFT JOIN (
-        SELECT researcher_uuid, COUNT(*) AS cnt
-        FROM OIResearchOutputs
+    base_sql = """
+      WITH exp AS (
+        SELECT researcher_uuid, GROUP_CONCAT(field, '||') AS expertise_concat
+        FROM OIExpertise
         GROUP BY researcher_uuid
-      ) AS pub
-        ON pub.researcher_uuid = m.uuid
-      GROUP BY m.uuid, m.name, m.education, m.bio, pub.cnt
-      ORDER BY m.name;
+      )
+      SELECT
+        m.uuid                     AS id,
+        m.name                     AS name,
+        m.bio                      AS bio,
+        m.email                    AS email,
+        m.phone                    AS phone,
+        m.position                 AS position,
+        m.first_title              AS first_title,
+        m.main_research_area       AS main_research_area,
+        m.photo_url                AS photo_url,
+        m.profile_url              AS profile_url,
+        COALESCE(meta.num_research_outputs, 0) AS publicationsCount,
+        COALESCE(meta.num_grants, 0)           AS grantsCount,
+        COALESCE(meta.num_collaborations, 0)   AS collaboratorsCount,
+        e.expertise_concat         AS expertise_concat
+      FROM OIMembers m
+      LEFT JOIN OIMembersMetaInfo meta ON meta.researcher_uuid = m.uuid
+      LEFT JOIN exp e                   ON e.researcher_uuid    = m.uuid
+      WHERE m.position != 'External Collaborator' OR m.position IS NULL
+      ORDER BY m.name
     """
 
     try:
         with get_db() as conn:
-            rows = conn.execute(sql).fetchall()
+            rows = conn.execute(base_sql).fetchall()
+            if not rows:
+                return {"researchers": [TEST_RESEARCHER]}
+
+            # --- precompute collaboratorIds and grantIds per researcher ---
+
+            # collaboratorIds: other authors on the same outputs
+            collab_sql = """
+              SELECT c1.researcher_uuid AS me, c2.researcher_uuid AS other
+              FROM OIResearchOutputsCollaborators c1
+              JOIN OIResearchOutputsCollaborators c2
+                ON c1.ro_uuid = c2.ro_uuid
+              WHERE c1.researcher_uuid != c2.researcher_uuid
+            """
+            collab_map: dict[str, set[str]] = {}
+            for r in conn.execute(collab_sql):
+                collab_map.setdefault(r["me"], set()).add(r["other"])
+
+            # grantIds: outputs for the researcher -> grants linked to those outputs
+            grants_sql = """
+              SELECT DISTINCT c.researcher_uuid AS rid, g.grant_uuid AS gid
+              FROM OIResearchOutputsCollaborators c
+              JOIN OIResearchOutputsToGrants g ON g.ro_uuid = c.ro_uuid
+            """
+            grants_map: dict[str, list[str]] = {}
+            for r in conn.execute(grants_sql):
+                rid, gid = r["rid"], r["gid"]
+                grants_map.setdefault(rid, []).append(gid)
+
+            # recent publications (2): join through collaborators table
+            recent_sql = """
+              SELECT ro.name AS title,
+                     ro.journal_name AS journal,
+                     ro.publication_year AS year
+              FROM OIResearchOutputs ro
+              JOIN OIResearchOutputsCollaborators c
+                ON c.ro_uuid = ro.uuid
+              WHERE c.researcher_uuid = ?
+              ORDER BY ro.publication_year DESC NULLS LAST, ro.rowid DESC
+              LIMIT 2
+            """
+
+            data = []
+            for r in rows:
+                rid = r["id"]
+                expertise = (r["expertise_concat"] or "")
+                expertise = expertise.split("||") if expertise else []
+
+                # Build recent pubs
+                recents_rows = conn.execute(recent_sql, (rid,)).fetchall()
+                recent_pubs = [_pub_tile(rr["title"], rr["journal"], rr["year"]) for rr in recents_rows]
+
+                # Relationships
+                collaborator_ids = sorted(list(collab_map.get(rid, set())))
+                # de-dupe while preserving order for grants
+                grant_ids = list(dict.fromkeys(grants_map.get(rid, [])))
+
+                data.append({
+                    "id": rid,
+                    "name": r["name"],
+                    "title": r["first_title"] or "",           # <- from first_title
+                    "role": r["position"] or "",               # <- from position
+                    "department": r["main_research_area"] or "",
+                    "email": r["email"] or None,
+                    "phone": r["phone"] or None,
+                    "photoUrl": (r["photo_url"] or None),
+                    "profileUrl": (r["profile_url"] or None),
+
+                    "expertise": expertise,
+
+                    # counts come straight from OIMembersMetaInfo
+                    "publicationsCount": int(r["publicationsCount"] or 0),
+                    "grantsCount": int(r["grantsCount"] or 0),
+                    "collaboratorsCount": int(r["collaboratorsCount"] or 0),
+
+                    "bio": r["bio"] or "",
+                    "recentPublications": recent_pubs or [_pub_tile("Untitled", "", None)],
+
+                    "grantIds": grant_ids,
+                    "collaboratorIds": collaborator_ids,
+                    "awardIds": [],   # no awards table in schema
+                })
+
+            return {"researchers": data}
     except sqlite3.Error as err:
         app.logger.warning(f"/api/researchers DB error: {err}")
-        rows = []
-
-    if not rows:
         return {"researchers": [TEST_RESEARCHER]}
-
-    data = []
-    for r in rows:
-        expertise = (r["expertise_concat"] or "").split("||") if r["expertise_concat"] else []
-        recent = recent_outputs_for(r["uuid"], limit=2)
-        data.append({
-            "id": r["uuid"],
-            "name": r["name"],
-            "title": "",
-            "department": "",
-            "expertise": expertise,
-            "publications": r["publications"],
-            "grants": 0,
-            "collaborations": 0,
-            "location": "Perth, Australia",
-            "bio": r["bio"],
-            "recentPublications": recent or [{"title": "Test Publication", "year": 2024, "journal": "Test Journal"}],
-        })
-    return {"researchers": data}
 
 @app.route("/api/researchOutcomes")
 def api_research_outcomes():
     TEST_OUTCOME = {
         "id": "test-output-1",
         "title": "Test Publication",
-        "type": "Research Article (TEST)",
+        "type": "Research Output",
         "authors": ["Test Researcher"],
         "journal": "Test Journal",
         "year": 2024,
         "citations": 0,
-        "abstract": "This is a TEST outcome returned because the database is empty or unavailable.",
-        "keywords": ["Test"],
+        "abstract": "",
+        "keywords": [],
         "grantFunding": "",
     }
 
-    sql = """
-      SELECT
-        ro.uuid           AS id,
-        ro.name           AS title,
-        ro.publisher_name AS journal,
-        m.name            AS author_name
-      FROM OIResearchOutputs ro
-        LEFT JOIN OIMembers m
-          ON m.uuid = ro.researcher_uuid
-      ORDER BY ro.rowid DESC;
-    """
-
     try:
         with get_db() as conn:
-            rows = conn.execute(sql).fetchall()
+            conn.row_factory = sqlite3.Row
+
+            # 1) Base outputs
+            outs = conn.execute("""
+                SELECT
+                  ro.uuid            AS id,
+                  ro.name            AS title,
+                  ro.journal_name    AS journal,
+                  ro.publication_year AS year,
+                  COALESCE(ro.num_citations, 0) AS citations,
+                  COALESCE(ro.abstract, '')     AS abstract
+                FROM OIResearchOutputs ro
+                ORDER BY (ro.publication_year IS NULL), ro.publication_year DESC, ro.rowid DESC
+            """).fetchall()
+            if not outs:
+                return {"outcomes": [TEST_OUTCOME]}
+
+            # Collect all ids once
+            ro_ids = [r["id"] for r in outs]
+            if not ro_ids:
+                return {"outcomes": [TEST_OUTCOME]}
+
+            # 2) Authors per output (many-to-many via collaborators)
+            #    OIResearchOutputsCollaborators(ro_uuid, researcher_uuid) -> OIMembers(uuid -> name)
+            q_marks = ",".join(["?"] * len(ro_ids))
+
+            authors_map: dict[str, list[str]] = {}
+            rows = conn.execute(f"""
+                SELECT c.ro_uuid AS rid, m.name AS author_name
+                FROM OIResearchOutputsCollaborators c
+                JOIN OIMembers m ON m.uuid = c.researcher_uuid
+                WHERE c.ro_uuid IN ({q_marks})
+                ORDER BY m.name COLLATE NOCASE
+            """, ro_ids).fetchall()
+            for r in rows:
+                if r["author_name"]:
+                    authors_map.setdefault(r["rid"], []).append(r["author_name"])
+
+            # 3) Keywords per output
+            kw_map: dict[str, list[str]] = {}
+            rows = conn.execute(f"""
+                SELECT t.ro_uuid AS rid, t.name AS kw
+                FROM OIResearchOutputTags t
+                WHERE t.ro_uuid IN ({q_marks})
+                ORDER BY t.name COLLATE NOCASE
+            """, ro_ids).fetchall()
+            for r in rows:
+                if r["kw"]:
+                    kw_map.setdefault(r["rid"], []).append(r["kw"])
+
+            # 4) Funding (via outputs→grants, prefer detailed funding source names)
+            fund_map: dict[str, set[str]] = {}
+            # First, detailed sources
+            rows = conn.execute(f"""
+                SELECT rg.ro_uuid AS rid, fs.funding_source_name AS src
+                FROM OIResearchOutputsToGrants rg
+                JOIN OIResearchGrantsFundingSources fs ON fs.grant_uuid = rg.grant_uuid
+                WHERE rg.ro_uuid IN ({q_marks})
+            """, ro_ids).fetchall()
+            for r in rows:
+                if r["src"]:
+                    fund_map.setdefault(r["rid"], set()).add(r["src"])
+
+            # Fallback to top_funding_source_name if no detailed source captured
+            rows = conn.execute(f"""
+                SELECT rg.ro_uuid AS rid, g.top_funding_source_name AS src
+                FROM OIResearchOutputsToGrants rg
+                JOIN OIResearchGrants g ON g.uuid = rg.grant_uuid
+                WHERE rg.ro_uuid IN ({q_marks})
+            """, ro_ids).fetchall()
+            for r in rows:
+                if r["src"]:
+                    fund_map.setdefault(r["rid"], set()).add(r["src"])
+
+            # 5) Build outcomes list
+            outcomes = []
+            for ro in outs:
+                rid = ro["id"]
+                outcomes.append({
+                    "id": rid,
+                    "title": ro["title"] or "Untitled",
+                    "type": "Research Output",
+                    "authors": authors_map.get(rid, []),
+                    "journal": ro["journal"] or "",
+                    "year": ro["year"],
+                    "citations": int(ro["citations"] or 0),
+                    "abstract": ro["abstract"] or "",
+                    "keywords": kw_map.get(rid, []),
+                    "grantFunding": ", ".join(sorted(fund_map.get(rid, set()))),
+                })
+
+            return {"outcomes": outcomes}
+
     except sqlite3.Error as err:
         app.logger.warning(f"/api/researchOutcomes DB error: {err}")
-        rows = []
-
-    if not rows:
         return {"outcomes": [TEST_OUTCOME]}
-
-    outcomes = []
-    for r in rows:
-        outcomes.append({
-            "id": r["id"],
-            "title": r["title"] or "Untitled",
-            "type": "Research Output",
-            "authors": [r["author_name"]] if r["author_name"] else [],
-            "journal": r["journal"] or "",
-            "year": None,
-            "citations": 0,
-            "abstract": "",
-            "keywords": [],
-            "grantFunding": "",
-        })
-    return {"outcomes": outcomes}
 
 @app.route("/api/tags")
 def get_tags():
@@ -329,14 +571,55 @@ def get_tags():
     conn.close()
     return {"tags": [{"tag": r[0], "count": r[1]} for r in rows]}
 
-# Register SPA catch-all LAST so it doesn't shadow /api/* routes
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path: str):
-    target = BUILD_DIR / path
-    if path and target.exists() and target.is_file():
-        return send_from_directory(BUILD_DIR, path)
-    return send_from_directory(BUILD_DIR, "index.html")
+
+@app.route("/api/researchers/<rid>/grants")
+def grants_for_researcher(rid: str):
+    with get_db() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT DISTINCT
+                g.uuid AS id,
+                g.grant_name AS title,
+                g.start_date,
+                g.end_date,
+                g.total_funding,
+                g.top_funding_source_name,
+                g.school
+            FROM OIResearchOutputsCollaborators c
+            JOIN OIResearchOutputsToGrants rg ON rg.ro_uuid = c.ro_uuid
+            JOIN OIResearchGrants g           ON g.uuid     = rg.grant_uuid
+            WHERE c.researcher_uuid = ?
+            ORDER BY g.end_date DESC NULLS LAST, g.start_date DESC NULLS LAST, g.rowid DESC
+        """, (rid,)).fetchall()
+
+        grant_ids = [r["id"] for r in rows]
+        fs_map = {}
+        if grant_ids:
+            q = ",".join(["?"] * len(grant_ids))
+            fs_rows = conn.execute(f"""
+                SELECT grant_uuid AS gid, funding_source_name AS name, amount
+                FROM OIResearchGrantsFundingSources
+                WHERE grant_uuid IN ({q})
+                ORDER BY name COLLATE NOCASE
+            """, grant_ids).fetchall()
+            for fr in fs_rows:
+                fs_map.setdefault(fr["gid"], []).append({
+                    "name": fr["name"], "amount": fr["amount"]
+                })
+
+        return jsonify([
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "start_date": r["start_date"],
+                "end_date": r["end_date"],
+                "total_funding": r["total_funding"],
+                "top_funding_source_name": r["top_funding_source_name"],
+                "school": r["school"],
+                "funding_sources": fs_map.get(r["id"], []),
+            }
+            for r in rows
+        ])
 
 # ---------------------------------------------------------------------------
 # Search endpoint with simple weighted ranking
@@ -400,13 +683,14 @@ def search():
     conn = sqlite3.connect('data.db')
     cur = conn.cursor()
 
-    # Fetch members and their expertise
+    # Fetch UWA members and their expertise (exclude external researchers for search)
     cur.execute(
         """
         SELECT m.uuid, m.name, m.email, m.education, m.bio, m.phone,
                GROUP_CONCAT(e.field, '\u001F') as expertise_concat
         FROM OIMembers m
         LEFT JOIN OIExpertise e ON e.researcher_uuid = m.uuid
+        WHERE m.position != 'External Collaborator' OR m.position IS NULL
         GROUP BY m.uuid, m.name, m.email, m.education, m.bio, m.phone
         """
     )
@@ -483,6 +767,73 @@ ALLOWED_PURE_PATHS = {
     "research-outputs",
 }
 
+@app.get("/api/researchers/<rid>/collaborators")
+def get_collaborators(rid):
+    rows = query("""
+        SELECT 
+          c2.researcher_uuid AS collaboratorId,
+          COALESCE(m.name, c2.researcher_uuid) AS name,
+          m.email,
+          m.position AS title,
+          m.profile_url,
+          m.photo_url,
+          COUNT(DISTINCT c1.ro_uuid) AS pubCount
+        FROM OIResearchOutputsCollaborators c1
+        JOIN OIResearchOutputsCollaborators c2
+          ON c1.ro_uuid = c2.ro_uuid
+        LEFT JOIN OIMembers m
+          ON m.uuid = c2.researcher_uuid
+        WHERE c1.researcher_uuid = ?
+          AND c2.researcher_uuid != ?
+        GROUP BY c2.researcher_uuid
+        ORDER BY pubCount DESC
+        LIMIT 10;
+    """, (rid, rid))
+
+    for r in rows:
+        r["grantCount"] = 0
+        r["total"] = r["pubCount"]
+
+    return jsonify(rows)
+
+@app.get("/api/researchers/<rid1>/shared-outputs/<rid2>")
+def get_shared_outputs(rid1, rid2):
+    """
+    Get all research outputs that both researchers collaborated on.
+    Works for both internal UWA researchers and external collaborators.
+    """
+    rows = query("""
+        SELECT DISTINCT
+          ro.uuid,
+          ro.name AS title,
+          ro.publication_year AS year,
+          ro.journal_name AS journal,
+          ro.abstract,
+          ro.num_citations AS citations,
+          ro.link_to_paper AS url,
+          ro.publisher_name AS publisher
+        FROM OIResearchOutputs ro
+        JOIN OIResearchOutputsCollaborators c1 ON c1.ro_uuid = ro.uuid
+        JOIN OIResearchOutputsCollaborators c2 ON c2.ro_uuid = ro.uuid
+        WHERE c1.researcher_uuid = ?
+          AND c2.researcher_uuid = ?
+          AND c1.researcher_uuid != c2.researcher_uuid
+        ORDER BY ro.publication_year DESC NULLS LAST, ro.name
+    """, (rid1, rid2))
+
+    # Add authors for each output
+    for row in rows:
+        authors = query("""
+            SELECT COALESCE(m.name, c.researcher_uuid) AS name
+            FROM OIResearchOutputsCollaborators c
+            LEFT JOIN OIMembers m ON m.uuid = c.researcher_uuid
+            WHERE c.ro_uuid = ?
+            ORDER BY c.id
+        """, (row['uuid'],))
+        row['authors'] = [a['name'] for a in authors]
+    
+    return jsonify(rows)
+
 @app.route('/api/pure/<path:resource>')
 def pure_proxy(resource: str):
     if not PURE_BASE or not PURE_KEY:
@@ -508,10 +859,16 @@ def pure_proxy(resource: str):
         return jsonify({"error": str(e)}), 502
 # ------------------ end API routes ------------------
 
+# SPA catch-all route (MUST be last so API routes win)
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve(path: str):
+    target = BUILD_DIR / path
+    if path and target.exists() and target.is_file():
+        return send_from_directory(BUILD_DIR, path)
+    return send_from_directory(BUILD_DIR, "index.html")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
-else:
-    # When imported (e.g., by a WSGI server), register the SPA route last so API routes win
-    pass
 
