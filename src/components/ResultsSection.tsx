@@ -4,7 +4,8 @@ import { Badge } from './ui/badge';
 
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User, Book } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User, Book, ArrowUpDown } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
@@ -29,7 +30,13 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('default');
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
+
+  // Reset to first page when sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortBy]);
 
   // Live data from central store (no fetching here)
 const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
@@ -62,8 +69,126 @@ const q = (searchQuery || '').toLowerCase();
 const sourceResearchers = dataSource === 'mock' ? mockResearchers : researchers;
 const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcomes;
 
-  const filteredResearchers = sourceResearchers
-    .filter((researcher: any) => {
+// Sorting functions
+const sortResearchers = (researchers: any[], sortOption: string) => {
+  switch (sortOption) {
+    case 'recent-publications':
+      return [...researchers].sort((a, b) => {
+        // Sort by most recent publication year
+        const aRecentYear = Math.max(...(a.recentPublications || []).map((p: any) => p.year || 0), 0);
+        const bRecentYear = Math.max(...(b.recentPublications || []).map((p: any) => p.year || 0), 0);
+        
+        // If both have no publications or same year, sort by publication count
+        if (aRecentYear === bRecentYear) {
+          return (b.publicationsCount || 0) - (a.publicationsCount || 0);
+        }
+        
+        return bRecentYear - aRecentYear;
+      });
+    
+    case 'position-rank':
+      return [...researchers].sort((a, b) => {
+        // Complete position hierarchy based on comprehensive dataset analysis
+        const positionRank: { [key: string]: number } = {
+          // Leadership positions (Rank 10-6)
+          'Director': 10,
+          'Deputy Director': 9,
+          'Chief Executive Officer': 9,
+          'Head of Department': 8,
+          'Centre Manager': 7,
+          'Manager': 7,
+          'Manager - School & Research Initiatives (Oceans Graduate School)': 7,
+          'Program Coordinator': 6,
+          
+          // Academic positions (Rank 8-3)
+          'Winthrop Professor': 8,
+          'Professor': 7,
+          'Professorial Fellow': 7,
+          'Emeritus Professor': 6,
+          'Associate Professor': 6,
+          'Senior Lecturer': 5,
+          'Lecturer': 4,
+          'Adjunct Senior Lecturer': 3,
+          
+          // Research positions (Rank 5-2)
+          'Senior Research Fellow': 5,
+          'Senior Research Engineer': 5,
+          'Senior Research Officer': 4,
+          'Senior Research Officer (Field)': 4,
+          'Research Fellow': 4,
+          'Research Fellow - Floating Offshore Wind': 4,
+          'Research Associate': 3,
+          'Research Officer': 3,
+          'Scientific Officer': 3,
+          'Research Assistant': 2,
+          
+          // Fellowships (Rank 5-4)
+          'Premier\'s Science Fellow': 5,
+          'DECRA Fellow': 4,
+          
+          // Adjunct positions (Rank 2)
+          'Adjunct Professor': 2,
+          'Adjunct Associate Professor': 2,
+          'Adjunct Senior Research Fellow': 2,
+          'Adjunct Research Fellow': 2,
+          
+          // Honorary positions (Rank 3-2)
+          'Senior Honorary Fellow': 3,
+          'Senior Honorary Research Fellow': 3,
+          'Honorary Research Fellow': 2,
+          'Honorary Research Associate': 2,
+          'Honorary Fellow': 2,
+          
+          // Administrative/Technical positions (Rank 2-1)
+          'Administrative Officer': 2,
+          'Electronics Engineer': 2,
+          'Field Assistant': 1,
+          'Technician (Soils Lab)': 1,
+          
+          // Other positions (Rank 2-0)
+          'Casual Teaching': 2,
+          'Contractor / Visitor': 1,
+          'Contractor/Visitor': 1,
+          'External Collaborator': 0,
+        };
+        
+        const aRank = positionRank[a.role] || 0;
+        const bRank = positionRank[b.role] || 0;
+        
+        // If same rank, sort by publication count
+        if (aRank === bRank) {
+          return (b.publicationsCount || 0) - (a.publicationsCount || 0);
+        }
+        
+        return bRank - aRank;
+      });
+    
+    case 'default':
+    default:
+      // Default: Professors and Current staff first, then by publication count
+      return [...researchers].sort((a, b) => {
+        // Check if role indicates current staff vs adjunct/honorary
+        const isCurrentStaff = (role: string) => {
+          if (!role) return false;
+          const lowerRole = role.toLowerCase();
+          return !lowerRole.includes('adjunct') && !lowerRole.includes('honorary') && !lowerRole.includes('emeritus');
+        };
+        
+        const aIsCurrent = isCurrentStaff(a.role);
+        const bIsCurrent = isCurrentStaff(b.role);
+        
+        // Current staff first
+        if (aIsCurrent && !bIsCurrent) return -1;
+        if (!aIsCurrent && bIsCurrent) return 1;
+        
+        // Then by publication count
+        return (b.publicationsCount || 0) - (a.publicationsCount || 0);
+      });
+  }
+};
+
+  const filteredResearchers = sortResearchers(
+    sourceResearchers.filter((researcher: any) => {
       const matchesQuery = !q ||
         (researcher.name || '').toLowerCase().includes(q) ||
         ((researcher.expertise || []).some((exp: string) => (exp || '').toLowerCase().includes(q)));
@@ -76,8 +201,9 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
         );
 
       return matchesQuery && matchesTags;
-    })
-    .sort((a: any, b: any) => Number(b.publicationsCount ?? 0) - Number(a.publicationsCount ?? 0));
+    }),
+    sortBy
+  );
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -145,9 +271,44 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
           
         </TabsList>
  <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">
-          Search Results
-        </h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Search Results
+          </h3>
+          <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200 shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-100 rounded-lg">
+                <ArrowUpDown className="w-4 h-4 text-blue-700" />
+              </div>
+              <span className="text-sm font-semibold text-blue-800">Sort by:</span>
+            </div>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-64 bg-white border-blue-300 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 shadow-sm">
+                <SelectValue placeholder="Choose sorting option..." />
+              </SelectTrigger>
+              <SelectContent className="border-blue-200 shadow-lg">
+                <SelectItem value="default" className="hover:bg-blue-50 focus:bg-blue-50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Default (Current Staff First)</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="recent-publications" className="hover:bg-blue-50 focus:bg-blue-50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Recent Publications</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="position-rank" className="hover:bg-blue-50 focus:bg-blue-50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Position Rank</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
        <p className="text-gray-600">
   Found {sourceResearchers.length} researchers and {sourceOutcomes.length} research outcomes
 </p>
