@@ -4,7 +4,7 @@ import { Badge } from './ui/badge';
 
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User } from 'lucide-react';
+import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User, Book } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
@@ -276,10 +276,38 @@ const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcome
                       {outcome.citations && <span>{outcome.citations} citations</span>}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    View Paper
-                  </Button>
+                  {outcome.url && (
+                    <a
+                      href={outcome.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        backgroundColor: "#1C2E5B",
+                        color: "white",
+                        textDecoration: "none",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        border: "1px solid #1C2E5B",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#0f1a3a";
+                        e.currentTarget.style.borderColor = "#0f1a3a";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#1C2E5B";
+                        e.currentTarget.style.borderColor = "#1C2E5B";
+                      }}
+                    >
+                      <Book className="w-4 h-4" />
+                      View Paper
+                    </a>
+                  )}
                 </div>
 
                 {outcome.abstract && (

@@ -90,6 +90,7 @@ async function apiOutcomes(): Promise<any[]> {
     year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
     journal: o.journal ?? o.publisher_name ?? '',
     title: o.title ?? o.name ?? 'Untitled',
+    url: o.url ?? o.link_to_paper ?? null, // Map link_to_paper to url for consistency
   }));
 }
 async function apiGrantsForResearcher(id: ID): Promise<Grant[]> {
