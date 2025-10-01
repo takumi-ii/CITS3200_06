@@ -72,6 +72,13 @@ function normalizeToRange(value: number, min: number, max: number) {
   return 0.1 + (0.9 * (value - min)) / (max - min);
 }
 
+// ↓↓↓ Researcher sizing (toned down): keep visible scaling without hogging space
+//    Old: radius = 35 + 2 * expertiseCount
+//    New: smaller base + gentler slope
+const RESEARCHER_BASE_RADIUS = 18;
+const RESEARCHER_RADIUS_PER_EXPERTISE = 1.6;
+// (These constants are used when building researcher nodes.)
+
 
 export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,11 +115,33 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragButton, setDragButton] = useState<number | null>(null);
 
-  // Generate network data
+  // Generate network data (now derived from store + searchQuery + filters)
   const generateNetworkData = useCallback(() => {
     // 🔁 Derive everything from real researchers in the store
     const slug = (s: string) => (s || '').toLowerCase().replace(/\s+/g, '-');
-    const researchers = storeResearchers.map(r => ({
+
+    // --- NEW: filter like ResultsSection does ---
+    const q = (searchQuery || '').toLowerCase();
+    const sourceResearchers = storeResearchers;
+    const filtered = sourceResearchers.filter((r) => {
+      const matchesQuery =
+        !q ||
+        (r.name || '').toLowerCase().includes(q) ||
+        (Array.isArray(r.expertise) &&
+          r.expertise.some((e) => (e || '').toLowerCase().includes(q)));
+
+      const matchesTags =
+        (filters?.tags?.length ?? 0) === 0 ||
+        filters.tags.some((tag) =>
+          (Array.isArray(r.expertise) ? r.expertise : []).some((e) =>
+            (e || '').toLowerCase().includes((tag || '').toLowerCase())
+          )
+        );
+
+      return matchesQuery && matchesTags;
+    });
+
+    const researchers = filtered.map(r => ({
       id: String(r.id),
       name: r.name || String(r.id),
       type: 'researcher' as const,
@@ -248,7 +277,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         targetY: canvasHeight / 2,
         baseX: canvasWidth / 2,
         baseY: canvasHeight / 2,
-        radius: 35 + exps.length * 2,
+        radius: RESEARCHER_BASE_RADIUS + exps.length * RESEARCHER_RADIUS_PER_EXPERTISE,
         color: '#0ea5e9',
         connections: exps,
         connectionCount: exps.length,
@@ -337,7 +366,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       connections: allConnections, 
       expertiseConnections: expertiseConnectionsMap 
     };
-  }, [storeResearchers]);
+  }, [storeResearchers, searchQuery, filters]);
 
   // Animation system
   const animate = useCallback(() => {
@@ -387,6 +416,34 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       }
       return updatedNodes;
     });
+    // ---- (3b) COLLISION AVOIDANCE FOR RESEARCHER NODES ----
+    // Ensure researcher nodes never overlap (applies in focus layouts).
+    setNodes(prevNodes => {
+      const updated = [...prevNodes];
+      const sepPadding = 8;       // minimal breathing room
+      const sepStrength = 0.20;   // push strength
+
+      for (let i = 0; i < updated.length; i++) {
+        const a = updated[i];
+        if (a.type !== 'researcher' || a.opacity < 0.05) continue;
+        for (let j = i + 1; j < updated.length; j++) {
+          const b = updated[j];
+          if (b.type !== 'researcher' || b.opacity < 0.05) continue;
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist === 0) dist = 0.001;
+          const minDist = a.radius + b.radius + sepPadding;
+          if (dist < minDist) {
+            const overlap = (minDist - dist) * sepStrength;
+            const ux = dx / dist, uy = dy / dist;
+            a.x -= ux * overlap; a.y -= uy * overlap;
+            b.x += ux * overlap; b.y += uy * overlap;
+          }
+        }
+      }
+      return updated;
+    });
 
     setConnections(prevConnections => {
       const updatedConnections = prevConnections.map(conn => {
@@ -431,13 +488,14 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     researcherNodes: Node[],
     canvas: HTMLCanvasElement
   ) => {
-    // Concentric-ring layout:
-    // - Sort researchers by total connectivity (connectionCount) descending.
-    // - Pack into rings from inside out, ensuring no overlap in each ring by
-    //   reserving angular "slots" based on node diameter at that radius.
-    // - Inner rings contain the most connected researchers.
+    // Concentric-ring layout with hard non-overlap guarantees.
+    // Strategy:
+    //  1) Sort by connectivity (then size) so important/large nodes get best seats.
+    //  2) Compute ring radii using global max researcher size to ensure cross-ring clearance.
+    //  3) Within each ring, allocate angular slots based on local node diameter.
+    //  4) Final micro-relaxation pass to resolve any residual overlaps (e.g., from clamping).
 
-    // Safety: if nothing to place, return early.
+    // Safety
     if (!researcherNodes.length) return [];
 
     // 1) Sort: most connected (and largest) first → inner rings.
@@ -447,18 +505,24 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       return b.radius - a.radius;
     });
 
+    // Global sizing (ensures *no cross-ring overlap*)
+    const globalMaxR = Math.max(...sorted.map(n => n.radius));
+
     // 2) Ring parameters
-    // Inner radius should comfortably clear the expertise node.
-    const innerRadius = Math.max(160, expertiseNode.radius + 70);
-    // Distance between rings. Needs to exceed largest expected diameter to avoid ring collisions.
-    const ringGap = 110;
-    // Extra padding between adjacent nodes along a ring arc.
-    const padding = 14;
+    // Inner ring clears the expertise node + one researcher radius + margin.
+    const innerRadius = Math.max(
+      140,
+      expertiseNode.radius + globalMaxR + 40
+    );
+    // Gap ensures two max-size nodes from adjacent rings can't collide.
+    const ringGap = Math.max(90, globalMaxR * 2 + 36);
+    // Padding between neighbors on the same ring (angular spacing helper).
+    const padding = 10;
 
     // Helper: angular width needed for a node at the given ring radius.
     const angularWidthAt = (node: Node, ringR: number) => {
       // half-chord approximation; clamp to avoid asin domain errors
-      const halfChord = (node.radius * 1.15 + padding) / Math.max(1, ringR);
+      const halfChord = (node.radius * 1.10 + padding) / Math.max(1, ringR);
       const clamped = Math.min(0.99, Math.max(0.02, halfChord));
       return 2 * Math.asin(clamped);
     };
@@ -520,6 +584,26 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
         });
       });
     });
+
+    // 6) Micro-relaxation pass: if clamping created small overlaps, separate them
+    for (let pass = 0; pass < 2; pass++) {
+      for (let a = 0; a < laidOut.length; a++) {
+        for (let b = a + 1; b < laidOut.length; b++) {
+          const n1 = laidOut[a], n2 = laidOut[b];
+          let dx = n2.targetX - n1.targetX;
+          let dy = n2.targetY - n1.targetY;
+          let d = Math.sqrt(dx * dx + dy * dy);
+          if (d === 0) d = 0.001;
+          const minD = n1.radius + n2.radius + 6;
+          if (d < minD) {
+            const push = (minD - d) * 0.5;
+            const ux = dx / d, uy = dy / d;
+            n1.targetX -= ux * push; n1.targetY -= uy * push;
+            n2.targetX += ux * push; n2.targetY += uy * push;
+          }
+        }
+      }
+    }
 
     return laidOut;
   }, []);
@@ -871,7 +955,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     canvas.width = 1400;
     canvas.height = 800;
 
-    // Rebuild from current store snapshot (runs initially and whenever storeResearchers changes)
+    // Rebuild from current store snapshot + current filter/search
     const data = generateNetworkData();
     setNodes(data.nodes);
     setConnections(data.connections);
@@ -889,7 +973,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
       targetId: null,
       targetName: null
     });
-  }, [generateNetworkData, storeResearchers]);
+  }, [generateNetworkData]);
 
   // Global mouse event listeners for dragging
   useEffect(() => {
