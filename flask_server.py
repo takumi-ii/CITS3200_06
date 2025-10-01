@@ -474,7 +474,8 @@ def api_research_outcomes():
                   ro.journal_name    AS journal,
                   ro.publication_year AS year,
                   COALESCE(ro.num_citations, 0) AS citations,
-                  COALESCE(ro.abstract, '')     AS abstract
+                  COALESCE(ro.abstract, '')     AS abstract,
+                  ro.link_to_paper   AS link_to_paper
                 FROM OIResearchOutputs ro
                 ORDER BY (ro.publication_year IS NULL), ro.publication_year DESC, ro.rowid DESC
             """).fetchall()
@@ -553,6 +554,7 @@ def api_research_outcomes():
                     "abstract": ro["abstract"] or "",
                     "keywords": kw_map.get(rid, []),
                     "grantFunding": ", ".join(sorted(fund_map.get(rid, set()))),
+                    "link_to_paper": ro["link_to_paper"],
                 })
 
             return {"outcomes": outcomes}
@@ -787,7 +789,7 @@ def get_collaborators(rid):
           AND c2.researcher_uuid != ?
         GROUP BY c2.researcher_uuid
         ORDER BY pubCount DESC
-        LIMIT 10;
+        LIMIT 50;
     """, (rid, rid))
 
     for r in rows:

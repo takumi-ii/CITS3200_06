@@ -646,7 +646,7 @@ const collabsList = dataSource === "api"
         >
           {collabsList.map((c, i) => {
             const name = c.name ?? "Unknown";
-            const isExternal = name.startsWith("External Researcher");
+            const isExternal = c.title === "External Collaborator";
             const sub =
               c.title ??
               c.department ??
@@ -847,6 +847,42 @@ const collabsList = dataSource === "api"
                     o.title
                   )}
                 </div>
+
+                {/* View Paper button */}
+                {o.url && (
+                  <div style={{ marginTop: 8 }}>
+                    <a
+                      href={o.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        backgroundColor: "#1C2E5B",
+                        color: "white",
+                        textDecoration: "none",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        border: "1px solid #1C2E5B",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#0f1a3a";
+                        e.currentTarget.style.borderColor = "#0f1a3a";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#1C2E5B";
+                        e.currentTarget.style.borderColor = "#1C2E5B";
+                      }}
+                    >
+                      <Book className="w-4 h-4" />
+                      View Paper
+                    </a>
+                  </div>
+                )}
 
                 {/* Meta row: year • journal/type • badges */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
@@ -1193,9 +1229,9 @@ console.log('collab row sample', rows[0]);
               gap: 12
             }}
           >
-            {rows.map(r => (
-
-              
+            {rows.map(r => {
+              const isExternal = r.title === "External Collaborator";
+              return (
               <div
                 key={r.id}
                   onClick={() => {
@@ -1207,8 +1243,8 @@ console.log('collab row sample', rows[0]);
 }}
 
                 style={{
-    background: "#fff",
-    border: "1px solid #e5e7eb",
+    background: isExternal ? "#f8fafc" : "#fff",
+    border: isExternal ? "1px solid #cbd5e1" : "1px solid #e5e7eb",
     borderRadius: 10,
     padding: 12,
     display: "grid",
@@ -1217,9 +1253,10 @@ console.log('collab row sample', rows[0]);
     alignItems: "center",
     cursor: "pointer",                // indicate clickable
     transition: "background 0.2s",
+    opacity: isExternal ? 0.85 : 1
   }}
-   onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
-  onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+   onMouseEnter={e => (e.currentTarget.style.background = isExternal ? "#f1f5f9" : "#f9fafb")}
+   onMouseLeave={e => (e.currentTarget.style.background = isExternal ? "#f8fafc" : "#fff")}
               >
                 
                 {/* Avatar */}
@@ -1273,7 +1310,8 @@ console.log('collab row sample', rows[0]);
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       );
@@ -1412,6 +1450,42 @@ console.log('collab row sample', rows[0]);
                           output.title
                         )}
                       </div>
+
+                      {/* View Paper button */}
+                      {output.url && (
+                        <div style={{ marginBottom: 8 }}>
+                          <a
+                            href={output.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "6px 12px",
+                              backgroundColor: "#1C2E5B",
+                              color: "white",
+                              textDecoration: "none",
+                              borderRadius: 6,
+                              fontSize: 13,
+                              fontWeight: 500,
+                              border: "1px solid #1C2E5B",
+                              transition: "all 0.2s ease"
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = "#0f1a3a";
+                              e.currentTarget.style.borderColor = "#0f1a3a";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = "#1C2E5B";
+                              e.currentTarget.style.borderColor = "#1C2E5B";
+                            }}
+                          >
+                            <Book className="w-4 h-4" />
+                            View Paper
+                          </a>
+                        </div>
+                      )}
 
                       {/* Meta row: year, journal */}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>

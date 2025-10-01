@@ -438,9 +438,22 @@ def fill_db_from_json_research_outputs(db_name='data.db', json_file='db\\researc
         member_uuid = _deterministic_member_uuid(author_name)
 
         publisher = _publisher_from_item(item)
-        # Get the portal link to the paper:
+        # Get the portal link to the paper and convert to public UWA research repository URL
         info_obj = item.get("info", {})
-        link_to_paper = info_obj.get("portalUrl", None)
+        portal_url = info_obj.get("portalUrl", None)
+        
+        # Convert internal portal URL to public UWA research repository URL
+        link_to_paper = None
+        if portal_url:
+            # Extract the UUID from the portal URL
+            # Example: test.research-repository.uwa.edu.au/%E2%80%AF/en/publications/85dfc653-c25b-461c-8524-5c8031cd5bc4
+            # We want: https://research-repository.uwa.edu.au/en/publications/85dfc653-c25b-461c-8524-5c8031cd5bc4
+            if "publications/" in portal_url:
+                # Extract everything after "publications/"
+                uuid_part = portal_url.split("publications/")[-1]
+                if uuid_part:
+                    # Create the public UWA research repository URL
+                    link_to_paper = f"https://research-repository.uwa.edu.au/en/publications/{uuid_part}"
 
         # Get the abstract of the paper:
         abstract_obj = item.get("abstract", {})
@@ -1174,14 +1187,200 @@ def fill_db_meta_info_from_other_tables(db_name='data.db'):
     return True
 
 
+def add_external_researchers(db_name='data.db'):
+    """
+    Add placeholder entries in OIMembers for all external collaborators
+    that exist in OIResearchOutputsCollaborators but not in OIMembers.
+    """
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    # Find all collaborator UUIDs that don't have an OIMembers entry
+    cur.execute("""
+        SELECT DISTINCT c.researcher_uuid
+        FROM OIResearchOutputsCollaborators c
+        LEFT JOIN OIMembers m ON m.uuid = c.researcher_uuid
+        WHERE m.uuid IS NULL
+    """)
+    
+    missing_uuids = [row[0] for row in cur.fetchall()]
+    print(f"[INFO] Found {len(missing_uuids)} missing external researchers")
+    
+    # Insert placeholder entries for each missing UUID
+    inserted = 0
+    for uuid in missing_uuids:
+        # Create a short identifier from the UUID (first 8 chars)
+        short_id = uuid[:8]
+        name = f"External Researcher {short_id}"
+        
+        try:
+            cur.execute("""
+                INSERT INTO OIMembers 
+                (uuid, name, position, email, education, bio, phone, photo_url, profile_url, first_title, main_research_area)
+                VALUES (?, ?, 'External Collaborator', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+            """, (uuid, name))
+            inserted += 1
+            
+            if inserted % 1000 == 0:
+                print(f"[INFO] Inserted {inserted}/{len(missing_uuids)} external researchers...")
+                
+        except sqlite3.IntegrityError as e:
+            print(f"[WARNING] Could not insert {uuid}: {e}")
+            continue
+    
+    conn.commit()
+    print(f"[INFO] Successfully added {inserted} external researchers to OIMembers")
+    
+    # Verify the results
+    cur.execute("SELECT COUNT(*) FROM OIMembers WHERE position = 'External Collaborator'")
+    final_count = cur.fetchone()[0]
+    print(f"[INFO] Total external collaborators in database: {final_count}")
+    
+    conn.close()
+    return inserted
+
+
+def update_external_names(db_name='data.db', research_outputs_json='db\\OIResearchOutputs.json'):
+    """
+    Update external researcher names from research outputs data.
+    Extracts real names from OIResearchOutputs.json and updates placeholder entries.
+    """
+    print("[INFO] Updating external researcher names from research outputs...")
+    
+    # Load research outputs data
+    with open(research_outputs_json, 'r', encoding='utf-8', errors='ignore') as f:
+        research_outputs = json.load(f)
+    
+    # Extract author UUID->name mappings
+    author_mappings = {}
+    
+    for output in research_outputs:
+        # Extract from personAssociations
+        for person_assoc in output.get('personAssociations', []):
+            person = person_assoc.get('person', {})
+            if person.get('uuid'):
+                # Try to get name from person.name.text[0].value (full name)
+                name_obj = person.get('name', {})
+                if isinstance(name_obj, dict) and 'text' in name_obj:
+                    text_array = name_obj.get('text', [])
+                    if text_array and len(text_array) > 0:
+                        full_name = _norm(text_array[0].get('value', ''))
+                        if full_name:
+                            author_mappings[person['uuid']] = full_name
+                            continue
+                
+                # Fallback: try to get name from personAssoc.name (first/last name)
+                assoc_name = person_assoc.get('name', {})
+                if isinstance(assoc_name, dict):
+                    first_name = _norm(assoc_name.get('firstName', ''))
+                    last_name = _norm(assoc_name.get('lastName', ''))
+                    if first_name or last_name:
+                        full_name = f"{first_name} {last_name}".strip()
+                        if full_name:
+                            author_mappings[person['uuid']] = full_name
+            
+            # Extract from externalPerson within personAssociations
+            ext_person = person_assoc.get('externalPerson', {})
+            if ext_person.get('uuid'):
+                # Try to get name from externalPerson.name.text[0].value (full name)
+                name_obj = ext_person.get('name', {})
+                if isinstance(name_obj, dict) and 'text' in name_obj:
+                    text_array = name_obj.get('text', [])
+                    if text_array and len(text_array) > 0:
+                        full_name = _norm(text_array[0].get('value', ''))
+                        if full_name:
+                            author_mappings[ext_person['uuid']] = full_name
+                            continue
+                
+                # Fallback: try to get name from externalPerson.name (first/last name)
+                if isinstance(name_obj, dict):
+                    first_name = _norm(name_obj.get('firstName', ''))
+                    last_name = _norm(name_obj.get('lastName', ''))
+                    if first_name or last_name:
+                        full_name = f"{first_name} {last_name}".strip()
+                        if full_name:
+                            author_mappings[ext_person['uuid']] = full_name
+    
+    print(f"[INFO] Extracted {len(author_mappings)} unique author UUID->name mappings")
+    
+    # Update external researchers with real names
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    # Get all external researchers with placeholder names
+    cur.execute("""
+        SELECT uuid, name FROM OIMembers 
+        WHERE position = 'External Collaborator' 
+        AND name LIKE 'External Researcher %'
+    """)
+    
+    external_researchers = cur.fetchall()
+    print(f"[INFO] Found {len(external_researchers)} external researchers with placeholder names")
+    
+    updated = 0
+    skipped = 0
+    
+    for uuid, current_name in external_researchers:
+        if uuid in author_mappings:
+            new_name = author_mappings[uuid]
+            
+            # Check if this name already exists for another researcher
+            cur.execute("SELECT COUNT(*) FROM OIMembers WHERE name = ? AND uuid != ?", (new_name, uuid))
+            name_exists = cur.fetchone()[0] > 0
+            
+            if name_exists:
+                print(f"[INFO] Skipping {uuid[:8]}: Name '{new_name}' already exists for another researcher")
+                skipped += 1
+                continue
+            
+            # Update the name
+            try:
+                cur.execute("UPDATE OIMembers SET name = ? WHERE uuid = ?", (new_name, uuid))
+                updated += 1
+                
+                if updated % 100 == 0:
+                    print(f"[INFO] Updated {updated}/{len(external_researchers)} external researchers...")
+                    
+            except sqlite3.IntegrityError as e:
+                print(f"[WARNING] Could not update {uuid}: {e}")
+                skipped += 1
+                continue
+        else:
+            skipped += 1
+    
+    conn.commit()
+    print(f"[INFO] Updated {updated} external researchers with real names")
+    print(f"[INFO] {skipped} external researchers kept placeholder names (no data available)")
+    
+    # Show sample of updated names
+    cur.execute("""
+        SELECT name FROM OIMembers 
+        WHERE position = 'External Collaborator' 
+        AND name NOT LIKE 'External Researcher %'
+        ORDER BY name
+        LIMIT 10
+    """)
+    
+    sample_names = [row[0] for row in cur.fetchall()]
+    if sample_names:
+        print("[INFO] Sample of updated external researchers:")
+        for name in sample_names:
+            print(f"  - {name}")
+    
+    conn.close()
+    return updated
+
+
 # Main pipeline orchestrator
 def main():
     """
     Orchestrates the full pipeline:
     1) Rebuild the DB from SQL.
-    2) Load expertise from Excel into OIExpertise.
-    3) Merge people from OIPersons.json into OIMembers.
-    4) Process research outputs and awards filtered by organization UUID.
+    2) Load internal UWA researchers from OIPersons.json into OIMembers.
+    3) Process research outputs and awards filtered by organization UUID.
+    4) Add external collaborators from research outputs.
+    5) Update external collaborator names with real names.
+    6) Fill meta information and relationships.
     """
     db_name  = 'data.db'
     sql_path = 'db\\create_db.sql'
@@ -1190,13 +1389,65 @@ def main():
     persons_json = 'db\\OIPersons.json'
     projects_json = 'db\\OIProjects.json'
 
+    print("=" * 60)
+    print("CREATING OCEANS INSTITUTE DATABASE")
+    print("=" * 60)
+    
+    # Step 1: Create database schema
+    print("\n[STEP 1] Creating database schema...")
     check_and_create_db(db_name=db_name, sql_path=sql_path)
-    # fill_db_from_excel_people(db_name=db_name, excel_path=excel_path, sheet_name=sheet_name)
-    fill_db_from_json_persons(db_name=db_name, json_file=persons_json)  # Merging OIPersons.json into OIMembers
+    
+    # Step 2: Load internal UWA researchers
+    print("\n[STEP 2] Loading internal UWA researchers...")
+    fill_db_from_json_persons(db_name=db_name, json_file=persons_json)
+    
+    # Step 3: Load research outputs
+    print("\n[STEP 3] Loading research outputs...")
     fill_db_from_json_research_outputs(db_name=db_name, json_file=research_outputs_json)
+    
+    # Step 4: Load awards
+    print("\n[STEP 4] Loading awards...")
     fill_db_from_json_awards(db_name=db_name, json_file=awards_json)
+    
+    # Step 5: Load projects
+    print("\n[STEP 5] Loading projects...")
     fill_db_relations_from_json_projects(db_name=db_name, json_file=projects_json)
+    
+    # Step 6: Add external collaborators (NEW!)
+    print("\n[STEP 6] Adding external collaborators...")
+    add_external_researchers(db_name=db_name)
+    
+    # Step 7: Update external collaborator names (NEW!)
+    print("\n[STEP 7] Updating external collaborator names...")
+    update_external_names(db_name=db_name, research_outputs_json=research_outputs_json)
+    
+    # Step 8: Fill meta information
+    print("\n[STEP 8] Filling meta information...")
     fill_db_meta_info_from_other_tables(db_name=db_name)
+    
+    print("\n" + "=" * 60)
+    print("DATABASE CREATION COMPLETE!")
+    print("=" * 60)
+    
+    # Final verification
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    cur.execute("SELECT COUNT(*) FROM OIMembers WHERE position != 'External Collaborator'")
+    internal_count = cur.fetchone()[0]
+    
+    cur.execute("SELECT COUNT(*) FROM OIMembers WHERE position = 'External Collaborator'")
+    external_count = cur.fetchone()[0]
+    
+    cur.execute("SELECT COUNT(*) FROM OIResearchOutputs")
+    outputs_count = cur.fetchone()[0]
+    
+    print(f"Internal UWA researchers: {internal_count}")
+    print(f"External collaborators: {external_count}")
+    print(f"Research outputs: {outputs_count}")
+    print(f"Total researchers: {internal_count + external_count}")
+    
+    conn.close()
 
 if __name__ == "__main__":
     main()
