@@ -187,23 +187,48 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
   }
 };
 
-  const filteredResearchers = sortResearchers(
-    sourceResearchers.filter((researcher: any) => {
-      const matchesQuery = !q ||
-        (researcher.name || '').toLowerCase().includes(q) ||
-        ((researcher.expertise || []).some((exp: string) => (exp || '').toLowerCase().includes(q)));
+// --- Filter, group (promote/no_show), and sort ---
+const visibleResearchers = sourceResearchers.filter((researcher: any) => {
+  const labels: string[] = Array.isArray(researcher.labels) ? researcher.labels : [];
 
-      const matchesTags = (filters.tags?.length ?? 0) === 0 ||
-        filters.tags.some(tag =>
-          (researcher.expertise || []).some((exp: string) =>
-            (exp || '').toLowerCase().includes((tag || '').toLowerCase())
-          )
-        );
+  // 🔹 Drop any researcher with the no_show label or explicit flag
+  if (researcher.noShow === true || labels.includes("no_show")) return false;
 
-      return matchesQuery && matchesTags;
-    }),
-    sortBy
-  );
+  const matchesQuery =
+    !q ||
+    (researcher.name || "").toLowerCase().includes(q) ||
+    (researcher.expertise || []).some((exp: string) =>
+      (exp || "").toLowerCase().includes(q)
+    );
+
+  const matchesTags =
+    (filters.tags?.length ?? 0) === 0 ||
+    filters.tags.some((tag) =>
+      (researcher.expertise || []).some((exp: string) =>
+        (exp || "").toLowerCase().includes((tag || "").toLowerCase())
+      )
+    );
+
+  return matchesQuery && matchesTags;
+});
+
+// 🔹 Split promoted vs non-promoted
+const promoted = visibleResearchers.filter((r) => {
+  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
+  return labels.includes("promote") || r.primaryLabel === "promote";
+});
+
+const nonPromoted = visibleResearchers.filter((r) => {
+  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
+  return !labels.includes("promote") && r.primaryLabel !== "promote";
+});
+
+// 🔹 Sort each subset using your existing sort logic
+const sortedPromoted = sortResearchers(promoted, sortBy);
+const sortedNonPromoted = sortResearchers(nonPromoted, sortBy);
+
+// 🔹 Combine promoted first
+const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;

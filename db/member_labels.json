@@ -1,0 +1,69 @@
+[
+  {
+    "researcher_uuid": "7b215011-e799-4766-8dd0-a749794b0d3f",
+    "label": "no_show",
+    "note": "manual hide: Charitha Pattiaratchi"
+  },
+  {
+    "researcher_uuid": "111f1fcc-531d-4670-8db0-d5433d381dcd",
+    "label": "no_show",
+    "note": "manual hide: Conleth O'Loughlin"
+  },
+  {
+    "researcher_uuid": "ad9a69f8-c576-476f-b7ab-eea8556960f5",
+    "label": "no_show",
+    "note": "manual hide: Ryan Lowe"
+  },
+  {
+    "researcher_uuid": "d2aa847a-722f-4f64-8ea2-ff33e08b5e9e",
+    "label": "no_show",
+    "note": "manual hide: Scott Draper"
+  },
+  {
+    "researcher_uuid": "dffa03ca-4d85-430e-b075-6221a7560c5d",
+    "label": "no_show",
+    "note": "manual hide: Christophe Gaudin"
+  },
+  {
+    "researcher_uuid": "ecf085eb-82e2-46df-8471-1d011ffc4ca6",
+    "label": "no_show",
+    "note": "manual hide: Hugh Wolgamot"
+  },
+
+  {
+    "researcher_uuid": "e1ea01dc-5d10-4a97-a360-b63bb15ab419",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Wenhua Zhao"
+  },
+  {
+    "researcher_uuid": "1db1b9a1-1267-4706-9e07-11ac6b9d7908",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Jeffrey Hansen"
+  },
+  {
+    "researcher_uuid": "c3bbd39e-394b-49f3-8478-55e7d86e7a70",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Muhammad Hossain"
+  },
+  {
+    "researcher_uuid": "c6aebacf-52ae-4d02-909f-706c4464fb73",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Thomas Wernberg-Moller"
+  },
+  {
+    "researcher_uuid": "25561dc7-3857-445c-83f5-1c57cfb8d531",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Nicole Jones"
+  },
+  {
+    "researcher_uuid": "130bdf8b-0579-4626-a31e-f87542cc0dec",
+    "label": "promote",
+    "weight": 10,
+    "note": "manual promote: Jana Orszaghova"
+  }
+]
