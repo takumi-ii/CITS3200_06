@@ -334,6 +334,17 @@ def api_researchers():
         SELECT researcher_uuid, GROUP_CONCAT(field, '||') AS expertise_concat
         FROM OIExpertise
         GROUP BY researcher_uuid
+      ),
+      labels AS (
+        SELECT
+          researcher_uuid,
+          MAX(CASE WHEN label = 'promote' THEN COALESCE(weight, 0) END) AS promote_weight,
+          SUM(CASE WHEN label = 'no_show' THEN 1 ELSE 0 END)            AS has_no_show,
+          GROUP_CONCAT(label, '||')                                     AS labels_concat
+        FROM OIMemberLabels
+        WHERE (starts_at IS NULL OR DATE(starts_at) <= DATE('now'))
+          AND (expires_at IS NULL OR DATE(expires_at) >= DATE('now'))
+        GROUP BY researcher_uuid
       )
       SELECT
         m.uuid                     AS id,
@@ -349,10 +360,14 @@ def api_researchers():
         COALESCE(meta.num_research_outputs, 0) AS publicationsCount,
         COALESCE(meta.num_grants, 0)           AS grantsCount,
         COALESCE(meta.num_collaborations, 0)   AS collaboratorsCount,
-        e.expertise_concat         AS expertise_concat
+        e.expertise_concat         AS expertise_concat,
+        l.promote_weight           AS promote_weight,
+        COALESCE(l.has_no_show,0)  AS has_no_show,
+        l.labels_concat            AS labels_concat
       FROM OIMembers m
       LEFT JOIN OIMembersMetaInfo meta ON meta.researcher_uuid = m.uuid
       LEFT JOIN exp e                   ON e.researcher_uuid    = m.uuid
+      LEFT JOIN labels l                ON l.researcher_uuid    = m.uuid
       WHERE m.position != 'External Collaborator' OR m.position IS NULL
       ORDER BY m.name
     """
@@ -407,6 +422,12 @@ def api_researchers():
                 expertise = (r["expertise_concat"] or "")
                 expertise = expertise.split("||") if expertise else []
 
+                # --- labels ---
+                labels_concat = (r["labels_concat"] or "")
+                labels_list = labels_concat.split("||") if labels_concat else []
+                promote_weight = r["promote_weight"]  # may be None
+                has_no_show = bool(r["has_no_show"])
+
                 # Build recent pubs
                 recents_rows = conn.execute(recent_sql, (rid,)).fetchall()
                 recent_pubs = [_pub_tile(rr["title"], rr["journal"], rr["year"]) for rr in recents_rows]
@@ -426,6 +447,11 @@ def api_researchers():
                     "phone": r["phone"] or None,
                     "photoUrl": (r["photo_url"] or None),
                     "profileUrl": (r["profile_url"] or None),
+
+                    "labels": labels_list,                                   # e.g. ["promote"] or ["no_show"]
+                    "primaryLabel": "promote" if promote_weight is not None else None,
+                    "promoteWeight": int(promote_weight) if promote_weight is not None else 0,
+                    "noShow": has_no_show,
 
                     "expertise": expertise,
 
