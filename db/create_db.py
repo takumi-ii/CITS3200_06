@@ -1371,6 +1371,58 @@ def update_external_names(db_name='data.db', research_outputs_json='db\\OIResear
     return updated
 
 
+def load_member_labels_from_json(db_name='data.db', json_path='db\\member_labels.json'):
+    import json, sqlite3, os
+    if not os.path.exists(json_path):
+        print(f"[INFO] No labels JSON found at {json_path}; skipping.")
+        return 0, 0, 0
+
+    with open(json_path, 'r', encoding='utf-8') as f:
+        rows = json.load(f) or []
+
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+
+    inserted = updated = skipped = 0
+    for i, r in enumerate(rows, 1):
+        uid   = (r.get('researcher_uuid') or '').strip()
+        label = (r.get('label') or '').strip()
+        if not uid or not label:
+            skipped += 1
+            continue
+
+        weight     = int(r.get('weight') or 0)
+        starts_at  = r.get('starts_at') or None
+        expires_at = r.get('expires_at') or None
+        note       = r.get('note') or None
+
+        # Optional sanity check that the UUID exists
+        cur.execute("SELECT 1 FROM OIMembers WHERE uuid = ? LIMIT 1", (uid,))
+        if cur.fetchone() is None:
+            print(f"[WARN] Row {i}: researcher_uuid not in OIMembers: {uid[:8]}… — skipping")
+            skipped += 1
+            continue
+
+        cur.execute("""
+            INSERT INTO OIMemberLabels (researcher_uuid, label, weight, starts_at, expires_at, note)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(researcher_uuid, label) DO UPDATE SET
+              weight     = excluded.weight,
+              starts_at  = excluded.starts_at,
+              expires_at = excluded.expires_at,
+              note       = excluded.note
+        """, (uid, label, weight, starts_at, expires_at, note))
+
+        # sqlite doesn't reliably tell insert vs update via rowcount here; a simple counter is fine
+        inserted += 1
+
+    conn.commit()
+    conn.close()
+    print(f"[INFO] Labels upserted: {inserted}, skipped: {skipped}")
+    return inserted, 0, skipped
+
+
+
 # Main pipeline orchestrator
 def main():
     """
@@ -1428,6 +1480,11 @@ def main():
     print("\n" + "=" * 60)
     print("DATABASE CREATION COMPLETE!")
     print("=" * 60)
+
+
+     # Step 9: Load member labels (your new JSON)
+    print("\n[STEP 9] Loading member labels...")
+    load_member_labels_from_json(db_name=db_name, json_path='db\\member_labels.json')
     
     # Final verification
     conn = sqlite3.connect(db_name)
