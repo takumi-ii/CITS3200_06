@@ -79,17 +79,33 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
   return (
     <div className="w-80 space-y-6">
       <Card>
-         <CardHeader className="flex items-center justify-between">
-      <CardTitle className="text-xl font-semibold text-blue-900">
-        Filter results
-      </CardTitle>
-      <button
-        onClick={handleResetFilters}
-        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-      >
-        Reset
-      </button>
-    </CardHeader>
+        <CardHeader className="flex items-center">
+  <CardTitle className="text-xl font-semibold text-blue-900">
+    Filter results
+  </CardTitle>
+
+  <div className="ml-auto">
+    <button
+  onClick={handleResetFilters}
+  style={{
+    color: '#6b7280',
+    fontSize: '1rem',
+    fontWeight: 500,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'color 0.2s ease',
+  }}
+  onMouseEnter={(e) => (e.currentTarget.style.color = '#60A5FA')}
+  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+>
+  Reset
+</button>
+
+
+  </div>
+</CardHeader>
+
        
         <CardContent className="space-y-6">
           

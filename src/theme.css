@@ -107,3 +107,17 @@ a:hover {
 .dot-mid {
 	background-color: var(--INFOGRAPHIC_MID_BLUE);
 }
+.reset-button {
+  font-size: 0.875rem; /* same as text-sm */
+  font-weight: 500;
+  color: #6b7280; /* gray-500 */
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.reset-button:hover {
+  color: #1e3a8a; /* blue-900 */
+}
+
