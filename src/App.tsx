@@ -174,6 +174,8 @@ const pushProfile = (r: Researcher) => {
 
       {/* Hero Section */}
       <HeroSection onExploreClick={scrollToHeatmap} />
+ 
+
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />

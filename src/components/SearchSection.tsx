@@ -9,7 +9,33 @@ interface SearchSectionProps {
 
 export default function SearchSection({ searchQuery, setSearchQuery }: SearchSectionProps) {
   return (
-    <section className="bg-gradient-to-b from-blue-50 to-white py-12">
+    <section className="bg-gradient-to-b from-blue-50 to-white py-0">
+
+  {/* Mobile-only full-width black banner (UTAS-style) */}
+<div className="relative bg-black text-white px-6 py-8 md:hidden text-left overflow-hidden">
+  {/* Animated white line at the top */}
+  <div className="absolute top-0 left-0 h-[3px] bg-white animate-grow-line"></div>
+
+  <h2 className="text-2xl font-semibold mb-3 mt-2">
+    Find a researcher
+  </h2>
+  <p className="text-base leading-relaxed opacity-90">
+    Explore our network of world-class ocean and marine science experts. 
+    Browse, filter, or search to connect with researchers leading innovative projects at UWA.
+  </p>
+
+  {/* Inline styles for animation */}
+  <style>{`
+    @keyframes growLine {
+      0% { width: 0; }
+      100% { width: 100%; }
+    }
+    .animate-grow-line {
+      animation: growLine 1.2s ease-out forwards;
+    }
+  `}</style>
+</div>
+
       <div className="max-w-4xl mx-auto px-6">
         <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8">
           

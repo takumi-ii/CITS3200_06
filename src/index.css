@@ -2668,6 +2668,8 @@
 		transition-property: none;
 	}
 
+	
+
 	.duration-200 {
 		--tw-duration: 0.2s;
 		transition-duration: 0.2s;

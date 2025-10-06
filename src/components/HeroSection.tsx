@@ -87,6 +87,9 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
   </div>
 </div>
 
+
+
+
       {/* Scoped styles for responsiveness (additive, doesn’t affect desktop look) */}
       <style>{`
   /* Desktop default: show original panel, hide mobile overlays */
@@ -142,15 +145,22 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
 
     /* 🔹 CTA button */
     .oi-hero .hero-mobile-cta {
-      background: #000000 ;
-      color: #ffffff;
-      font-weight: 700;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    }
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif; /* match title font */
+  font-weight: 500;          /* medium / semibold like the title */
+  letter-spacing: 0.3px;     /* subtle spacing for polish */
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background 0.25s ease, transform 0.15s ease;
+}
 
+.oi-hero .hero-mobile-cta:hover {
+  background: #222222;       /* slight dark hover */
+  transform: translateY(-2px);
+}
     /* Optional: black info bar at bottom */
     .oi-hero .hero-bottom-bar {
       display: block;
@@ -170,7 +180,10 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
       text-align: center;
       padding: 0 14px;
     }
+
   }
+
+
 `}</style>
 
     </section>
