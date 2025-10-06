@@ -145,22 +145,29 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
 
     /* 🔹 CTA button */
     .oi-hero .hero-mobile-cta {
-  background: #000000;
+  background: rgba(0, 0, 0, 0);       /* subtle translucent black */
   color: #ffffff;
-  font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif; /* match title font */
-  font-weight: 500;          /* medium / semibold like the title */
-  letter-spacing: 0.3px;     /* subtle spacing for polish */
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: background 0.25s ease, transform 0.15s ease;
+  font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  border: 2px solid rgba(255, 255, 255, 0.85);  /* crisp white border */
+  padding: 9px 22px;                    /* 🔹 smaller padding */
+  font-size: 0.95rem;                   /* 🔹 slightly smaller text */
+  border-radius: 9999px;                /* full pill shape */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: 
+    background 0.25s ease, 
+    transform 0.15s ease, 
+    box-shadow 0.25s ease;
 }
 
 .oi-hero .hero-mobile-cta:hover {
-  background: #222222;       /* slight dark hover */
+  background: rgba(0, 0, 0, 0.8);        /* darker on hover */
   transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
+
+
     /* Optional: black info bar at bottom */
     .oi-hero .hero-bottom-bar {
       display: block;
