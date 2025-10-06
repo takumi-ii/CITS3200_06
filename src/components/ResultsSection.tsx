@@ -399,13 +399,21 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
   </div>
 )}
 
-                    <div className="flex flex-wrap gap-2 mb-3 ">
-                      {(researcher.expertise || []).map((exp: string) => (
-                        <Badge key={exp} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {exp}
-                        </Badge>
-                      ))}
-                    </div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+  {(researcher.expertise || [])
+    // 🔹 Filter out excessively long words (e.g., over 50 chars)
+    .filter((exp: string) => exp && exp.length <= 50)
+    .map((exp: string) => (
+      <Badge
+        key={exp}
+        variant="secondary"
+        className="bg-blue-100 text-blue-800"
+      >
+        {exp}
+      </Badge>
+    ))}
+</div>
+
 
                     {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
     <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
