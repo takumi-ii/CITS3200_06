@@ -7,6 +7,10 @@ import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
+// src/main.tsx or src/main.jsx
+import './index.css';
+
+
 
 
 
@@ -44,6 +48,8 @@ useEffect(() => {
    const [profileOpen, setProfileOpen] = useState(false);
    const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
    const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
+   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
 
   const openProfile = (r: Researcher) => {
     setSelectedResearcher(r);
@@ -96,19 +102,11 @@ const pushProfile = (r: Researcher) => {
   <div className="flex items-center justify-between max-w-7xl mx-auto">
     {/* Left side: Logos */}
     <div className="flex items-center space-x-4">
-      <img
-        src="/images/logo-uwacrest-white.svg"
-        alt="UWA Crest"
-        className="h-12"
-      />
-      <img
-        src="/images/logo_oceans_white.svg"
-        alt="Oceans Institute Logo"
-        className="h-12"
-      />
+      <img src="/images/logo-uwacrest-white.svg" alt="UWA Crest" className="h-12" />
+      <img src="/images/logo_oceans_white.svg" alt="Oceans Institute Logo" className="h-12" />
     </div>
 
-    {/* Right side: Menu */}
+    {/* Desktop Menu */}
     <div className="hidden md:flex space-x-6 text-sm font-medium">
       <span>About the OI</span>
       <span>Research Priorities</span>
@@ -116,33 +114,81 @@ const pushProfile = (r: Researcher) => {
       <span>Expeditions</span>
       <span>Resources</span>
       <span>Awards</span>
-       <button
+      <button
         onClick={toggleDataSource}
         className="ml-4 px-3 py-1 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
       >
         {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
       </button>
-
-      
     </div>
+
+    {/* Mobile Menu Button */}
+    <div className="md:hidden flex items-center">
+  <div className="flex overflow-hidden shadow">
+    {/* Hamburger block (dark navy) */}
+    <button
+      onClick={() => setMobileMenuOpen(v => !v)}
+      aria-label="Menu"
+      className="h-10 w-12 grid place-items-center bg-[#0B1E51] focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+           viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+
+    {/* Search block (light blue) */}
+    <button
+      aria-label="Search"
+      className="h-10 w-12 grid place-items-center bg-[#3DA4ED] focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+           viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+              d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
+      </svg>
+    </button>
   </div>
+</div>
+  </div>
+
+  {/* Mobile dropdown (appears when open) */}
+  {mobileMenuOpen && (
+    <div className="md:hidden mt-4 px-4 space-y-3 text-sm">
+      <span className="block">About the OI</span>
+      <span className="block">Research Priorities</span>
+      <span className="block">Partnerships</span>
+      <span className="block">Expeditions</span>
+      <span className="block">Resources</span>
+      <span className="block">Awards</span>
+      <button
+        onClick={toggleDataSource}
+        className="w-full mt-2 px-3 py-2 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
+      >
+        {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
+      </button>
+    </div>
+  )}
 </nav>
+
 
       {/* Hero Section */}
       <HeroSection onExploreClick={scrollToHeatmap} />
+ 
+
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 {/* Main Content Area */}
 <div className="max-w-7xl mx-auto px-6 py-8">
-  <div className="flex gap-8">
-    {/* Filter Sidebar: fixed width, no shrink, own scroll */}
-    <div className="basis-80 shrink-0 sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto">
+  <div className="flex flex-col lg:flex-row gap-8">
+    {/* Sidebar (normal flow, scrolls with page) */}
+    <div className="hidden lg:block basis-80 shrink-0">
       <FilterSidebar filters={filters} setFilters={setFilters} />
     </div>
 
-    {/* Results Section: takes remaining space, can wrap, own scroll */}
-    <div className="flex-1 min-w-0 h-[calc(100vh-8rem)] overflow-y-auto">
+    {/* Results Section (normal flow, scrolls with page) */}
+    <div className="flex-1 min-w-0">
       <ResultsSection
         searchQuery={searchQuery}
         filters={filters}
@@ -153,6 +199,7 @@ const pushProfile = (r: Researcher) => {
     </div>
   </div>
 </div>
+
 
 
        <Profile

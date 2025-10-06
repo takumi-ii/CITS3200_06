@@ -215,25 +215,27 @@ return createPortal(
 
     {/* Modal Panel */}
    <div
-  ref={panelRef} 
+  ref={panelRef}
   role="dialog"
   aria-modal="true"
   style={{
     position: "fixed",
-    top: "5%",              // leave some gap at top/bottom so background shows
+    top: "5%",
     left: "50%",
     transform: "translateX(-50%)",
-    width: "55vw",          // much wider
-    height: "90vh",         // taller, almost full page
+    width: "55vw",
+    height: "90vh",
     background: "#fff",
     borderRadius: 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
     zIndex: 2147483647,
-    overflowY: "auto",      // allow scrolling if content overflows
+    overflowY: "auto",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
   }}
+  className="profile-panel"
 >
+
    
 {/* Top bar */}
 <div
@@ -1540,7 +1542,22 @@ console.log('collab row sample', rows[0]);
       </>,
       document.body
     )}
+
+    <style>{`
+  @media (max-width: 768px) {
+    .profile-panel {
+      top: 0 !important;
+      left: 0 !important;
+      transform: none !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      border-radius: 0 !important;
+    }
+  }
+`}</style>
+
   </>,
   document.body
 );
+
 }
