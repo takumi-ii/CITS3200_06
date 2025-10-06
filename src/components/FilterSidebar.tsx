@@ -152,27 +152,58 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
 
           {/* Research Tags */}
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
-              Research Focus ({filters.tags.length} selected)
-            </Label>
-            <div className="space-y-2 ">
-              {researchTags.map(tag => (
-                <div key={tag} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={tag}
-                    checked={filters.tags.includes(tag)}
-                    onCheckedChange={() => handleTagToggle(tag)}
-                  />
-                  <Label 
-                    htmlFor={tag} 
-                    className="text-sm text-gray-600 cursor-pointer flex-1"
-                  >
-                    {tag}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
+  <Label
+    style={{
+      fontSize: "0.875rem",
+      fontWeight: 500,
+      color: "#374151",
+      marginBottom: "0.75rem",
+      display: "block",
+    }}
+  >
+    Research Focus ({filters.tags.length} selected)
+  </Label>
+
+  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    {researchTags.map((tag) => (
+      <div
+        key={tag}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.25rem 0.5rem",
+          borderRadius: "4px",
+          transition: "background-color 0.2s ease, color 0.2s ease",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+           e.currentTarget.style.backgroundColor = "#F3F4F6"; // subtle gray (Tailwind gray-100)
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+        }}
+      >
+        <Checkbox
+          id={tag}
+          checked={filters.tags.includes(tag)}
+          onCheckedChange={() => handleTagToggle(tag)}
+        />
+        <Label
+          htmlFor={tag}
+          style={{
+            fontSize: "0.875rem",
+            color: "#4B5563",
+            flex: 1,
+            cursor: "pointer",
+          }}
+        >
+          {tag}
+        </Label>
+      </div>
+    ))}
+  </div>
+</div>
 
           {/* Selected Tags */}
           {filters.tags.length > 0 && (
