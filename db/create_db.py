@@ -1451,6 +1451,66 @@ def fill_db_from_json_prizes(db_name='data.db', prizes_json='db\\OIPrizes.json')
     conn.close()
     return updated
 
+def fill_db_from_json_concepts(db_name='data.db', prizes_json='db\\ALLConcepts.json'):
+    """
+    Update Concepts associated wit researchers and research outputs from ALLConcepts.json data.
+    Extracts concept data from ALLConcepts.json.
+    """
+    # Load concepts data
+    with open(prizes_json, 'r', encoding='utf-8', errors='ignore') as f:
+        concepts = json.load(f)
+    print(f"[INFO] Updating Researcher Prizes from Prizes data ({len(concepts)})...")
+    
+    # Statistics
+    failures = 0
+    updated = 0
+    inserted = 0
+    
+    # Connect to the DB
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    for concept in concepts:
+        # 0) Grab the UUID:
+        concept_uuid = concept.get('uuid', None)
+        
+        # 1) Grab the name:
+        concept_name = _norm(concept.get('name', {}).get('text', [{}])[0].get('value', None))
+        
+        # 2) Grab the parent department/concept name:
+        concept_parent_name = _norm(concept.get('thesauri', {}).get('name', {}).get('text', [{}])[0].get('value', None))
+        
+        # 2.5) Check we have both name and UUID:
+        if not concept_name or not concept_uuid:
+            print(f"[WARNING] Skipping concept with missing name ({concept_name}) or UUID ({concept_uuid}): {json.dumps(concept)}\n\n\n")
+            failures += 1
+            continue
+        # 3) Insert/Update the concept now:
+        try:
+            cur.execute(
+                """
+                INSERT INTO ALLConcepts (uuid, name, parent_discipline)
+                VALUES (?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    name = COALESCE(excluded.name, ALLConcepts.name),
+                    parent_discipline = COALESCE(excluded.parent_discipline, ALLConcepts.parent_discipline)
+                """,
+                (concept_uuid, concept_name, concept_parent_name)
+            )
+            cur.execute("SELECT changes()")
+            changes = cur.fetchone()[0] or 0
+            if changes > 0:
+                updated += 1
+            else:
+                inserted += 1
+        except Exception as e:
+            print(f"[WARNING] Error on concept insert/update: {e}\nConcept data: {json.dumps(concept)}")
+            failures += 1
+            continue
+    conn.commit()
+    print(f"[INFO] Concepts inserted: {inserted}, updated: {updated}, failures: {failures}")
+    conn.close()
+    return updated
+
 
 # Main pipeline orchestrator
 def main():
@@ -1509,6 +1569,10 @@ def main():
     # Step 9: Load prizes and link to researchers
     print("\n[STEP 9] Loading prizes and linking to researchers...")
     fill_db_from_json_prizes(db_name=db_name, prizes_json='db\\OIPrizes.json')
+    
+    # Step 10: Load concepts
+    print("\n[STEP 10] Loading concepts...")
+    fill_db_from_json_concepts(db_name=db_name, prizes_json='db\\ALLConcepts.json')
     
     print("\n" + "=" * 60)
     print("DATABASE CREATION COMPLETE!")
