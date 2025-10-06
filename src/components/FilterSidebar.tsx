@@ -64,6 +64,18 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     setFilters({ ...filters, researchArea: newArea });
   };
 
+
+  const handleResetFilters = () => {
+  setFilters({
+    yearRange: [2000, 2024],
+    researchArea: 'all',
+    tags: [],
+  });
+};
+
+
+
+
   return (
     <div className="w-80 space-y-6">
       <Card>
@@ -72,7 +84,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
         Filter results
       </CardTitle>
       <button
-        
+        onClick={handleResetFilters}
         className="text-sm text-blue-600 hover:text-blue-800 font-medium"
       >
         Reset
