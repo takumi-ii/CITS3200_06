@@ -175,14 +175,14 @@ const pushProfile = (r: Researcher) => {
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 {/* Main Content Area */}
 <div className="max-w-7xl mx-auto px-6 py-8">
-  <div className="flex gap-8">
-    {/* Filter Sidebar: fixed width, no shrink, own scroll */}
-    <div className="basis-80 shrink-0 sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto">
+  <div className="flex flex-col lg:flex-row gap-8">
+    {/* Sidebar (normal flow, scrolls with page) */}
+    <div className="basis-80 shrink-0">
       <FilterSidebar filters={filters} setFilters={setFilters} />
     </div>
 
-    {/* Results Section: takes remaining space, can wrap, own scroll */}
-    <div className="flex-1 min-w-0 h-[calc(100vh-8rem)] overflow-y-auto">
+    {/* Results Section (normal flow, scrolls with page) */}
+    <div className="flex-1 min-w-0">
       <ResultsSection
         searchQuery={searchQuery}
         filters={filters}
@@ -193,6 +193,7 @@ const pushProfile = (r: Researcher) => {
     </div>
   </div>
 </div>
+
 
 
        <Profile
