@@ -368,18 +368,26 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
                       </div>
-                       <Button
-    variant="outline"
-    size="sm"
-    onClick={() => {
-      console.log('[ResultsSection] selecting', researcher);
-      setSelectedResearcher(researcher);
-      setProfileOpen(true);
-    }}
-  >
-    <ExternalLink className="w-4 h-4 mr-1" />
-    View Profile
-  </Button>
+<Button
+  size="sm"
+  onClick={() => {
+    console.log('[ResultsSection] selecting', researcher);
+    setSelectedResearcher(researcher);
+    setProfileOpen(true);
+  }}
+  className="
+    border border-gray-300     /* light grey border */
+    bg-white text-black       /* white background, black text */
+    hover:bg-gray-100         /* subtle gray hover */
+    hover:text-black
+    transition
+  "
+>
+  <ExternalLink className="w-4 h-4 mr-1" />
+  View Profile
+</Button>
+
+
                     </div>
 
                     {researcher.bio && (

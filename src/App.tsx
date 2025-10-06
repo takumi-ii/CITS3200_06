@@ -123,29 +123,33 @@ const pushProfile = (r: Researcher) => {
     </div>
 
     {/* Mobile Menu Button */}
-    <div className="md:hidden flex items-center space-x-4">
-      {/* Search icon */}
-      <button aria-label="Search" className="p-2 rounded hover:bg-blue-800">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
-        </svg>
-      </button>
+    <div className="md:hidden flex items-center">
+  <div className="flex overflow-hidden shadow">
+    {/* Hamburger block (dark navy) */}
+    <button
+      onClick={() => setMobileMenuOpen(v => !v)}
+      aria-label="Menu"
+      className="h-10 w-12 grid place-items-center bg-[#0B1E51] focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+           viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
 
-      {/* Hamburger */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        aria-label="Menu"
-        className="p-2 rounded hover:bg-blue-800"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-    </div>
+    {/* Search block (light blue) */}
+    <button
+      aria-label="Search"
+      className="h-10 w-12 grid place-items-center bg-[#3DA4ED] focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+           viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+              d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
+      </svg>
+    </button>
+  </div>
+</div>
   </div>
 
   {/* Mobile dropdown (appears when open) */}
