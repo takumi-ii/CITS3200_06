@@ -183,7 +183,7 @@ const pushProfile = (r: Researcher) => {
 <div className="max-w-7xl mx-auto px-6 py-8">
   <div className="flex flex-col lg:flex-row gap-8">
     {/* Sidebar (normal flow, scrolls with page) */}
-    <div className="basis-80 shrink-0">
+    <div className="hidden lg:block basis-80 shrink-0">
       <FilterSidebar filters={filters} setFilters={setFilters} />
     </div>
 
