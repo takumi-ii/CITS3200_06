@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import HeroSection from './components/HeroSection';
 import SearchSection from './components/SearchSection';
 import FilterSidebar from './components/FilterSidebar';
@@ -6,7 +6,6 @@ import ResultsSection from './components/ResultsSection';
 import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
-import { useEffect } from "react";
 import { loadAllData } from './data/api';
 
 
@@ -27,12 +26,26 @@ useEffect(() => {
   });
 
 
+  
+  //target to scroll to
+  const heatmapRef = useRef<HTMLDivElement | null>(null);
+
+  // smooth scroll (accounts for the sticky top-nav height)
+   const scrollToHeatmap = () => {
+    const el = heatmapRef.current;
+    if (!el) return;
+    const NAV_HEIGHT = 96; // adjust if your navbar height changes
+    const top = el.getBoundingClientRect().top + window.scrollY - NAV_HEIGHT;
+    window.scrollTo({ top, behavior: 'smooth' });
+  };
+
+
 
    const [profileOpen, setProfileOpen] = useState(false);
    const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
    const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
 
-     const openProfile = (r: Researcher) => {
+  const openProfile = (r: Researcher) => {
     setSelectedResearcher(r);
     setProfileHistory([r]);     // start a fresh stack
     setProfileOpen(true);
@@ -116,7 +129,7 @@ const pushProfile = (r: Researcher) => {
 </nav>
 
       {/* Hero Section */}
-      <HeroSection />
+      <HeroSection onExploreClick={scrollToHeatmap} />
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
@@ -156,7 +169,9 @@ const pushProfile = (r: Researcher) => {
 
 
       {/* Network Heatmap */}
-      <NetworkHeatmap searchQuery={searchQuery} filters={filters} />
+     <div ref={heatmapRef}>
+        <NetworkHeatmap searchQuery={searchQuery} filters={filters} />
+      </div>
     </div>
 
     

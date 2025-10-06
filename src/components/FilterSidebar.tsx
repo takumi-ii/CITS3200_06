@@ -64,15 +64,49 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     setFilters({ ...filters, researchArea: newArea });
   };
 
+
+  const handleResetFilters = () => {
+  setFilters({
+    yearRange: [2000, 2024],
+    researchArea: 'all',
+    tags: [],
+  });
+};
+
+
+
+
   return (
     <div className="w-80 space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-blue-900" >
-  Filter results
-</CardTitle>
+        <CardHeader className="flex items-center">
+  <CardTitle className="text-xl font-semibold text-black">
+    Filter results
+  </CardTitle>
 
-        </CardHeader>
+  <div className="ml-auto">
+    <button
+  onClick={handleResetFilters}
+  style={{
+    color: '#6b7280',
+    fontSize: '1rem',
+    fontWeight: 500,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'color 0.2s ease',
+  }}
+  onMouseEnter={(e) => (e.currentTarget.style.color = '#3B82F6')}
+  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+>
+  Reset
+</button>
+
+
+  </div>
+</CardHeader>
+
+       
         <CardContent className="space-y-6">
           
           {/* Year Range */}
@@ -118,27 +152,58 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
 
           {/* Research Tags */}
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
-              Research Focus ({filters.tags.length} selected)
-            </Label>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {researchTags.map(tag => (
-                <div key={tag} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={tag}
-                    checked={filters.tags.includes(tag)}
-                    onCheckedChange={() => handleTagToggle(tag)}
-                  />
-                  <Label 
-                    htmlFor={tag} 
-                    className="text-sm text-gray-600 cursor-pointer flex-1"
-                  >
-                    {tag}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
+  <Label
+    style={{
+      fontSize: "0.875rem",
+      fontWeight: 500,
+      color: "#374151",
+      marginBottom: "0.75rem",
+      display: "block",
+    }}
+  >
+    Research Focus ({filters.tags.length} selected)
+  </Label>
+
+  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    {researchTags.map((tag) => (
+      <div
+        key={tag}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.25rem 0.5rem",
+          borderRadius: "4px",
+          transition: "background-color 0.2s ease, color 0.2s ease",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+           e.currentTarget.style.backgroundColor = "#F3F4F6"; // subtle gray (Tailwind gray-100)
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+        }}
+      >
+        <Checkbox
+          id={tag}
+          checked={filters.tags.includes(tag)}
+          onCheckedChange={() => handleTagToggle(tag)}
+        />
+        <Label
+          htmlFor={tag}
+          style={{
+            fontSize: "0.875rem",
+            color: "#4B5563",
+            flex: 1,
+            cursor: "pointer",
+          }}
+        >
+          {tag}
+        </Label>
+      </div>
+    ))}
+  </div>
+</div>
 
           {/* Selected Tags */}
           {filters.tags.length > 0 && (

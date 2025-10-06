@@ -1,4 +1,12 @@
-export default function HeroSection() {
+// HeroSection.tsx
+import React from 'react';
+
+type HeroSectionProps = {
+  onExploreClick?: () => void;
+};
+
+
+export default function HeroSection({ onExploreClick }: HeroSectionProps) {
   return (
     <section
       style={{
@@ -45,20 +53,24 @@ export default function HeroSection() {
         <p style={{ margin: 0, opacity: 0.85, fontSize: "0.95rem" }}>
           Browse 400+ researchers and filter by theme, skills, methods, or region.
         </p>
-        <a
-          href="/expertise"
-          style={{
-            alignSelf: "flex-end",
-            marginTop: "3rem",
-            backgroundColor: "#00AEEF",
-            color: "#002042",
-            padding: "0.75rem 1.25rem",
-            fontWeight: "bold",
-            textDecoration: "none",
-          }}
-        >
-          Explore Expertise →
-        </a>
+      <button
+  onClick={onExploreClick}
+  style={{
+    alignSelf: "flex-end",
+    marginTop: "3rem",
+    backgroundColor: "#00AEEF",
+    color: "#002042",
+    padding: "0.75rem 1.25rem",
+    fontWeight: "bold",
+    textDecoration: "none",
+    border: "none",
+    cursor: "pointer",
+  }}
+>
+  Explore Network →
+</button>
+
+
       </div>
     </section>
   );
