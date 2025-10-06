@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS OIResearchOutputsToGrants (
   grant_uuid TEXT NOT NULL,
   FOREIGN KEY (ro_uuid) REFERENCES OIResearchOutputs(uuid)
     ON UPDATE CASCADE
-    ON DELETE CASCADE,
+    ON DELETE CASCADE
   FOREIGN KEY (grant_uuid) REFERENCES OIResearchGrants(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
@@ -120,6 +120,51 @@ CREATE TABLE IF NOT EXISTS OIResearchGrantsFundingSources (
   funding_source_name TEXT NOT NULL,
   amount REAL NOT NULL,
   FOREIGN KEY (grant_uuid) REFERENCES OIResearchGrants(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+-- OIPrizes:
+CREATE TABLE IF NOT EXISTS OIPrizes (
+  uuid TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  first_description TEXT,
+  first_granting_organization_name TEXT,
+  degree_of_recognition TEXT,
+  year INTEGER NOT NULL,
+  month INTEGER,
+  day INTEGER
+);
+
+-- OIMembersToPrizes:
+CREATE TABLE IF NOT EXISTS OIMembersToPrizes (
+  id INTEGER PRIMARY KEY,
+  re_uuid TEXT,
+  prize_uuid TEXT,
+  FOREIGN KEY (re_uuid) REFERENCES OIMembers(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+  FOREIGN KEY (prize_uuid) REFERENCES OIPrizes(uuid)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+-- ALL Concepts:
+CREATE TABLE IF NOT EXISTS ALLConcepts (
+  uuid TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  parent_discipline TEXT
+
+);
+
+-- OIFingerprints:
+CREATE TABLE IF NOT EXISTS OIFingerprints (
+  id INTEGER PRIMARY KEY,
+  origin_uuid TEXT NOT NULL,
+  concept_uuid TEXT NOT NULL,
+  rank REAL NOT NULL,
+  weightedRank REAL,
+  FOREIGN KEY (concept_uuid) REFERENCES ALLConcepts(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
