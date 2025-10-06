@@ -10,6 +10,7 @@ import { loadAllData } from './data/api';
 
 
 
+
 export default function App() {
 // App.tsx
 useEffect(() => {
@@ -44,6 +45,8 @@ useEffect(() => {
    const [profileOpen, setProfileOpen] = useState(false);
    const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
    const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
+   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
 
   const openProfile = (r: Researcher) => {
     setSelectedResearcher(r);
@@ -96,19 +99,11 @@ const pushProfile = (r: Researcher) => {
   <div className="flex items-center justify-between max-w-7xl mx-auto">
     {/* Left side: Logos */}
     <div className="flex items-center space-x-4">
-      <img
-        src="/images/logo-uwacrest-white.svg"
-        alt="UWA Crest"
-        className="h-12"
-      />
-      <img
-        src="/images/logo_oceans_white.svg"
-        alt="Oceans Institute Logo"
-        className="h-12"
-      />
+      <img src="/images/logo-uwacrest-white.svg" alt="UWA Crest" className="h-12" />
+      <img src="/images/logo_oceans_white.svg" alt="Oceans Institute Logo" className="h-12" />
     </div>
 
-    {/* Right side: Menu */}
+    {/* Desktop Menu */}
     <div className="hidden md:flex space-x-6 text-sm font-medium">
       <span>About the OI</span>
       <span>Research Priorities</span>
@@ -116,17 +111,59 @@ const pushProfile = (r: Researcher) => {
       <span>Expeditions</span>
       <span>Resources</span>
       <span>Awards</span>
-       <button
+      <button
         onClick={toggleDataSource}
         className="ml-4 px-3 py-1 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
       >
         {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
       </button>
+    </div>
 
-      
+    {/* Mobile Menu Button */}
+    <div className="md:hidden flex items-center space-x-4">
+      {/* Search icon */}
+      <button aria-label="Search" className="p-2 rounded hover:bg-blue-800">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
+        </svg>
+      </button>
+
+      {/* Hamburger */}
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Menu"
+        className="p-2 rounded hover:bg-blue-800"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
     </div>
   </div>
+
+  {/* Mobile dropdown (appears when open) */}
+  {mobileMenuOpen && (
+    <div className="md:hidden mt-4 px-4 space-y-3 text-sm">
+      <span className="block">About the OI</span>
+      <span className="block">Research Priorities</span>
+      <span className="block">Partnerships</span>
+      <span className="block">Expeditions</span>
+      <span className="block">Resources</span>
+      <span className="block">Awards</span>
+      <button
+        onClick={toggleDataSource}
+        className="w-full mt-2 px-3 py-2 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
+      >
+        {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
+      </button>
+    </div>
+  )}
 </nav>
+
 
       {/* Hero Section */}
       <HeroSection onExploreClick={scrollToHeatmap} />
