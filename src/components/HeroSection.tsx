@@ -20,27 +20,25 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
       }}
     >
       {/* Desktop/Tablet CTA panel (unchanged, but we’ll hide it on small screens via CSS) */}
-      <div className="hero-panel"
-        style={{
-          position: "absolute",
-          top: "5%",
-          bottom: "5%",
-          width: "40%",
-          maxWidth: "550px",
-          maxHeight: "90%",
-          boxSizing: "border-box",
-          backgroundColor: "rgba(0,0,0,0.9)",
-          color: "white",
-          padding: "2rem",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          zIndex: 1,
-          borderLeft: "2px solid white",
-          left: "clamp(5%, 50% - 275px, 50%)",
-          transform: "translateX(-50%)",
-        }}
-      >
+      <div
+  className="hero-panel hidden md:flex md:flex-col md:justify-center"
+  style={{
+    position: "absolute",
+    top: "5%",
+    bottom: "5%",
+    width: "40%",
+    maxWidth: "550px",
+    maxHeight: "90%",
+    boxSizing: "border-box",
+    backgroundColor: "rgba(0,0,0,0.9)",
+    color: "white",
+    padding: "2rem",
+    zIndex: 1,
+    borderLeft: "2px solid white",
+    left: "clamp(5%, 50% - 275px, 50%)",
+    transform: "translateX(-50%)",
+  }}
+>
         <h1 style={{ fontSize: "2.5rem", fontWeight: 600, marginBottom: "1rem" }}>
           Explore Our Expertise
         </h1>
@@ -72,112 +70,109 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
 
       {/* Mobile-only overlay: white text over the beach view */}
       <div className="hero-mobile-overlay">
-        <div className="hero-mobile-copy">
-          <h1>Explore our expertise</h1>
+  <div className="hero-mobile-copy">
+     <h1 className="hero-mobile-title">
+      Explore our world-leading ocean research
+    </h1>
+    <p className="hero-mobile-subtitle">
+      Connect with over 200 + expert researchers .
+    </p>
 
-          {/* small line under heading, in a blue chip */}
-          <div className="hero-mobile-chip">Connect with 200+ researchers</div>
-
-          <button
-            onClick={onExploreClick}
-            className="hero-mobile-cta"
-          >
-            Explore Network →
-          </button>
-        </div>
-      </div>
-
-      {/* Black bar near the bottom on mobile for extra text */}
-      <div className="hero-bottom-bar">
-        <div className="hero-bottom-inner">
-          Advancing marine science, climate resilience, and sustainable ocean stewardship.
-        </div>
-      </div>
+    <button
+      onClick={onExploreClick}
+      className="hero-mobile-cta"
+    >
+      Explore Netwok→
+    </button>
+  </div>
+</div>
 
       {/* Scoped styles for responsiveness (additive, doesn’t affect desktop look) */}
       <style>{`
-        /* Desktop default: show original panel, hide mobile overlays */
-        .oi-hero .hero-mobile-overlay { display: none; }
-        .oi-hero .hero-bottom-bar     { display: none; }
+  /* Desktop default: show original panel, hide mobile overlays */
+  .oi-hero .hero-mobile-overlay { display: none; }
+  .oi-hero .hero-bottom-bar     { display: none; }
 
-        /* Mobile rules */
-        @media (max-width: 767px) {
-          /* Hide the desktop panel on small screens (without removing it) */
-          .oi-hero .hero-panel { display: none; }
+  /* Mobile rules */
+  @media (max-width: 767px) {
+    /* Hide the desktop panel */
+    .oi-hero .hero-panel { display: none !important; }
 
-          /* Show the mobile overlay */
-          .oi-hero .hero-mobile-overlay {
-            display: block;
-            position: absolute;
-            inset: 0;
-            z-index: 2;
-            background: linear-gradient(
-              to bottom,
-              rgba(0,0,0,0.35) 0%,
-              rgba(0,0,0,0.35) 60%,
-              rgba(0,0,0,0.55) 100%
-            ); /* subtle darken for readability */
-          }
+    /* Show the new mobile overlay */
+    .oi-hero .hero-mobile-overlay {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.4) 0%,
+        rgba(0,0,0,0.6) 100%
+      );
+    }
 
-          .oi-hero .hero-mobile-copy {
-            position: absolute;
-            left: 16px;
-            right: 16px;
-            top: 18%;
-            color: #fff;
-            text-align: left;
-          }
+    .oi-hero .hero-mobile-copy {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 25%;
+      color: #fff;
+      text-align: center;
+    }
 
-          .oi-hero .hero-mobile-copy h1 {
-            margin: 0 0 10px 0;
-            font-size: 28px;
-            line-height: 1.15;
-            font-weight: 700;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.35);
-          }
+    /* 🔹 Large clean heading (like your screenshot) */
+    .oi-hero .hero-mobile-title {
+  font-size: 2rem;              /* ~32px */
+  font-weight: 500;             /* medium weight, cleaner than bold */
+  line-height: 1.25;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.3px;        /* subtle spacing for a polished feel */
+}
 
-          .oi-hero .hero-mobile-chip {
-            display: inline-block;
-            background: #3DA4ED;
-            color: #001a33;
-            font-weight: 700;
-            font-size: 13px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-          }
+    /* 🔹 Smaller supporting subtitle */
+    .oi-hero .hero-mobile-subtitle {
+      font-size: 1rem;              /* ~16px */
+      line-height: 1.4;
+      font-weight: 400;
+      opacity: 0.9;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      margin-bottom: 1.5rem;
+    }
 
-          .oi-hero .hero-mobile-cta {
-            margin-top: 14px;
-            background: #ffffff;
-            color: #001a33;
-            font-weight: 800;
-            border: none;
-            padding: 10px 14px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.18);
-          }
+    /* 🔹 CTA button */
+    .oi-hero .hero-mobile-cta {
+      background: #000000 ;
+      color: #ffffff;
+      font-weight: 700;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
 
-          /* Bottom black bar for extra text */
-          .oi-hero .hero-bottom-bar {
-            display: block;
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 3;
-            background: rgba(0,0,0,0.85);
-            padding: 10px 0;
-          }
-          .oi-hero .hero-bottom-inner {
-            color: #e5e7eb;
-            font-size: 13px;
-            line-height: 1.35;
-            text-align: center;
-            padding: 0 14px;
-          }
-        }
-      `}</style>
+    /* Optional: black info bar at bottom */
+    .oi-hero .hero-bottom-bar {
+      display: block;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 3;
+      background: rgba(0,0,0,0.85);
+      padding: 10px 0;
+    }
+
+    .oi-hero .hero-bottom-inner {
+      color: #e5e7eb;
+      font-size: 13px;
+      line-height: 1.35;
+      text-align: center;
+      padding: 0 14px;
+    }
+  }
+`}</style>
+
     </section>
   );
 }
