@@ -21,7 +21,9 @@ import uuid
 import sqlite3
 import pandas as pd
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
+import requests
 
 # DB setup
 def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
@@ -1459,7 +1461,7 @@ def fill_db_from_json_concepts(db_name='data.db', prizes_json='db\\ALLConcepts.j
     # Load concepts data
     with open(prizes_json, 'r', encoding='utf-8', errors='ignore') as f:
         concepts = json.load(f)
-    print(f"[INFO] Updating Researcher Prizes from Prizes data ({len(concepts)})...")
+    print(f"[INFO] Updating Concepts from the Concepts data ({len(concepts)})...")
     
     # Statistics
     failures = 0
@@ -1511,6 +1513,180 @@ def fill_db_from_json_concepts(db_name='data.db', prizes_json='db\\ALLConcepts.j
     conn.close()
     return updated
 
+def fetch_one_fingerprint_of(endpoint: str, UUID: str) -> Optional[Dict[str, Any]]:
+    # 0) Set up the URL:
+    BASE = "https://api.research-repository.uwa.edu.au/ws/api/524/"
+    FULL_URL = f"{BASE}/{endpoint}/{UUID}/fingerprints"
+    load_dotenv()
+    API_KEY = os.getenv("PURE_API_KEY")
+    
+    # 1) Setup the session with headers:
+    session = requests.Session()
+    session.headers.update({"Accept": "application/json", "api-key": API_KEY, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"})
+
+    # 2) Make the GET request:
+    try:
+        response = session.get(FULL_URL, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        items, num_items = data.get('items', None), data.get('count', 0)
+        if num_items == 0 or not items:
+            print(f"[INFO] No items found at {FULL_URL}")
+            return None
+        return items
+    except requests.RequestException as e:
+        print(f"[ERROR] Request to {FULL_URL} failed: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] JSON decode error for {FULL_URL}: {e}")
+        return None
+    
+def fill_db_from_web_api_fingerprint(db_name='data.db'):
+    """
+    Fetch fingerprint data from the web API and populate the database.
+    Pulls Member UUIDs from OIMembers and Research Output UUIDs from OIResearchOutputs,
+    then fetches fingerprint data for each and stores it in OIFingerprints (UUIDs are globally unique).
+    
+    Args:
+        db_name (str): The name of the SQLite database file.
+    """
+    # Statistics
+    failures = 0
+    updated = 0
+    inserted = 0
+    
+    # Connect to the DB
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    # 0) Fetch all Member UUIDs
+    member_uuids: List[str] = [re.sub(r'[(),\']', '', str(x)) for x in cur.execute("SELECT DISTINCT uuid FROM OIMembers WHERE profile_url IS NOT NULL").fetchall()]
+    
+    # 1) Fetch all Research Output UUIDs
+    ro_uuids: List[str] = [re.sub(r'[(),\']', '', str(x)) for x in cur.execute("SELECT DISTINCT uuid FROM OIResearchOutputs").fetchall()]
+    
+    # 2) Now fetch fingerprint data for each Member UUID and insert/update:
+    print(f"[INFO] Fetching fingerprints for {len(member_uuids)} members...")
+    for member_uuid in member_uuids:
+        # 3) Make the API call to fetch fingerprint data:
+        fingerprints_obj = fetch_one_fingerprint_of("persons", member_uuid)
+        
+        fingerprint: Dict[str, Any] = fingerprints_obj[0] if isinstance(fingerprints_obj, list) else fingerprints_obj
+        
+        # 4) Catch missing data case:
+        if not fingerprint:
+            failures += 1
+            print(f"[WARNING] No fingerprint data found for member UUID {member_uuid} [{fingerprints_obj}] [{100*(len(member_uuids)-failures)/len(member_uuids):.4f}% remaining]")
+            continue
+        
+        # 5.1) Get the fingerprint UUID (first item):
+        fingerprint_uuid = fingerprint.get('uuid', None)
+        
+        # 5.2) Get the fingerprint concept data:
+        concepts = fingerprint.get('concepts', [])
+        for concept in concepts:
+            # 5.2.1) Extract concept details:
+            concept_uuid = concept.get('uuid', None)
+            rank = concept.get('rank', None)
+            frequency = concept.get('frequency', None)
+            weightedRank = concept.get('rank', None)
+            
+            if not fingerprint_uuid or not concept_uuid:
+                print(f"[WARNING] Skipping fingerprint with missing fingerprint UUID ({fingerprint_uuid}) or concept UUID ({concept_uuid}): {json.dumps(fingerprint)}\n\n\n")
+                failures += 1
+                continue
+            
+            # 5.2.2) Insert/Update the fingerprint now:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO OIFingerprints (uuid, origin_uuid, concept_uuid, rank, frequency, weightedRank)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(uuid) DO UPDATE SET
+                        origin_uuid = COALESCE(excluded.origin_uuid, OIFingerprints.origin_uuid),
+                        concept_uuid = COALESCE(excluded.concept_uuid, OIFingerprints.concept_uuid),
+                        rank = COALESCE(excluded.rank, OIFingerprints.rank),
+                        frequency = COALESCE(excluded.frequency, OIFingerprints.frequency),
+                        weightedRank = COALESCE(excluded.weightedRank, OIFingerprints.weightedRank)
+                    """,
+                    (fingerprint_uuid, member_uuid, concept_uuid, rank, frequency, weightedRank)
+                )
+                cur.execute("SELECT changes()")
+                changes = cur.fetchone()[0] or 0
+                if changes > 0:
+                    updated += 1
+                else:
+                    inserted += 1
+                conn.commit()
+            except Exception as e:
+                print(f"[WARNING] Error on fingerprint insert/update: {e}\nFingerprint data: {json.dumps(fingerprint)}")
+                failures += 1
+                continue
+            
+    # 6) Now fetch fingerprint data for each Research Output UUID and insert/update:
+    print(f"[INFO] Fetching fingerprints for {len(ro_uuids)} research outputs...")
+    for ro_uuid in ro_uuids:
+        # 6.5) Remove the regular brackets, apostrophes and commas from the ro_uuid tuple:
+        # ro_uuid = ro_uuid[0] if isinstance(ro_uuid, tuple) else re.sub(r'[(),\']', '', str(ro_uuid))
+        # 7) Make the API call to fetch fingerprint data:
+        fingerprints_obj = fetch_one_fingerprint_of("research-outputs", ro_uuid)
+        
+        fingerprint: Dict[str, Any] = fingerprints_obj[0] if isinstance(fingerprints_obj, list) else fingerprints_obj
+        
+        # 7.1) Catch missing data case:
+        if not fingerprint:
+            failures += 1
+            print(f"[WARNING] No fingerprint data found for research output UUID {ro_uuid} [{fingerprints_obj}] [{100*(len(ro_uuids)-failures)/len(ro_uuids):.4f}% remaining]")
+            continue
+        
+        # 7.1) Get the fingerprint UUID (first item):
+        fingerprint_uuid = fingerprint.get('uuid', None)
+        
+        # 7.2) Get the fingerprint concept data:
+        concepts = fingerprint.get('concepts', [])
+        for concept in concepts:
+            # 7.2.1) Extract concept details:
+            concept_uuid = concept.get('uuid', None)
+            rank = concept.get('rank', None)
+            frequency = concept.get('frequency', None)
+            weightedRank = concept.get('rank', None)
+            
+            if not fingerprint_uuid or not concept_uuid:
+                print(f"[WARNING] Skipping fingerprint with missing fingerprint UUID ({fingerprint_uuid}) or concept UUID ({concept_uuid}): {json.dumps(fingerprint)}\n\n\n")
+                failures += 1
+                continue
+            
+            # 7.2.2) Insert/Update the fingerprint now:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO OIFingerprints (uuid, origin_uuid, concept_uuid, rank, frequency, weightedRank)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(uuid) DO UPDATE SET
+                        origin_uuid = COALESCE(excluded.origin_uuid, OIFingerprints.origin_uuid),
+                        concept_uuid = COALESCE(excluded.concept_uuid, OIFingerprints.concept_uuid),
+                        rank = COALESCE(excluded.rank, OIFingerprints.rank),
+                        frequency = COALESCE(excluded.frequency, OIFingerprints.frequency),
+                        weightedRank = COALESCE(excluded.weightedRank, OIFingerprints.weightedRank)
+                    """,
+                    (fingerprint_uuid, ro_uuid, concept_uuid, rank, frequency, weightedRank)
+                )
+                cur.execute("SELECT changes()")
+                changes = cur.fetchone()[0] or 0
+                if changes > 0:
+                    updated += 1
+                else:
+                    inserted += 1
+                conn.commit()
+            except Exception as e:
+                print(f"[WARNING] Error on fingerprint insert/update: {e}\nFingerprint data: {json.dumps(fingerprint)} [{100*(len(ro_uuids)-failures)/len(ro_uuids):.4f}% remaining]")
+                failures += 1
+                continue
+    # 8) Commit the changes and close the connection
+    
+    print(f"[INFO] Fingerprints inserted: {inserted}, updated: {updated}, failures: {failures}")
+    conn.close()
+    return updated
 
 # Main pipeline orchestrator
 def main():
@@ -1573,6 +1749,10 @@ def main():
     # Step 10: Load concepts
     print("\n[STEP 10] Loading concepts...")
     fill_db_from_json_concepts(db_name=db_name, prizes_json='db\\ALLConcepts.json')
+    
+    # Step 11: Fetch and store fingerprints
+    print("\n[STEP 11] Fetching and storing fingerprints...")
+    fill_db_from_web_api_fingerprint(db_name=db_name)
     
     print("\n" + "=" * 60)
     print("DATABASE CREATION COMPLETE!")

@@ -159,14 +159,17 @@ CREATE TABLE IF NOT EXISTS ALLConcepts (
 
 -- OIFingerprints:
 CREATE TABLE IF NOT EXISTS OIFingerprints (
-  id INTEGER PRIMARY KEY,
+  uuid TEXT PRIMARY KEY,
   origin_uuid TEXT NOT NULL,
   concept_uuid TEXT NOT NULL,
   rank REAL NOT NULL,
+  frequency INTEGER,
   weightedRank REAL,
+  UNIQUE(origin_uuid, concept_uuid, rank, frequency, weightedRank),
   FOREIGN KEY (concept_uuid) REFERENCES ALLConcepts(uuid)
     ON UPDATE CASCADE
     ON DELETE CASCADE
+
 );
 
 COMMIT;
