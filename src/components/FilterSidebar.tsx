@@ -80,7 +80,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     <div className="w-80 space-y-6">
       <Card>
         <CardHeader className="flex items-center">
-  <CardTitle className="text-xl font-semibold text-blue-900">
+  <CardTitle className="text-xl font-semibold text-black">
     Filter results
   </CardTitle>
 
@@ -96,7 +96,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     cursor: 'pointer',
     transition: 'color 0.2s ease',
   }}
-  onMouseEnter={(e) => (e.currentTarget.style.color = '#60A5FA')}
+  onMouseEnter={(e) => (e.currentTarget.style.color = '#3B82F6')}
   onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
 >
   Reset
@@ -155,7 +155,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
             <Label className="text-sm font-medium text-gray-700 mb-3 block">
               Research Focus ({filters.tags.length} selected)
             </Label>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 ">
               {researchTags.map(tag => (
                 <div key={tag} className="flex items-center space-x-2">
                   <Checkbox
