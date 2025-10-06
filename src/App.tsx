@@ -129,7 +129,7 @@ const pushProfile = (r: Researcher) => {
 </nav>
 
       {/* Hero Section */}
-      <HeroSection />
+      <HeroSection onExploreClick={scrollToHeatmap} />
 
       {/* Search Section */}
       <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
