@@ -10,6 +10,8 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
 import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+import PageNavigation from './ui/PageNavigation';
+
 
 
 interface ResultsSectionProps {
@@ -537,33 +539,12 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
       </Tabs>
 
       <div className="mt-6 flex items-center justify-center gap-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setCurrentPage((p) => Math.max(1, p - 1));
-            scrollToResultsTop();
-          }}
-          disabled={currentPage === 1}
-          aria-label="Previous page"
-        >
-          ‹
-        </Button>
-
-        <span className="text-sm">
-          Page {currentPage} of {activeTotalPages}
-        </span>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            setCurrentPage((p) => Math.min(activeTotalPages, p + 1));
-            scrollToResultsTop();
-          }}
-          disabled={currentPage >= activeTotalPages}
-          aria-label="Next page"
-        >
-          ›
-        </Button>
+        <PageNavigation
+  currentPage={currentPage}
+  totalPages={activeTotalPages}
+  onPageChange={(page) => setCurrentPage(page)}
+  scrollToResultsTop={scrollToResultsTop}
+/>
       </div>
     </div>
   );

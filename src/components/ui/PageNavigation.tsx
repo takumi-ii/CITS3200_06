@@ -42,7 +42,7 @@ export function makePages(
 /**
  * Pagination Component
  */
-export default function Pagination({
+export default function PageNavigation({
   currentPage,
   totalPages,
   onPageChange,
