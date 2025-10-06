@@ -67,12 +67,18 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
   return (
     <div className="w-80 space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-blue-900" >
-  Filter results
-</CardTitle>
-
-        </CardHeader>
+         <CardHeader className="flex items-center justify-between">
+      <CardTitle className="text-xl font-semibold text-blue-900">
+        Filter results
+      </CardTitle>
+      <button
+        
+        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+      >
+        Reset
+      </button>
+    </CardHeader>
+       
         <CardContent className="space-y-6">
           
           {/* Year Range */}
