@@ -7,6 +7,9 @@ import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
+// src/main.tsx or src/main.jsx
+import './index.css';
+
 
 
 
