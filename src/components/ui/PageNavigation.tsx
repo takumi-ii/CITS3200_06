@@ -67,26 +67,43 @@ export default function PageNavigation({
       </Button>
 
       {/* Page numbers */}
-      {pages.map((p, i) =>
-        p === ELLIPSIS ? (
-          <span key={`ellipsis-${i}`} className="px-2 select-none">
-            …
-          </span>
-        ) : (
-          <Button
-            key={p}
-            variant={p === currentPage ? "default" : "ghost"}
-            onClick={() => {
-              onPageChange(p as number);
-              scrollToResultsTop?.();
-            }}
-            aria-current={p === currentPage ? "page" : undefined}
-            className={p === currentPage ? "font-bold" : undefined}
-          >
-            {p}
-          </Button>
-        )
-      )}
+{pages.map((p, i) =>
+  p === ELLIPSIS ? (
+    <span key={`ellipsis-${i}`} style={{ padding: "0 0.5rem", userSelect: "none" }}>
+      …
+    </span>
+  ) : (
+    <Button
+      key={p}
+      variant="ghost"
+      onClick={() => {
+        onPageChange(p as number);
+        scrollToResultsTop?.();
+      }}
+      aria-current={p === currentPage ? "page" : undefined}
+      style={{
+        fontWeight: 600,
+        fontSize: "1rem",
+        color: p === currentPage ? "#1D4ED8" : "#1F2937", // orange for active, dark gray for others
+        border: "none",
+        borderBottom: p === currentPage ? "3px solid #1D4ED8" : "3px solid transparent",
+        background: "none",
+        transition: "color 0.2s ease, border-bottom-color 0.2s ease",
+        cursor: "pointer",
+        borderRadius: 0, // keeps the underline flat (no rounded edge)
+        paddingBottom: "2px",
+      }}
+      onMouseEnter={(e) => {
+        if (p !== currentPage) e.currentTarget.style.color = "#1D4ED8";
+      }}
+      onMouseLeave={(e) => {
+        if (p !== currentPage) e.currentTarget.style.color = "#1F2937";
+      }}
+    >
+      {p}
+    </Button>
+  )
+)}
 
       {/* Next button */}
       <Button
