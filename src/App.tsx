@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect,useCallback  } from 'react';
 import HeroSection from './components/HeroSection';
 import SearchSection from './components/SearchSection';
 import FilterSidebar from './components/FilterSidebar';
@@ -7,6 +7,8 @@ import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
+import MobileFilterFullScreen from './components/MobileFilterFullScreen ';
+
 // src/main.tsx or src/main.jsx
 import './index.css';
 
@@ -49,6 +51,10 @@ useEffect(() => {
    const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
    const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+   const [MobileFilterOpen,setMobileFilterOpen] = useState(false);
+   const toggleMobileFilter = useCallback(() => {
+    setMobileFilterOpen((prev) => !prev);
+  }, []);
 
 
   const openProfile = (r: Researcher) => {
@@ -178,7 +184,22 @@ const pushProfile = (r: Researcher) => {
 
 
       {/* Search Section */}
-      <SearchSection searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+      <SearchSection
+  searchQuery={searchQuery}
+  setSearchQuery={setSearchQuery}
+  setMobileFilterOpen={setMobileFilterOpen}
+/>
+
+<MobileFilterFullScreen
+  open={MobileFilterOpen}
+  filters={filters}
+  setFilters={setFilters}
+  onClose={() => setMobileFilterOpen(false)}
+  onApply={() => setMobileFilterOpen(false)}
+/>
+
+
+
 {/* Main Content Area */}
 <div className="max-w-7xl mx-auto px-6 py-8">
   <div className="flex flex-col lg:flex-row gap-8">

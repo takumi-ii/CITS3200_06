@@ -299,42 +299,72 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
         </TabsList>
  <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-medium text-gray-500">
             Search Results
           </h3>
-          <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-blue-100 rounded-lg">
-                <ArrowUpDown className="w-4 h-4 text-blue-700" />
-              </div>
-              <span className="text-sm font-semibold text-blue-800">Sort by:</span>
-            </div>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-64 bg-white border-blue-300 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 shadow-sm">
-                <SelectValue placeholder="Choose sorting option..." />
-              </SelectTrigger>
-              <SelectContent className="border-blue-200 shadow-lg">
-                <SelectItem value="default" className="hover:bg-blue-50 focus:bg-blue-50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Default (Current Staff First)</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="recent-publications" className="hover:bg-blue-50 focus:bg-blue-50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <span>Recent Publications</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="position-rank" className="hover:bg-blue-50 focus:bg-blue-50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span>Position Rank</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="flex items-center gap-2">
+ 
+
+{/* MOBILE: round icon-only button */}
+<div className="md:hidden">
+  <Select value={sortBy} onValueChange={setSortBy}>
+    <SelectTrigger
+      aria-label="Sort"
+      className="
+        h-10 w-10 p-0 rounded-full
+        flex items-center justify-center
+        border border-gray-300 bg-white
+        hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
+        transition
+        /* hide SelectValue text + default chevron only on this trigger */
+        [&>span]:sr-only                 /* the SelectValue span */
+        [&>svg:last-child]:hidden        /* Radix chevron is appended last */
+      "
+    >
+      <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
+
+      <SelectValue placeholder="Sort" />
+    </SelectTrigger>
+
+    <SelectContent className="border border-gray-200 shadow-md">
+      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+        Default (Current Staff First)
+      </SelectItem>
+      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+        Recent Publications
+      </SelectItem>
+      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+        Position Rank
+      </SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
+{/* DESKTOP: standard text dropdown */}
+<div className="hidden md:flex items-center gap-2">
+  <ArrowUpDown className="w-4 h-4 text-gray-600" />
+  <Select value={sortBy} onValueChange={setSortBy}>
+    <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
+      <SelectValue placeholder="Sort options..." />
+    </SelectTrigger>
+
+    <SelectContent className="border border-gray-200 shadow-md">
+      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+        Default (Current Staff First)
+      </SelectItem>
+      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+        Recent Publications
+      </SelectItem>
+      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+        Position Rank
+      </SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
+
+</div>
+
         </div>
        <p className="text-gray-600">
   Found {sourceResearchers.length} researchers and {sourceOutcomes.length} research outcomes
@@ -424,26 +454,32 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
 
                     {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
-    <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
-    {typeof researcher.publicationsCount === 'number' && (
-      <div className="flex items-center gap-1">
-        <BookOpen className="w-4 h-4" />
-        {researcher.publicationsCount} Publications
-      </div>
-    )}
-    {typeof researcher.grantsCount === 'number' && (
-      <div className="flex items-center gap-1">
-        <Award className="w-4 h-4" />
-        {researcher.grantsCount} Grants
-      </div>
-    )}
-    {typeof researcher.collaboratorsCount === 'number' && (
-      <div className="flex items-center gap-1">
-        <Users className="w-4 h-4" />
-        {researcher.collaboratorsCount} Collaborations
-      </div>
-    )}
-  </div>
+    <div className="grid grid-cols-3 gap-2 md:gap-4 text-[11px] md:text-sm text-gray-600 mb-3">
+  {typeof researcher.publicationsCount === 'number' && (
+    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+      <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
+      <span className="tabular-nums">{researcher.publicationsCount}</span>
+      <span>Publications</span>
+    </div>
+  )}
+
+  {typeof researcher.grantsCount === 'number' && (
+    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+      <Award className="w-3 h-3 md:w-4 md:h-4" />
+      <span className="tabular-nums">{researcher.grantsCount}</span>
+      <span>Grants</span>
+    </div>
+  )}
+
+  {typeof researcher.collaboratorsCount === 'number' && (
+    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+      <Users className="w-3 h-3 md:w-4 md:h-4" />
+      <span className="tabular-nums">{researcher.collaboratorsCount}</span>
+      <span>Collaborations</span>
+    </div>
+  )}
+</div>
+
 )}
 
 
