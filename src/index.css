@@ -1,4 +1,8 @@
 /*! tailwindcss v4.1.3 | MIT License | https://tailwindcss.com */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @layer properties {
 	@supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or
 		((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2663,6 +2667,8 @@
 	.transition-none {
 		transition-property: none;
 	}
+
+	
 
 	.duration-200 {
 		--tw-duration: 0.2s;

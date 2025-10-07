@@ -10,6 +10,8 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
 import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+import PageNavigation from './ui/PageNavigation';
+
 
 
 interface ResultsSectionProps {
@@ -187,23 +189,48 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
   }
 };
 
-  const filteredResearchers = sortResearchers(
-    sourceResearchers.filter((researcher: any) => {
-      const matchesQuery = !q ||
-        (researcher.name || '').toLowerCase().includes(q) ||
-        ((researcher.expertise || []).some((exp: string) => (exp || '').toLowerCase().includes(q)));
+// --- Filter, group (promote/no_show), and sort ---
+const visibleResearchers = sourceResearchers.filter((researcher: any) => {
+  const labels: string[] = Array.isArray(researcher.labels) ? researcher.labels : [];
 
-      const matchesTags = (filters.tags?.length ?? 0) === 0 ||
-        filters.tags.some(tag =>
-          (researcher.expertise || []).some((exp: string) =>
-            (exp || '').toLowerCase().includes((tag || '').toLowerCase())
-          )
-        );
+  // 🔹 Drop any researcher with the no_show label or explicit flag
+  if (researcher.noShow === true || labels.includes("no_show")) return false;
 
-      return matchesQuery && matchesTags;
-    }),
-    sortBy
-  );
+  const matchesQuery =
+    !q ||
+    (researcher.name || "").toLowerCase().includes(q) ||
+    (researcher.expertise || []).some((exp: string) =>
+      (exp || "").toLowerCase().includes(q)
+    );
+
+  const matchesTags =
+    (filters.tags?.length ?? 0) === 0 ||
+    filters.tags.some((tag) =>
+      (researcher.expertise || []).some((exp: string) =>
+        (exp || "").toLowerCase().includes((tag || "").toLowerCase())
+      )
+    );
+
+  return matchesQuery && matchesTags;
+});
+
+// 🔹 Split promoted vs non-promoted
+const promoted = visibleResearchers.filter((r) => {
+  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
+  return labels.includes("promote") || r.primaryLabel === "promote";
+});
+
+const nonPromoted = visibleResearchers.filter((r) => {
+  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
+  return !labels.includes("promote") && r.primaryLabel !== "promote";
+});
+
+// 🔹 Sort each subset using your existing sort logic
+const sortedPromoted = sortResearchers(promoted, sortBy);
+const sortedNonPromoted = sortResearchers(nonPromoted, sortBy);
+
+// 🔹 Combine promoted first
+const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -341,18 +368,26 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
                           <p className="text-sm text-gray-500">{researcher.department}</p>
                         )}
                       </div>
-                       <Button
-    variant="outline"
-    size="sm"
-    onClick={() => {
-      console.log('[ResultsSection] selecting', researcher);
-      setSelectedResearcher(researcher);
-      setProfileOpen(true);
-    }}
-  >
-    <ExternalLink className="w-4 h-4 mr-1" />
-    View Profile
-  </Button>
+<Button
+  size="sm"
+  onClick={() => {
+    console.log('[ResultsSection] selecting', researcher);
+    setSelectedResearcher(researcher);
+    setProfileOpen(true);
+  }}
+  className="
+    border border-gray-300     /* light grey border */
+    bg-white text-black       /* white background, black text */
+    hover:bg-gray-100         /* subtle gray hover */
+    hover:text-black
+    transition
+  "
+>
+  <ExternalLink className="w-4 h-4 mr-1" />
+  View Profile
+</Button>
+
+
                     </div>
 
                     {researcher.bio && (
@@ -372,13 +407,21 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
   </div>
 )}
 
-                    <div className="flex flex-wrap gap-2 mb-3 ">
-                      {(researcher.expertise || []).map((exp: string) => (
-                        <Badge key={exp} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {exp}
-                        </Badge>
-                      ))}
-                    </div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+  {(researcher.expertise || [])
+    // 🔹 Filter out excessively long words (e.g., over 50 chars)
+    .filter((exp: string) => exp && exp.length <= 50)
+    .map((exp: string) => (
+      <Badge
+        key={exp}
+        variant="secondary"
+        className="bg-blue-100 text-blue-800"
+      >
+        {exp}
+      </Badge>
+    ))}
+</div>
+
 
                     {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
     <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
@@ -512,33 +555,12 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
       </Tabs>
 
       <div className="mt-6 flex items-center justify-center gap-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setCurrentPage((p) => Math.max(1, p - 1));
-            scrollToResultsTop();
-          }}
-          disabled={currentPage === 1}
-          aria-label="Previous page"
-        >
-          ‹
-        </Button>
-
-        <span className="text-sm">
-          Page {currentPage} of {activeTotalPages}
-        </span>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            setCurrentPage((p) => Math.min(activeTotalPages, p + 1));
-            scrollToResultsTop();
-          }}
-          disabled={currentPage >= activeTotalPages}
-          aria-label="Next page"
-        >
-          ›
-        </Button>
+        <PageNavigation
+  currentPage={currentPage}
+  totalPages={activeTotalPages}
+  onPageChange={(page) => setCurrentPage(page)}
+  scrollToResultsTop={scrollToResultsTop}
+/>
       </div>
     </div>
   );

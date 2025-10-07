@@ -62,7 +62,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_oi_ro_collab_rouuid_member
   ON OIResearchOutputsCollaborators (ro_uuid, researcher_uuid);
 
 -- OIMembersMetaInfo: One to One relationship between OIMembers and meta info aggregated from one to many relations with OIResearchOutputs (number of ROs, number of grants, number of collabortions (ROs done with other researchers)):
-CREATE TABLE OIMembersMetaInfo (
+CREATE TABLE IF NOT EXISTS OIMembersMetaInfo (
   researcher_uuid TEXT PRIMARY KEY,
   num_research_outputs INTEGER NOT NULL DEFAULT 0,
   num_grants INTEGER NOT NULL DEFAULT 0,
@@ -171,5 +171,27 @@ CREATE TABLE IF NOT EXISTS OIFingerprints (
     ON DELETE CASCADE
 
 );
+
+-- =====================================
+-- Member Labels (promote, no_show, etc.)
+-- =====================================
+CREATE TABLE IF NOT EXISTS OIMemberLabels (
+  id INTEGER PRIMARY KEY,
+  researcher_uuid TEXT NOT NULL,
+  label TEXT NOT NULL
+    CHECK (label IN ('no_show','promote')),  -- << optional guard
+  weight INTEGER NOT NULL DEFAULT 0,         -- priority for 'promote'
+  starts_at DATE,
+  expires_at DATE,
+  note TEXT,
+  UNIQUE (researcher_uuid, label),
+  FOREIGN KEY (researcher_uuid) REFERENCES OIMembers(uuid)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_memberlabels_label ON OIMemberLabels(label);
+CREATE INDEX IF NOT EXISTS ix_memberlabels_active_window
+  ON OIMemberLabels(researcher_uuid, starts_at, expires_at);
+
 
 COMMIT;
