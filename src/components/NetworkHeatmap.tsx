@@ -96,7 +96,7 @@ export default function NetworkHeatmap({ searchQuery, filters }: NetworkHeatmapP
     targetX: 0, targetY: 0, targetScale: 1
   });
 
-  // 🔴 NEW: keep a live snapshot of researchers from the central store
+  // Keep a live snapshot of researchers from the central store
   const [storeResearchers, setStoreResearchers] = useState<Researcher[]>(getAllResearchers());
   useEffect(() => {
     const unsub = subscribe(() => setStoreResearchers(getAllResearchers()));

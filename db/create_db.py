@@ -21,7 +21,9 @@ import uuid
 import sqlite3
 import pandas as pd
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
+import requests
 
 # DB setup
 def check_and_create_db(db_name='data.db', sql_path='create_db.sql'):
@@ -824,75 +826,6 @@ def _parse_iso_date(val):
     except ValueError:
         return None
 
-def _build_name(row):
-    """
-    Construct a display name from the Excel data: 'Title FirstName Surname' (Title is optional).
-    
-    Args:
-    row (pd.Series): A row from the Excel sheet containing name components.
-    
-    Returns:
-    str: The full name as 'Title FirstName Surname'.
-    """
-    title = _norm(row.get("Title"))
-    first = _norm(row.get("First Name"))
-    last  = _norm(row.get("Surname"))
-    parts = [p for p in [title.rstrip(".")] if p] + [first, last]
-    name = " ".join([p for p in parts if p]).strip()
-    return re.sub(r"\s+", " ", name)
-
-def _choose_email(primary, secondary):
-    """
-    Prefer primary email; fall back to secondary; return None if neither exists.
-    
-    Args:
-    primary (str or None): The primary email address.
-    secondary (str or None): The secondary email address.
-    
-    Returns:
-    str or None: The preferred email address or None.
-    """
-    p = _norm(primary)
-    s = _norm(secondary)
-    return p or s or None
-
-def _build_bio(row):
-    """
-    Compose a compact, readable bio string from the Excel data fields.
-    
-    Args:
-    row (pd.Series): A row from the Excel sheet containing bio-relevant fields.
-    
-    Returns:
-    str: A compact bio string containing relevant information from the Excel sheet.
-    """
-    bits = []
-    pos = _norm(row.get("Position"))
-    org = _norm(row.get("School/Centre/Organisation"))
-    cat = _norm(row.get("Category"))
-    profile = _norm(row.get("UWA Profile"))
-    oi_student = _norm(row.get("OI Student"))
-    oi_adjunct = _norm(row.get("OI Adjunct"))
-    relationship = _norm(row.get("Relationship with the Oceans Institute"))
-    hdr_type = _norm(row.get("UWA HDR Student Type"))
-    affiliations = _norm(row.get("(Non UWA)University/research institution Affiliation"))
-    industry = _norm(row.get("Industry affiliate or partner institute/org"))
-    geo = _norm(row.get("OI geographical focus for research"))
-    priorities = _norm(row.get("Top 3 priorities for OI for next 5 years"))
-
-    if pos or org: bits.append(", ".join([p for p in [pos, org] if p]))
-    if cat: bits.append(f"Category: {cat}")
-    if oi_student: bits.append(f"OI Student: {oi_student}")
-    if oi_adjunct: bits.append(f"OI Adjunct: {oi_adjunct}")
-    if relationship: bits.append(f"Relationship with OI: {relationship}")
-    if hdr_type: bits.append(f"HDR type: {hdr_type}")
-    if affiliations: bits.append(f"Affiliation: {affiliations}")
-    if industry: bits.append(f"Industry partner: {industry}")
-    if geo: bits.append(f"Geographical focus: {geo}")
-    if priorities: bits.append(f"Top priorities: {priorities}")
-    if profile: bits.append(f"Profile: {profile}")
-    return "; ".join(bits) or None
-
 # UUID helpers + member upsert
 def _deterministic_member_uuid(name: str) -> str:
     """
@@ -1370,6 +1303,390 @@ def update_external_names(db_name='data.db', research_outputs_json='db\\OIResear
     conn.close()
     return updated
 
+def fill_db_from_json_prizes(db_name='data.db', prizes_json='db\\OIPrizes.json'):
+    """
+    Update Prizes awarded to researchers from OIPrizes data.
+    Extracts prize data from OIPrizes.json and updates placeholder entries.
+    """
+    # Load research outputs data
+    with open(prizes_json, 'r', encoding='utf-8', errors='ignore') as f:
+        prizes = json.load(f)
+    print(f"[INFO] Updating Researcher Prizes from Prizes data ({len(prizes)})...")
+    failures = 0
+    updated = 0
+    inserted = 0
+    
+    # Update OIPrizes with real names and add relations to the bridge table
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    for prize_obj in prizes:
+        # 0) Grab the UUID:
+        prize_uuid = prize_obj.get('uuid', None)
+        
+        # 1) Grab the title:
+        title = _norm(prize_obj.get('title', {}).get('text', [{}])[0].get('value', None))
+        
+        if not title or not prize_uuid:
+            print(f"[WARNING] Skipping prize with missing title ({title}) or UUID ({prize_uuid}): {json.dumps(prize_obj)}\n\n\n")
+            failures += 1
+            continue
+        
+        # 2) Grab the year, month (if anyt), day (if any):
+        date_obj = prize_obj.get('awardDate', {})
+        year = date_obj.get('year', None)
+        month = date_obj.get('month', None)
+        day = date_obj.get('day', None)
+        
+        if not year:
+            print(f"[WARNING] Skipping prize with missing year: {json.dumps(prize_obj)}")
+            failures += 1
+            continue
+        
+        # 3) Get the first description:
+        descriptions_object = prize_obj.get('descriptions', [{}])
+        first_description_text = _norm(descriptions_object[0].get('value', {}).get('text', [{}])[0].get('value', None)) if descriptions_object else None
+        
+        # 4) Get the first prize awarding body (robust drop-in; assumes _norm exists)
+        first_awarding_organization_name_text = None
+        _org_keys = ("externalOrganisationalUnit","organisationalUnit","externalOrganisation","organisation",
+                    "externalOrganizationalUnit","organizationalUnit","externalOrganization","organization")
+
+        # Normalize possible containers to a flat list of candidate org dicts
+        _awarding = prize_obj.get("grantingOrganisations") or prize_obj.get("grantingOrganizations") or []
+        _awarding = [_awarding] if isinstance(_awarding, dict) else _awarding
+        _manage = [prize_obj.get("managingOrganisationalUnit") or prize_obj.get("managingOrganizationalUnit")]
+        _units = prize_obj.get("organisationalUnits") or prize_obj.get("organizationalUnits") or []
+        _units = [_units] if isinstance(_units, dict) else _units
+        _candidates = []
+        for src in (_awarding + _manage + _units):
+            if not isinstance(src, dict):
+                continue
+            # If the container wraps the org under known keys, add those; also consider the container itself.
+            _cands = [src] + [src.get(k) for k in _org_keys if isinstance(src.get(k), dict)]
+            for c in _cands:
+                if isinstance(c, dict):
+                    _name_obj = (c.get("name") if "name" in c else None)
+                    # Extract a string value from varied PURE shapes
+                    val = None
+                    if isinstance(_name_obj, str):
+                        val = _name_obj.strip() or None
+                    elif isinstance(_name_obj, dict):
+                        texts = _name_obj.get("text") or []
+                        if isinstance(texts, list) and texts:
+                            val = next((t.get("value").strip() for t in texts
+                                        if isinstance(t, dict) and isinstance(t.get("value"), str) and t.get("value").strip()
+                                        and str(t.get("locale") or "").lower().startswith("en")), None) \
+                                or next((t.get("value").strip() for t in texts
+                                        if isinstance(t, dict) and isinstance(t.get("value"), str) and t.get("value").strip()), None)
+                        if not val and isinstance(_name_obj.get("value"), str) and _name_obj.get("value").strip():
+                            val = _name_obj.get("value").strip()
+                        if not val and isinstance(_name_obj.get("title"), str) and _name_obj.get("title").strip():
+                            val = _name_obj.get("title").strip()
+                    # As a last resort, sometimes the container itself holds a string under common keys
+                    if not val:
+                        for k in ("title","value"):
+                            if isinstance(c.get(k), str) and c[k].strip():
+                                val = c[k].strip()
+                                break
+                    if val:
+                        first_awarding_organization_name_text = _norm(val)
+                        break
+            if first_awarding_organization_name_text:
+                break
+
+        if not first_awarding_organization_name_text:
+            failures += 1
+            print(f"[WARNING] Prize skipped due to missing awarding body: {json.dumps(prize_obj)}")
+            continue
+        
+        # 5) Get Degree of Recognition (if any):
+        degree_of_recognition = _norm(prize_obj.get('degreeOfRecognition', {}).get('term', {}).get('text', [{}])[0].get('value', None))
+        
+        # 6) Get the recipient UUID(s):
+        recipient_uuids = [x.get('person', {}).get('uuid', None) for x in prize_obj.get('receiversOfPrize', []) if x.get('person', {}).get('uuid', None)]
+        
+        # 7) Insert/Update the prize itself:
+        # print(f"[DEBUG] Processing prize: {title} ({prize_uuid}), Year: {year}, Recipients: {recipient_uuids} Awarding Org: {first_awarding_organization_name_text} Degree: {degree_of_recognition}")
+        try:
+            cur.execute(
+                """
+                INSERT INTO OIPrizes (uuid, title, year, month, day, first_description, first_granting_organization_name, degree_of_recognition)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    title = COALESCE(excluded.title, OIPrizes.title),
+                    year = COALESCE(excluded.year, OIPrizes.year),
+                    month = COALESCE(excluded.month, OIPrizes.month),
+                    day = COALESCE(excluded.day, OIPrizes.day),
+                    first_description = COALESCE(excluded.first_description, OIPrizes.first_description),
+                    first_granting_organization_name = COALESCE(excluded.first_granting_organization_name, OIPrizes.first_granting_organization_name),
+                    degree_of_recognition = COALESCE(excluded.degree_of_recognition, OIPrizes.degree_of_recognition)
+                """,
+                (prize_uuid, title, year, month, day, first_description_text, first_awarding_organization_name_text, degree_of_recognition)
+            )
+            cur.execute("SELECT changes()")
+            changes = cur.fetchone()[0] or 0
+            if changes > 0:
+                updated += 1
+            else:
+                inserted += 1
+        except Exception as e:
+            print(f"[WARNING] Error on prize insert/update: {e}\nPrize data: {json.dumps(prize_obj)}")
+            failures += 1
+            continue
+        
+        # 8) Insert into OIMembersToPrizes bridge table:
+        for recipient_uuid in recipient_uuids:
+            if not recipient_uuid:
+                continue
+            try:
+                cur.execute(
+                    """INSERT OR IGNORE INTO OIMembersToPrizes (re_uuid, prize_uuid)
+                       VALUES (?, ?)""",
+                    (recipient_uuid, prize_uuid)
+                )
+            except sqlite3.IntegrityError as e:
+                print(f"[WARNING] IntegrityError on member-to-prize insert: {e}\nMember UUID: {recipient_uuid}, Prize UUID: {prize_uuid}")
+                continue
+    conn.commit()
+    print(f"[INFO] Prizes inserted: {inserted}, updated: {updated}, failures: {failures}")
+    conn.close()
+    return updated
+
+def fill_db_from_json_concepts(db_name='data.db', prizes_json='db\\ALLConcepts.json'):
+    """
+    Update Concepts associated wit researchers and research outputs from ALLConcepts.json data.
+    Extracts concept data from ALLConcepts.json.
+    """
+    # Load concepts data
+    with open(prizes_json, 'r', encoding='utf-8', errors='ignore') as f:
+        concepts = json.load(f)
+    print(f"[INFO] Updating Concepts from the Concepts data ({len(concepts)})...")
+    
+    # Statistics
+    failures = 0
+    updated = 0
+    inserted = 0
+    
+    # Connect to the DB
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    for concept in concepts:
+        # 0) Grab the UUID:
+        concept_uuid = concept.get('uuid', None)
+        
+        # 1) Grab the name:
+        concept_name = _norm(concept.get('name', {}).get('text', [{}])[0].get('value', None))
+        
+        # 2) Grab the parent department/concept name:
+        concept_parent_name = _norm(concept.get('thesauri', {}).get('name', {}).get('text', [{}])[0].get('value', None))
+        
+        # 2.5) Check we have both name and UUID:
+        if not concept_name or not concept_uuid:
+            print(f"[WARNING] Skipping concept with missing name ({concept_name}) or UUID ({concept_uuid}): {json.dumps(concept)}\n\n\n")
+            failures += 1
+            continue
+        # 3) Insert/Update the concept now:
+        try:
+            cur.execute(
+                """
+                INSERT INTO ALLConcepts (uuid, name, parent_discipline)
+                VALUES (?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    name = COALESCE(excluded.name, ALLConcepts.name),
+                    parent_discipline = COALESCE(excluded.parent_discipline, ALLConcepts.parent_discipline)
+                """,
+                (concept_uuid, concept_name, concept_parent_name)
+            )
+            cur.execute("SELECT changes()")
+            changes = cur.fetchone()[0] or 0
+            if changes > 0:
+                updated += 1
+            else:
+                inserted += 1
+        except Exception as e:
+            print(f"[WARNING] Error on concept insert/update: {e}\nConcept data: {json.dumps(concept)}")
+            failures += 1
+            continue
+    conn.commit()
+    print(f"[INFO] Concepts inserted: {inserted}, updated: {updated}, failures: {failures}")
+    conn.close()
+    return updated
+
+def fetch_one_fingerprint_of(endpoint: str, UUID: str) -> Optional[Dict[str, Any]]:
+    # 0) Set up the URL:
+    BASE = "https://api.research-repository.uwa.edu.au/ws/api/524/"
+    FULL_URL = f"{BASE}/{endpoint}/{UUID}/fingerprints"
+    load_dotenv()
+    API_KEY = os.getenv("PURE_API_KEY")
+    
+    # 1) Setup the session with headers:
+    session = requests.Session()
+    session.headers.update({"Accept": "application/json", "api-key": API_KEY, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"})
+
+    # 2) Make the GET request:
+    try:
+        response = session.get(FULL_URL, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        items, num_items = data.get('items', None), data.get('count', 0)
+        if num_items == 0 or not items:
+            print(f"[INFO] No items found at {FULL_URL}")
+            return None
+        return items
+    except requests.RequestException as e:
+        print(f"[ERROR] Request to {FULL_URL} failed: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] JSON decode error for {FULL_URL}: {e}")
+        return None
+    
+def fill_db_from_web_api_fingerprint(db_name='data.db'):
+    """
+    Fetch fingerprint data from the web API and populate the database.
+    Pulls Member UUIDs from OIMembers and Research Output UUIDs from OIResearchOutputs,
+    then fetches fingerprint data for each and stores it in OIFingerprints (UUIDs are globally unique).
+    
+    Args:
+        db_name (str): The name of the SQLite database file.
+    """
+    # Statistics
+    failures = 0
+    updated = 0
+    inserted = 0
+    
+    # Connect to the DB
+    conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    
+    # 0) Fetch all Member UUIDs
+    member_uuids: List[str] = [re.sub(r'[(),\']', '', str(x)) for x in cur.execute("SELECT DISTINCT uuid FROM OIMembers WHERE profile_url IS NOT NULL").fetchall()]
+    
+    # 1) Fetch all Research Output UUIDs
+    ro_uuids: List[str] = [re.sub(r'[(),\']', '', str(x)) for x in cur.execute("SELECT DISTINCT uuid FROM OIResearchOutputs").fetchall()]
+    
+    # 2) Now fetch fingerprint data for each Member UUID and insert/update:
+    print(f"[INFO] Fetching fingerprints for {len(member_uuids)} members...")
+    for member_uuid in member_uuids:
+        # 3) Make the API call to fetch fingerprint data:
+        fingerprints_obj = fetch_one_fingerprint_of("persons", member_uuid)
+        
+        fingerprint: Dict[str, Any] = fingerprints_obj[0] if isinstance(fingerprints_obj, list) else fingerprints_obj
+        
+        # 4) Catch missing data case:
+        if not fingerprint:
+            failures += 1
+            print(f"[WARNING] No fingerprint data found for member UUID {member_uuid} [{fingerprints_obj}] [{100*(len(member_uuids)-failures)/len(member_uuids):.4f}% remaining]")
+            continue
+        
+        # 5.1) Get the fingerprint UUID (first item):
+        fingerprint_uuid = fingerprint.get('uuid', None)
+        
+        # 5.2) Get the fingerprint concept data:
+        concepts = fingerprint.get('concepts', [])
+        for concept in concepts:
+            # 5.2.1) Extract concept details:
+            concept_uuid = concept.get('uuid', None)
+            rank = concept.get('rank', None)
+            frequency = concept.get('frequency', None)
+            weightedRank = concept.get('rank', None)
+            
+            if not fingerprint_uuid or not concept_uuid:
+                print(f"[WARNING] Skipping fingerprint with missing fingerprint UUID ({fingerprint_uuid}) or concept UUID ({concept_uuid}): {json.dumps(fingerprint)}\n\n\n")
+                failures += 1
+                continue
+            
+            # 5.2.2) Insert/Update the fingerprint now:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO OIFingerprints (uuid, origin_uuid, concept_uuid, rank, frequency, weightedRank)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(uuid) DO UPDATE SET
+                        origin_uuid = COALESCE(excluded.origin_uuid, OIFingerprints.origin_uuid),
+                        concept_uuid = COALESCE(excluded.concept_uuid, OIFingerprints.concept_uuid),
+                        rank = COALESCE(excluded.rank, OIFingerprints.rank),
+                        frequency = COALESCE(excluded.frequency, OIFingerprints.frequency),
+                        weightedRank = COALESCE(excluded.weightedRank, OIFingerprints.weightedRank)
+                    """,
+                    (fingerprint_uuid, member_uuid, concept_uuid, rank, frequency, weightedRank)
+                )
+                cur.execute("SELECT changes()")
+                changes = cur.fetchone()[0] or 0
+                if changes > 0:
+                    updated += 1
+                else:
+                    inserted += 1
+                conn.commit()
+            except Exception as e:
+                print(f"[WARNING] Error on fingerprint insert/update: {e}\nFingerprint data: {json.dumps(fingerprint)}")
+                failures += 1
+                continue
+            
+    # 6) Now fetch fingerprint data for each Research Output UUID and insert/update:
+    print(f"[INFO] Fetching fingerprints for {len(ro_uuids)} research outputs...")
+    for ro_uuid in ro_uuids:
+        # 6.5) Remove the regular brackets, apostrophes and commas from the ro_uuid tuple:
+        # ro_uuid = ro_uuid[0] if isinstance(ro_uuid, tuple) else re.sub(r'[(),\']', '', str(ro_uuid))
+        # 7) Make the API call to fetch fingerprint data:
+        fingerprints_obj = fetch_one_fingerprint_of("research-outputs", ro_uuid)
+        
+        fingerprint: Dict[str, Any] = fingerprints_obj[0] if isinstance(fingerprints_obj, list) else fingerprints_obj
+        
+        # 7.1) Catch missing data case:
+        if not fingerprint:
+            failures += 1
+            print(f"[WARNING] No fingerprint data found for research output UUID {ro_uuid} [{fingerprints_obj}] [{100*(len(ro_uuids)-failures)/len(ro_uuids):.4f}% remaining]")
+            continue
+        
+        # 7.1) Get the fingerprint UUID (first item):
+        fingerprint_uuid = fingerprint.get('uuid', None)
+        
+        # 7.2) Get the fingerprint concept data:
+        concepts = fingerprint.get('concepts', [])
+        for concept in concepts:
+            # 7.2.1) Extract concept details:
+            concept_uuid = concept.get('uuid', None)
+            rank = concept.get('rank', None)
+            frequency = concept.get('frequency', None)
+            weightedRank = concept.get('rank', None)
+            
+            if not fingerprint_uuid or not concept_uuid:
+                print(f"[WARNING] Skipping fingerprint with missing fingerprint UUID ({fingerprint_uuid}) or concept UUID ({concept_uuid}): {json.dumps(fingerprint)}\n\n\n")
+                failures += 1
+                continue
+            
+            # 7.2.2) Insert/Update the fingerprint now:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO OIFingerprints (uuid, origin_uuid, concept_uuid, rank, frequency, weightedRank)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(uuid) DO UPDATE SET
+                        origin_uuid = COALESCE(excluded.origin_uuid, OIFingerprints.origin_uuid),
+                        concept_uuid = COALESCE(excluded.concept_uuid, OIFingerprints.concept_uuid),
+                        rank = COALESCE(excluded.rank, OIFingerprints.rank),
+                        frequency = COALESCE(excluded.frequency, OIFingerprints.frequency),
+                        weightedRank = COALESCE(excluded.weightedRank, OIFingerprints.weightedRank)
+                    """,
+                    (fingerprint_uuid, ro_uuid, concept_uuid, rank, frequency, weightedRank)
+                )
+                cur.execute("SELECT changes()")
+                changes = cur.fetchone()[0] or 0
+                if changes > 0:
+                    updated += 1
+                else:
+                    inserted += 1
+                conn.commit()
+            except Exception as e:
+                print(f"[WARNING] Error on fingerprint insert/update: {e}\nFingerprint data: {json.dumps(fingerprint)} [{100*(len(ro_uuids)-failures)/len(ro_uuids):.4f}% remaining]")
+                failures += 1
+                continue
+    # 8) Commit the changes and close the connection
+    
+    print(f"[INFO] Fingerprints inserted: {inserted}, updated: {updated}, failures: {failures}")
+    conn.close()
+    return updated
 
 def load_member_labels_from_json(db_name='data.db', json_path='db\\member_labels.json'):
     import json, sqlite3, os
@@ -1465,17 +1782,29 @@ def main():
     print("\n[STEP 5] Loading projects...")
     fill_db_relations_from_json_projects(db_name=db_name, json_file=projects_json)
     
-    # Step 6: Add external collaborators (NEW!)
+    # Step 6: Add external collaborators
     print("\n[STEP 6] Adding external collaborators...")
     add_external_researchers(db_name=db_name)
     
-    # Step 7: Update external collaborator names (NEW!)
+    # Step 7: Update external collaborator names
     print("\n[STEP 7] Updating external collaborator names...")
     update_external_names(db_name=db_name, research_outputs_json=research_outputs_json)
     
     # Step 8: Fill meta information
     print("\n[STEP 8] Filling meta information...")
     fill_db_meta_info_from_other_tables(db_name=db_name)
+    
+    # Step 9: Load prizes and link to researchers
+    print("\n[STEP 9] Loading prizes and linking to researchers...")
+    fill_db_from_json_prizes(db_name=db_name, prizes_json='db\\OIPrizes.json')
+    
+    # Step 10: Load concepts
+    print("\n[STEP 10] Loading concepts...")
+    fill_db_from_json_concepts(db_name=db_name, prizes_json='db\\ALLConcepts.json')
+    
+    # Step 11: Fetch and store fingerprints
+    print("\n[STEP 11] Fetching and storing fingerprints...")
+    fill_db_from_web_api_fingerprint(db_name=db_name)
     
     print("\n" + "=" * 60)
     print("DATABASE CREATION COMPLETE!")
@@ -1503,6 +1832,8 @@ def main():
     print(f"External collaborators: {external_count}")
     print(f"Research outputs: {outputs_count}")
     print(f"Total researchers: {internal_count + external_count}")
+    print(f"Total prizes: {cur.execute('SELECT COUNT(*) FROM OIPrizes').fetchone()[0]}")
+    print(f"Database file size: {os.path.getsize(db_name) / (1024 * 1024):.2f} MB")
     
     conn.close()
 

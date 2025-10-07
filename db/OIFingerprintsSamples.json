@@ -1,0 +1,967 @@
+[
+  {
+    "pureId": 41820253,
+    "uuid": "83e4eae1-9892-4f28-825a-9daf845776e9",
+    "contentId": 41433487,
+    "contentUuid": "b3a31a78-ac4b-46f0-91e0-89423a64aea6",
+    "contentFamily": "Organisation",
+    "info": {
+      "createdBy": "root",
+      "createdDate": "2019-03-30T04:57:35.000+0800",
+      "modifiedBy": "root",
+      "modifiedDate": "2025-09-26T08:08:53.888+0800"
+    },
+    "concepts": [
+      {
+        "rank": 246.66066389999995,
+        "weightedRank": 246.66066389999995,
+        "uuid": "9fa11046-5819-4eae-8680-5b6555d88912"
+      },
+      {
+        "rank": 170.61037499999998,
+        "weightedRank": 170.61037499999998,
+        "uuid": "4ef5af31-0961-4b07-8fb4-17bf26871db3"
+      },
+      {
+        "rank": 148.85637090000006,
+        "weightedRank": 148.85637090000006,
+        "uuid": "2d2b0b47-3db5-42a2-9cfb-c10b4c74eabb"
+      },
+      {
+        "rank": 147.25675659999993,
+        "weightedRank": 147.25675659999993,
+        "uuid": "c98c4e2d-5141-43ba-9379-0cdbaa40353e"
+      },
+      {
+        "rank": 138.61190429999994,
+        "weightedRank": 138.61190429999994,
+        "uuid": "70956640-c317-4ffe-9d24-7fefaa7b9066"
+      },
+      {
+        "rank": 116.39029300000004,
+        "weightedRank": 116.39029300000004,
+        "uuid": "e29d777a-89fe-434d-9839-c498541182ee"
+      },
+      {
+        "rank": 98.61002870000003,
+        "weightedRank": 98.61002870000003,
+        "uuid": "3908f332-7085-43d1-99eb-ba14a9c42d68"
+      },
+      {
+        "rank": 91.2257924000001,
+        "weightedRank": 91.2257924000001,
+        "uuid": "75f0d8e4-029a-4fea-9032-39dd9988d655"
+      },
+      {
+        "rank": 87.09285700000004,
+        "weightedRank": 87.09285700000004,
+        "uuid": "4cda1ee0-79f0-44ac-88ef-f85055c118e8"
+      },
+      {
+        "rank": 71.13730160000001,
+        "weightedRank": 71.13730160000001,
+        "uuid": "e96198c6-25cd-4e8e-9204-94c74d51ad15"
+      },
+      {
+        "rank": 71.0083333,
+        "weightedRank": 71.0083333,
+        "uuid": "153af964-1cbd-497f-b397-a299fab6cda9"
+      },
+      {
+        "rank": 66.93665190000003,
+        "weightedRank": 66.93665190000003,
+        "uuid": "8fa4cc40-df62-4f2e-b92a-c3e2fe5a4802"
+      },
+      {
+        "rank": 65.32573220000002,
+        "weightedRank": 65.32573220000002,
+        "uuid": "63ac9c28-6e39-4cb7-be53-fa9eb2925065"
+      },
+      {
+        "rank": 60.87021270000001,
+        "weightedRank": 60.87021270000001,
+        "uuid": "f08812af-6d8a-4c58-a316-767496cce3c2"
+      },
+      {
+        "rank": 59.974542000000014,
+        "weightedRank": 59.974542000000014,
+        "uuid": "c1cba52a-4f29-4157-9644-0102f684096e"
+      },
+      {
+        "rank": 57.521067699999996,
+        "weightedRank": 57.521067699999996,
+        "uuid": "c1cbda88-645d-4264-a7a8-b0b022122d20"
+      },
+      {
+        "rank": 55.6601839,
+        "weightedRank": 55.6601839,
+        "uuid": "3c130c16-4dd6-4cc9-9040-eff191565cc9"
+      },
+      {
+        "rank": 54.5706348,
+        "weightedRank": 54.5706348,
+        "uuid": "8b940f31-65f7-4992-aa83-3ce93db43bcd"
+      },
+      {
+        "rank": 52.18333319999999,
+        "weightedRank": 52.18333319999999,
+        "uuid": "260337d1-4b8f-471e-885c-23f700db2e96"
+      },
+      {
+        "rank": 45.065811499999995,
+        "weightedRank": 45.065811499999995,
+        "uuid": "67fcf38c-8a07-48a9-bd21-1c51c66e9e17"
+      },
+      {
+        "rank": 44.0690832,
+        "weightedRank": 44.0690832,
+        "uuid": "2fa10765-1ac7-449a-b926-8e783c924029"
+      },
+      {
+        "rank": 43.4333331,
+        "weightedRank": 43.4333331,
+        "uuid": "81daa633-ea7f-4eef-89f3-e81c4fea6ea8"
+      },
+      {
+        "rank": 41.799999799999995,
+        "weightedRank": 41.799999799999995,
+        "uuid": "fdc03fb9-16a1-4195-bb9a-484beb4ae16e"
+      },
+      {
+        "rank": 39.98009750000001,
+        "weightedRank": 39.98009750000001,
+        "uuid": "fbe9eb32-625e-40da-b6e4-a1785b894010"
+      },
+      {
+        "rank": 39.78956029999999,
+        "weightedRank": 39.78956029999999,
+        "uuid": "a2421036-56b0-4af0-b671-4b23b84ea041"
+      },
+      {
+        "rank": 39.2083332,
+        "weightedRank": 39.2083332,
+        "uuid": "1cdf821a-7ed1-4347-8a25-a91748c6e91b"
+      },
+      {
+        "rank": 38.68571400000001,
+        "weightedRank": 38.68571400000001,
+        "uuid": "dbff15c9-637d-4751-bb65-9026e60200e1"
+      },
+      {
+        "rank": 38.5999999,
+        "weightedRank": 38.5999999,
+        "uuid": "a6041e3e-f917-4bed-adb3-c505233dfd3b"
+      },
+      {
+        "rank": 37.1721609,
+        "weightedRank": 37.1721609,
+        "uuid": "f5913ce5-535c-4e33-ac2a-e09ae4f6ecf7"
+      },
+      {
+        "rank": 34.45555529999999,
+        "weightedRank": 34.45555529999999,
+        "uuid": "63703040-6998-4c45-ab7f-bfac5db0497c"
+      },
+      {
+        "rank": 34.224205999999995,
+        "weightedRank": 34.224205999999995,
+        "uuid": "2f924490-27eb-4f12-b1be-e2b96cea075c"
+      },
+      {
+        "rank": 34.1726185,
+        "weightedRank": 34.1726185,
+        "uuid": "eb9e97b8-ef05-45e1-bdfd-fa031cc02410"
+      },
+      {
+        "rank": 32.17692279999999,
+        "weightedRank": 32.17692279999999,
+        "uuid": "719b4f75-869b-4106-9405-aef9447656fb"
+      },
+      {
+        "rank": 31.93195919999999,
+        "weightedRank": 31.93195919999999,
+        "uuid": "c626105d-b9a2-4547-980d-aef197bd54c7"
+      },
+      {
+        "rank": 31.7325756,
+        "weightedRank": 31.7325756,
+        "uuid": "e8abbcc7-7138-4bc6-83a7-55ab6b316589"
+      },
+      {
+        "rank": 31.4095235,
+        "weightedRank": 31.4095235,
+        "uuid": "2472184e-ec12-4320-a0dd-dba194a8f4a9"
+      },
+      {
+        "rank": 31.077777599999997,
+        "weightedRank": 31.077777599999997,
+        "uuid": "e0c73e58-6aaa-44ee-82b9-b114c49a65f9"
+      },
+      {
+        "rank": 30.956348999999992,
+        "weightedRank": 30.956348999999992,
+        "uuid": "7386401d-ed3a-4267-a60c-440ffd03c20c"
+      },
+      {
+        "rank": 30.933333299999997,
+        "weightedRank": 30.933333299999997,
+        "uuid": "af144239-3bcc-44e9-b3bb-e8b0852896f3"
+      },
+      {
+        "rank": 30.749999999999996,
+        "weightedRank": 30.749999999999996,
+        "uuid": "1c1efd2f-9f76-4e37-bc6a-9f1e3307c88b"
+      },
+      {
+        "rank": 30.360713799999992,
+        "weightedRank": 30.360713799999992,
+        "uuid": "1f629f14-5514-4074-8d77-3b8e53097e7d"
+      },
+      {
+        "rank": 29.8408122,
+        "weightedRank": 29.8408122,
+        "uuid": "facc12a1-0ce5-424b-8dce-3cbd6995a756"
+      },
+      {
+        "rank": 29.762301399999995,
+        "weightedRank": 29.762301399999995,
+        "uuid": "94cc5cf4-adfa-4df5-828b-1a377c3bd25c"
+      },
+      {
+        "rank": 29.7424714,
+        "weightedRank": 29.7424714,
+        "uuid": "50c11cbb-d72c-4d73-8b13-9fd34195f72c"
+      },
+      {
+        "rank": 29.453968099999997,
+        "weightedRank": 29.453968099999997,
+        "uuid": "97ae3119-9144-44e8-9173-866eccf01770"
+      },
+      {
+        "rank": 29.1236262,
+        "weightedRank": 29.1236262,
+        "uuid": "ca87ce6e-c71e-4ef5-a63d-d4cc5e9c3ee0"
+      },
+      {
+        "rank": 28.915873,
+        "weightedRank": 28.915873,
+        "uuid": "211579b7-39b5-4d95-9550-e3dd4fdd9ddf"
+      },
+      {
+        "rank": 28.6730159,
+        "weightedRank": 28.6730159,
+        "uuid": "100e15ee-2726-4dd6-be08-39c3c8a89533"
+      },
+      {
+        "rank": 28.0452379,
+        "weightedRank": 28.0452379,
+        "uuid": "3a41424f-ed7e-411e-a402-03b05a645508"
+      },
+      {
+        "rank": 27.7263026,
+        "weightedRank": 27.7263026,
+        "uuid": "b9235d8a-062b-4704-88ff-03a9741ec769"
+      },
+      {
+        "rank": 27.252716499999995,
+        "weightedRank": 27.252716499999995,
+        "uuid": "23cdebd6-573b-4f4a-a28a-a0500f4cc562"
+      },
+      {
+        "rank": 26.767856899999995,
+        "weightedRank": 26.767856899999995,
+        "uuid": "9b00538c-3c46-4d0f-8b75-2a05c4ff5952"
+      },
+      {
+        "rank": 26.693192800000002,
+        "weightedRank": 26.693192800000002,
+        "uuid": "763fec97-c853-44e3-a738-728df403fdba"
+      },
+      {
+        "rank": 26.503571099999995,
+        "weightedRank": 26.503571099999995,
+        "uuid": "fb2c32b2-a7a6-427d-b6f2-34d5ce33942f"
+      },
+      {
+        "rank": 26.329364699999996,
+        "weightedRank": 26.329364699999996,
+        "uuid": "dbe0fe48-0db9-4a68-bd83-bb696d25c746"
+      },
+      {
+        "rank": 25.8761904,
+        "weightedRank": 25.8761904,
+        "uuid": "1309e138-082e-45e8-81a0-56f3172fd910"
+      },
+      {
+        "rank": 25.525,
+        "weightedRank": 25.525,
+        "uuid": "93a68454-6479-49ed-83ec-f2401e432002"
+      },
+      {
+        "rank": 25.5,
+        "weightedRank": 25.5,
+        "uuid": "ec3341ff-687b-4892-b7ad-549710ce688d"
+      },
+      {
+        "rank": 25.448412599999997,
+        "weightedRank": 25.448412599999997,
+        "uuid": "19b34984-da5d-487b-9d6d-dc18b720ecb9"
+      },
+      {
+        "rank": 25.0345237,
+        "weightedRank": 25.0345237,
+        "uuid": "c08d524d-b664-4b27-946b-a51baed0478e"
+      },
+      {
+        "rank": 24.748289999999997,
+        "weightedRank": 24.748289999999997,
+        "uuid": "b827ffe4-5576-4dfa-b4a0-5baa5940b391"
+      },
+      {
+        "rank": 24.7421355,
+        "weightedRank": 24.7421355,
+        "uuid": "aa4f88a4-8317-4019-8625-0a6c7238de35"
+      },
+      {
+        "rank": 24.5618183,
+        "weightedRank": 24.5618183,
+        "uuid": "a36135ad-66bf-4b73-8293-e2877a2c178d"
+      },
+      {
+        "rank": 24.496825399999995,
+        "weightedRank": 24.496825399999995,
+        "uuid": "54c978b3-0ae8-425e-b2c7-fb81da479dad"
+      },
+      {
+        "rank": 24.0666667,
+        "weightedRank": 24.0666667,
+        "uuid": "e0fa3b24-4e04-4f79-ba3d-d103947ebda1"
+      },
+      {
+        "rank": 23.770634699999995,
+        "weightedRank": 23.770634699999995,
+        "uuid": "17d9b33e-836f-489a-bfb1-46bfae48a175"
+      },
+      {
+        "rank": 23.5190475,
+        "weightedRank": 23.5190475,
+        "uuid": "9b259648-b8b3-47e9-9ddd-c06f59076c20"
+      },
+      {
+        "rank": 23.463600200000002,
+        "weightedRank": 23.463600200000002,
+        "uuid": "93da7642-567c-4b0a-bfe0-a5027d57c14b"
+      },
+      {
+        "rank": 23.392063299999997,
+        "weightedRank": 23.392063299999997,
+        "uuid": "4f8b49a7-c244-46f4-bc2a-2eb4b99467ca"
+      },
+      {
+        "rank": 23.0547616,
+        "weightedRank": 23.0547616,
+        "uuid": "c134da2b-09c4-4d2e-b54f-5ff75ca80d7b"
+      },
+      {
+        "rank": 23.031745599999994,
+        "weightedRank": 23.031745599999994,
+        "uuid": "ce9613df-cfc3-468f-b0c5-876c5bcd1cee"
+      },
+      {
+        "rank": 22.8166667,
+        "weightedRank": 22.8166667,
+        "uuid": "e9e211cf-2de9-4219-911c-79d326a18044"
+      },
+      {
+        "rank": 22.7297617,
+        "weightedRank": 22.7297617,
+        "uuid": "45b84d6a-feff-4ea7-9aa3-b4a736e320f3"
+      },
+      {
+        "rank": 22.7222528,
+        "weightedRank": 22.7222528,
+        "uuid": "cd0879d0-0816-45f5-8bcf-41a0689729ea"
+      },
+      {
+        "rank": 22.474999999999998,
+        "weightedRank": 22.474999999999998,
+        "uuid": "3f33bce2-e64a-455c-afc3-8851c7023eee"
+      },
+      {
+        "rank": 22.3484848,
+        "weightedRank": 22.3484848,
+        "uuid": "27e7c36c-d39c-4cb5-b228-8f47525ecb3d"
+      },
+      {
+        "rank": 22.3346317,
+        "weightedRank": 22.3346317,
+        "uuid": "0b979403-0803-4d9d-bb11-72fad9d03e51"
+      },
+      {
+        "rank": 22.176190199999997,
+        "weightedRank": 22.176190199999997,
+        "uuid": "6b8859d9-d70f-430f-8105-51a2adc8ffde"
+      },
+      {
+        "rank": 22.1511904,
+        "weightedRank": 22.1511904,
+        "uuid": "eb2016ae-e522-49b3-bbef-eb4cc2e589bb"
+      },
+      {
+        "rank": 22.110713999999998,
+        "weightedRank": 22.110713999999998,
+        "uuid": "ef132843-d525-41ca-b7c1-7eb9cae20d2a"
+      },
+      {
+        "rank": 21.7761902,
+        "weightedRank": 21.7761902,
+        "uuid": "7d3df5d7-f439-495b-8f5a-a975493eb8d8"
+      },
+      {
+        "rank": 21.761110999999996,
+        "weightedRank": 21.761110999999996,
+        "uuid": "66b33642-0768-485f-a09b-b9aabb0328c2"
+      },
+      {
+        "rank": 21.650035799999994,
+        "weightedRank": 21.650035799999994,
+        "uuid": "be5593c4-3376-43ad-8104-a90725df4b9b"
+      },
+      {
+        "rank": 21.561111099999998,
+        "weightedRank": 21.561111099999998,
+        "uuid": "542482a2-1b8e-4192-bf9f-66abda81d4f5"
+      },
+      {
+        "rank": 21.424999799999995,
+        "weightedRank": 21.424999799999995,
+        "uuid": "250962d0-e01b-40cb-bd60-3f83e45c263a"
+      },
+      {
+        "rank": 21.405097599999998,
+        "weightedRank": 21.405097599999998,
+        "uuid": "672c559a-53cb-401d-85bf-eb9170e163e9"
+      },
+      {
+        "rank": 21.1738817,
+        "weightedRank": 21.1738817,
+        "uuid": "26a360f3-f0e5-4ade-b64e-1744abd0469d"
+      },
+      {
+        "rank": 20.8666665,
+        "weightedRank": 20.8666665,
+        "uuid": "4d4c18d2-805b-49d6-a82e-c7961c3f8cc6"
+      },
+      {
+        "rank": 20.8628356,
+        "weightedRank": 20.8628356,
+        "uuid": "2bce40bf-a8a4-486c-b121-3b83bf2d6f8c"
+      },
+      {
+        "rank": 20.573412599999997,
+        "weightedRank": 20.573412599999997,
+        "uuid": "9ad6dda3-5427-46aa-b54c-3966533fc874"
+      },
+      {
+        "rank": 20.425418399999995,
+        "weightedRank": 20.425418399999995,
+        "uuid": "0661ed11-4b8e-46b9-9ccb-a537710740cd"
+      },
+      {
+        "rank": 20.3666666,
+        "weightedRank": 20.3666666,
+        "uuid": "993d3533-ddc6-4cb9-86ec-ee22f3993ee6"
+      },
+      {
+        "rank": 20.1710678,
+        "weightedRank": 20.1710678,
+        "uuid": "cdcf9bb0-c563-45cc-abf5-a7b6490c4a21"
+      },
+      {
+        "rank": 20.099999899999997,
+        "weightedRank": 20.099999899999997,
+        "uuid": "53100380-563e-48ed-93ce-64367a84ae5b"
+      },
+      {
+        "rank": 20.066666599999998,
+        "weightedRank": 20.066666599999998,
+        "uuid": "a4d01ddb-02f7-47ab-a232-99511bd83a8a"
+      },
+      {
+        "rank": 19.983333,
+        "weightedRank": 19.983333,
+        "uuid": "343708a0-92d5-4982-93a9-97cc910e5ba3"
+      },
+      {
+        "rank": 19.803967999999998,
+        "weightedRank": 19.803967999999998,
+        "uuid": "9cf86e4a-0646-4b9a-93c6-e10f257de8d2"
+      },
+      {
+        "rank": 19.7499999,
+        "weightedRank": 19.7499999,
+        "uuid": "f65bf5ee-9c81-4405-8e24-0c3afad4e09f"
+      },
+      {
+        "rank": 19.5833334,
+        "weightedRank": 19.5833334,
+        "uuid": "b7c7ccb5-5bbc-420e-9a03-4085d97cc3a3"
+      },
+      {
+        "rank": 19.458918499999996,
+        "weightedRank": 19.458918499999996,
+        "uuid": "31702c09-7e9f-47b4-8699-0979818a4715"
+      },
+      {
+        "rank": 19.2595238,
+        "weightedRank": 19.2595238,
+        "uuid": "49f35a93-ee83-4821-aa0a-4a62c6e04687"
+      },
+      {
+        "rank": 18.8,
+        "weightedRank": 18.8,
+        "uuid": "e6972050-c57f-4136-b6c6-6ef40388c332"
+      },
+      {
+        "rank": 18.738492,
+        "weightedRank": 18.738492,
+        "uuid": "14cc95c4-cb15-42a9-8665-0dc45892d130"
+      },
+      {
+        "rank": 18.702380799999997,
+        "weightedRank": 18.702380799999997,
+        "uuid": "c2a8e559-fdf9-44cd-be7a-34644acca03d"
+      },
+      {
+        "rank": 18.651190199999995,
+        "weightedRank": 18.651190199999995,
+        "uuid": "7b7f60bf-3f13-42e5-a089-804932b54205"
+      },
+      {
+        "rank": 18.5888888,
+        "weightedRank": 18.5888888,
+        "uuid": "db16257a-675b-4cb4-85bf-5011d61d0072"
+      },
+      {
+        "rank": 18.5753356,
+        "weightedRank": 18.5753356,
+        "uuid": "d3574769-ceb6-48ab-8999-5280ec93f332"
+      },
+      {
+        "rank": 18.535353399999998,
+        "weightedRank": 18.535353399999998,
+        "uuid": "59bdea42-9b8f-4cda-ae3d-de53f4379574"
+      },
+      {
+        "rank": 18.2833332,
+        "weightedRank": 18.2833332,
+        "uuid": "6a18f8fe-f53e-4a0c-9d42-b88d3bb6a65a"
+      },
+      {
+        "rank": 18.274602999999995,
+        "weightedRank": 18.274602999999995,
+        "uuid": "1722a517-34ce-4ce9-9034-cd1b549abb57"
+      },
+      {
+        "rank": 18.211904499999996,
+        "weightedRank": 18.211904499999996,
+        "uuid": "7b41076f-d5b1-4103-975f-988a06f2ae38"
+      },
+      {
+        "rank": 18.0746754,
+        "weightedRank": 18.0746754,
+        "uuid": "2654ec87-d8ca-43cd-af9a-858181197c5a"
+      },
+      {
+        "rank": 17.9761904,
+        "weightedRank": 17.9761904,
+        "uuid": "070b1660-5964-477f-9562-78405d559f52"
+      },
+      {
+        "rank": 17.8586689,
+        "weightedRank": 17.8586689,
+        "uuid": "c4e30a41-ffbe-46c1-9db2-c4376c08f6a6"
+      },
+      {
+        "rank": 17.799999899999996,
+        "weightedRank": 17.799999899999996,
+        "uuid": "5ecd52c6-f1b6-419e-8a2d-6013fc8bda06"
+      },
+      {
+        "rank": 17.7916667,
+        "weightedRank": 17.7916667,
+        "uuid": "edea6d5f-5fc3-4e0e-90eb-6590e334060b"
+      },
+      {
+        "rank": 17.7511905,
+        "weightedRank": 17.7511905,
+        "uuid": "e342b295-62ff-44d6-829d-714ab193c8fb"
+      },
+      {
+        "rank": 17.5833329,
+        "weightedRank": 17.5833329,
+        "uuid": "5a66d190-3137-488e-b985-063a3f05f304"
+      },
+      {
+        "rank": 17.442857099999998,
+        "weightedRank": 17.442857099999998,
+        "uuid": "26cac671-5c94-4da7-9aed-df4e1ee9a9ea"
+      },
+      {
+        "rank": 17.376190299999998,
+        "weightedRank": 17.376190299999998,
+        "uuid": "9f96271c-1bd2-47ea-8b3c-e16e0e71c93c"
+      },
+      {
+        "rank": 17.35636,
+        "weightedRank": 17.35636,
+        "uuid": "e172a59f-4486-4b8a-b88e-5d62c2a805b6"
+      },
+      {
+        "rank": 17.283333099999997,
+        "weightedRank": 17.283333099999997,
+        "uuid": "85120885-a8e2-4f98-afc6-a48aa59510cd"
+      },
+      {
+        "rank": 17.199999899999998,
+        "weightedRank": 17.199999899999998,
+        "uuid": "329d3932-bb7b-4b2d-8a63-58411eb5e0f7"
+      },
+      {
+        "rank": 17.0261903,
+        "weightedRank": 17.0261903,
+        "uuid": "ad4cf22c-2eed-4755-b2a2-77f744ab0f98"
+      },
+      {
+        "rank": 17.008333299999997,
+        "weightedRank": 17.008333299999997,
+        "uuid": "cc28be44-3cb8-44ac-8ba5-8b150dffc615"
+      },
+      {
+        "rank": 16.9166666,
+        "weightedRank": 16.9166666,
+        "uuid": "46ce8a84-153e-4e4c-9440-abf08c5a792d"
+      },
+      {
+        "rank": 16.75,
+        "weightedRank": 16.75,
+        "uuid": "57f84179-28d6-46fb-9b86-702586db3e1f"
+      },
+      {
+        "rank": 16.7301587,
+        "weightedRank": 16.7301587,
+        "uuid": "76419189-c63d-48dd-98eb-b13d4527d971"
+      },
+      {
+        "rank": 16.6944444,
+        "weightedRank": 16.6944444,
+        "uuid": "b547b992-c831-4962-8b42-0498eb4d80ca"
+      },
+      {
+        "rank": 16.68333309999999,
+        "weightedRank": 16.68333309999999,
+        "uuid": "a920b66e-cc35-4088-803f-adb05e97d2f9"
+      },
+      {
+        "rank": 16.6274169,
+        "weightedRank": 16.6274169,
+        "uuid": "a9a43624-2dc6-4c46-aa54-9019f608dc63"
+      },
+      {
+        "rank": 16.6059521,
+        "weightedRank": 16.6059521,
+        "uuid": "853e3d6b-6c0e-4755-846b-9702b9df8f68"
+      },
+      {
+        "rank": 16.461904699999998,
+        "weightedRank": 16.461904699999998,
+        "uuid": "f41bef01-ec7b-491a-bfe4-5b70b2880acc"
+      },
+      {
+        "rank": 16.409523699999998,
+        "weightedRank": 16.409523699999998,
+        "uuid": "77a66068-6268-4ea1-9a93-0f970ba8ff63"
+      },
+      {
+        "rank": 16.3773808,
+        "weightedRank": 16.3773808,
+        "uuid": "08b22853-7294-4be7-9bd1-5ecb44322fc2"
+      },
+      {
+        "rank": 16.085714199999998,
+        "weightedRank": 16.085714199999998,
+        "uuid": "80262f7d-51e6-45c6-807f-5ed0f23092e0"
+      },
+      {
+        "rank": 15.991666599999999,
+        "weightedRank": 15.991666599999999,
+        "uuid": "4c462d2e-7adb-4f40-8198-01969a1dc04a"
+      },
+      {
+        "rank": 15.944444299999997,
+        "weightedRank": 15.944444299999997,
+        "uuid": "8ef9f047-5d8a-4864-ae1e-8a03c1649fcc"
+      },
+      {
+        "rank": 15.886111000000001,
+        "weightedRank": 15.886111000000001,
+        "uuid": "463199e5-277a-4480-a880-ee31afcd39dd"
+      },
+      {
+        "rank": 15.855952400000003,
+        "weightedRank": 15.855952400000003,
+        "uuid": "60bf9a45-1369-40bc-a764-e24b6df5f013"
+      },
+      {
+        "rank": 15.7766234,
+        "weightedRank": 15.7766234,
+        "uuid": "fac339df-e007-4ec7-b4a3-0bda2141a1b0"
+      },
+      {
+        "rank": 15.695237899999999,
+        "weightedRank": 15.695237899999999,
+        "uuid": "2a307174-f1d3-4cc7-8167-a1f735bda165"
+      },
+      {
+        "rank": 15.683333300000001,
+        "weightedRank": 15.683333300000001,
+        "uuid": "f04a8e70-5640-404e-b18c-e49c17cf9743"
+      },
+      {
+        "rank": 15.605952299999998,
+        "weightedRank": 15.605952299999998,
+        "uuid": "e18f3074-5079-403c-bd5e-bc19f3c22d9c"
+      },
+      {
+        "rank": 15.584523699999998,
+        "weightedRank": 15.584523699999998,
+        "uuid": "44f6bd39-6ad1-47f0-a69b-37ad8f42a95e"
+      },
+      {
+        "rank": 15.5833333,
+        "weightedRank": 15.5833333,
+        "uuid": "8e555d0e-1798-4c11-9932-7fcf1c75affa"
+      },
+      {
+        "rank": 15.5555554,
+        "weightedRank": 15.5555554,
+        "uuid": "55533a1e-31bc-409e-9c79-3a8963c5ab14"
+      },
+      {
+        "rank": 15.494444399999999,
+        "weightedRank": 15.494444399999999,
+        "uuid": "e184bf21-1607-44b8-b351-6380c6215250"
+      },
+      {
+        "rank": 15.283333199999998,
+        "weightedRank": 15.283333199999998,
+        "uuid": "e71ce134-8e0d-45d3-950b-2dffedb79e0e"
+      },
+      {
+        "rank": 15.277885899999998,
+        "weightedRank": 15.277885899999998,
+        "uuid": "7a35d58a-f917-48e7-83f0-0d69279ca89e"
+      },
+      {
+        "rank": 15.249999899999999,
+        "weightedRank": 15.249999899999999,
+        "uuid": "f6b523e2-9544-4401-9aa1-74551df0b873"
+      },
+      {
+        "rank": 15.186904700000001,
+        "weightedRank": 15.186904700000001,
+        "uuid": "e428e541-8d10-4366-b094-b6df6bdbc4fd"
+      },
+      {
+        "rank": 15.1666667,
+        "weightedRank": 15.1666667,
+        "uuid": "8891c26f-e2c8-422c-a5ea-22289f1d0a95"
+      },
+      {
+        "rank": 15.124999899999999,
+        "weightedRank": 15.124999899999999,
+        "uuid": "fef7bca3-e656-4bd0-ac6a-b660a1557973"
+      },
+      {
+        "rank": 14.958332999999996,
+        "weightedRank": 14.958332999999996,
+        "uuid": "a47fc0fa-659c-4c11-bf31-5e638c0a3ba1"
+      },
+      {
+        "rank": 14.949999699999996,
+        "weightedRank": 14.949999699999996,
+        "uuid": "578d58fe-23f2-4a76-acc1-709cbfa68b05"
+      },
+      {
+        "rank": 14.9444444,
+        "weightedRank": 14.9444444,
+        "uuid": "6b72493c-e0a6-4d64-8faf-e09284fdccc5"
+      },
+      {
+        "rank": 14.796367399999998,
+        "weightedRank": 14.796367399999998,
+        "uuid": "95c9c865-cb1d-439c-9164-a9d0b6d37a41"
+      },
+      {
+        "rank": 14.7142856,
+        "weightedRank": 14.7142856,
+        "uuid": "02ba0687-2ef0-416e-aad2-fd74a6b9f03a"
+      },
+      {
+        "rank": 14.620512799999998,
+        "weightedRank": 14.620512799999998,
+        "uuid": "27d10500-fa05-47b9-a663-0c3bf20d559a"
+      },
+      {
+        "rank": 14.527777599999999,
+        "weightedRank": 14.527777599999999,
+        "uuid": "fe1053ef-ff42-46d3-80bf-aa14136f2360"
+      },
+      {
+        "rank": 14.4420635,
+        "weightedRank": 14.4420635,
+        "uuid": "c0e20dbd-2ebb-411a-9e35-babe3c2133c4"
+      },
+      {
+        "rank": 14.384523699999999,
+        "weightedRank": 14.384523699999999,
+        "uuid": "e71dea83-51c7-4d77-8559-6f7aeba490af"
+      },
+      {
+        "rank": 14.376190299999998,
+        "weightedRank": 14.376190299999998,
+        "uuid": "abe04acf-1b63-4170-b70f-c234d962907b"
+      },
+      {
+        "rank": 14.180952099999999,
+        "weightedRank": 14.180952099999999,
+        "uuid": "1392ba6b-dd55-4388-89eb-547525ffef90"
+      },
+      {
+        "rank": 14.021428499999999,
+        "weightedRank": 14.021428499999999,
+        "uuid": "3437bbf0-edbf-48a9-ba00-d2dc544a9da1"
+      },
+      {
+        "rank": 14.003968099999998,
+        "weightedRank": 14.003968099999998,
+        "uuid": "ac2e4b63-015a-4cbe-9a70-5acbed560567"
+      },
+      {
+        "rank": 14.0,
+        "weightedRank": 14.0,
+        "uuid": "0205e336-a2db-4e60-9e68-e9d74322e349"
+      },
+      {
+        "rank": 13.9197801,
+        "weightedRank": 13.9197801,
+        "uuid": "48365fd6-7d02-493d-a027-70976ed01325"
+      },
+      {
+        "rank": 13.8563491,
+        "weightedRank": 13.8563491,
+        "uuid": "1a3af559-ae2a-44f7-9fa8-14b79955b15d"
+      },
+      {
+        "rank": 13.715415200000002,
+        "weightedRank": 13.715415200000002,
+        "uuid": "1423a7e4-4e79-4125-b392-5bb4acf9e761"
+      },
+      {
+        "rank": 13.6880952,
+        "weightedRank": 13.6880952,
+        "uuid": "449168bd-cb69-4407-aa8b-13d61f451956"
+      },
+      {
+        "rank": 13.596703199999999,
+        "weightedRank": 13.596703199999999,
+        "uuid": "b1d5b3de-b039-480c-9e58-87a7dfad7027"
+      },
+      {
+        "rank": 13.549999999999999,
+        "weightedRank": 13.549999999999999,
+        "uuid": "32d729df-0660-4890-b652-0e6a6713250c"
+      },
+      {
+        "rank": 13.496031599999998,
+        "weightedRank": 13.496031599999998,
+        "uuid": "8f069d9c-24ed-4425-be8f-2a08e13704e2"
+      },
+      {
+        "rank": 13.4164681,
+        "weightedRank": 13.4164681,
+        "uuid": "95d1f76a-9a43-40cb-a1ce-3738bcdd0e20"
+      },
+      {
+        "rank": 13.3777778,
+        "weightedRank": 13.3777778,
+        "uuid": "db70e453-2607-400c-89a4-fb2e382c1828"
+      },
+      {
+        "rank": 13.375,
+        "weightedRank": 13.375,
+        "uuid": "e5548c69-3301-478b-9c1f-7137305916f4"
+      },
+      {
+        "rank": 13.2416665,
+        "weightedRank": 13.2416665,
+        "uuid": "bd12663d-dc85-43c2-b6f4-6deba2e59d76"
+      },
+      {
+        "rank": 13.227453,
+        "weightedRank": 13.227453,
+        "uuid": "91e23b3d-c35d-446c-917f-d8c6bccd58de"
+      },
+      {
+        "rank": 13.175011,
+        "weightedRank": 13.175011,
+        "uuid": "f54eb5a5-5af9-43da-94a7-d808c9309ae1"
+      },
+      {
+        "rank": 13.161111,
+        "weightedRank": 13.161111,
+        "uuid": "2f67d7e4-5b89-4e56-b896-789a7e8143b5"
+      },
+      {
+        "rank": 12.849999799999997,
+        "weightedRank": 12.849999799999997,
+        "uuid": "90c384f2-0917-4cca-a972-526a44c6aaab"
+      },
+      {
+        "rank": 12.792857099999999,
+        "weightedRank": 12.792857099999999,
+        "uuid": "e5fb8b79-7a50-46e3-ad2d-2895b1f4e2ab"
+      },
+      {
+        "rank": 12.7190475,
+        "weightedRank": 12.7190475,
+        "uuid": "346e90ee-8ae3-4d57-a443-44b6f1ee3880"
+      },
+      {
+        "rank": 12.5833333,
+        "weightedRank": 12.5833333,
+        "uuid": "8368a14e-133b-4ff3-a96a-725e1200d088"
+      },
+      {
+        "rank": 12.573015700000001,
+        "weightedRank": 12.573015700000001,
+        "uuid": "d8819398-6728-4809-bc7d-50bc46b0bd05"
+      },
+      {
+        "rank": 12.5,
+        "weightedRank": 12.5,
+        "uuid": "5e1e7e79-bc51-4f0a-8848-6e0204edfdc1"
+      },
+      {
+        "rank": 12.4638888,
+        "weightedRank": 12.4638888,
+        "uuid": "42c016b3-e4d9-4db6-9d54-546b2c71fe6e"
+      },
+      {
+        "rank": 12.446861099999998,
+        "weightedRank": 12.446861099999998,
+        "uuid": "f83c4df2-e963-45c4-8144-c7b44e4eb7b5"
+      }
+    ]
+  }
+]
