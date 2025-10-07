@@ -2,12 +2,23 @@ import { Search, Filter } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 
-interface SearchSectionProps {
+
+export interface SearchSectionProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+
+  setMobileFilterOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
 }
 
-export default function SearchSection({ searchQuery, setSearchQuery }: SearchSectionProps) {
+
+export default function SearchSection({
+  searchQuery,
+  setSearchQuery,
+
+  setMobileFilterOpen,
+
+}: SearchSectionProps) {
   return (
   <section className="bg-gradient-to-b from-blue-50 to-white py-0">
 
@@ -51,9 +62,11 @@ export default function SearchSection({ searchQuery, setSearchQuery }: SearchSec
     <Button
   size="lg"
   className="w-full py-5 bg-[#00AEEF] text-[#002042] text-lg font-bold rounded-none hover:bg-[#0095cc] transition"
+  onClick={() => setMobileFilterOpen(true)} // 👈 opens the mobile filter
 >
-  Filter Results →
+  Filter Results
 </Button>
+
 
   </div>
 </div>
