@@ -7,7 +7,8 @@ import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
-import MobileFilterFullScreen from './components/mobilefilter';
+import MobileFilterFullScreen from './components/MobileFilterFullScreen ';
+
 // src/main.tsx or src/main.jsx
 import './index.css';
 
@@ -188,6 +189,16 @@ const pushProfile = (r: Researcher) => {
   setSearchQuery={setSearchQuery}
   setMobileFilterOpen={setMobileFilterOpen}
 />
+
+<MobileFilterFullScreen
+  open={MobileFilterOpen}
+  filters={filters}
+  setFilters={setFilters}
+  onClose={() => setMobileFilterOpen(false)}
+  onApply={() => setMobileFilterOpen(false)}
+/>
+
+
 
 {/* Main Content Area */}
 <div className="max-w-7xl mx-auto px-6 py-8">

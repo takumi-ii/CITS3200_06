@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "./ui/select";
 
+// MobileFilterFullScreen.tsx
 type Filters = {
   yearRange: number[];
   tags: string[];
@@ -24,12 +25,13 @@ type MobileFilterFullScreenProps = {
   open: boolean;
   title?: string;
   filters: Filters;
-  setFilters: (filters: Filters) => void;
+  setFilters: (filters: any) => void; // 👈 match FilterSidebar
   onClose: () => void;
-  onApply?: () => void; // default: close
-  onReset?: () => void; // optional custom reset
-  mountTo?: HTMLElement | null; // optional portal target
+  onApply?: () => void;
+  onReset?: () => void;
+  mountTo?: HTMLElement | null;
 };
+
 
 const researchTags = [
   "Climate Change",
@@ -71,7 +73,7 @@ export default function MobileFilterFullScreen({
   onApply,
   onReset,
   mountTo,
-}: MobileFilterFullScreenProps) {
+}: MobileFilterFullScreenProps):React.ReactNode  {
   // focus trap + initial focus
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -146,15 +148,17 @@ export default function MobileFilterFullScreen({
     setFilters({ ...filters, researchArea: newArea });
   };
 
-  const handleResetFilters =
-    onReset ??
-    (() => {
-      setFilters({
-        yearRange: [2000, 2024],
-        researchArea: "all",
-        tags: [],
-      });
+  // MobileFilterFullScreen.tsx (inside component)
+const handleResetFilters =
+  onReset ??
+  (() => {
+    setFilters({
+      yearRange: [2000, 2024],
+      researchArea: 'all', // 👈 match sidebar
+      tags: [],
     });
+  });
+
 
   const backdropClick: React.MouseEventHandler<HTMLDivElement> = (e) => {
     if (e.target === e.currentTarget) onClose();
