@@ -1,74 +1,120 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Slider } from "./ui/slider";
+import { Badge } from "./ui/badge";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
+import { Separator } from "./ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
-type MobileFilterProps = {
-  open: boolean;
-  title?: string;
-  onClose: () => void;
-  onApply?: () => void;
-  onReset?: () => void;
-  /** Place your filter controls here */
-  children: React.ReactNode;
-  /** Optional: custom footer content. If provided, it replaces default buttons */
-  footer?: React.ReactNode;
-  /** Optional: portal mount node (defaults to document.body) */
-  mountTo?: HTMLElement | null;
-  /** Optional: id for the dialog element */
-  id?: string;
+type Filters = {
+  yearRange: number[];
+  tags: string[];
+  researchArea: string;
 };
 
-export const MobileFilter: React.FC<MobileFilterProps> = ({
+type MobileFilterFullScreenProps = {
+  open: boolean;
+  title?: string;
+  filters: Filters;
+  setFilters: (filters: Filters) => void;
+  onClose: () => void;
+  onApply?: () => void; // default: close
+  onReset?: () => void; // optional custom reset
+  mountTo?: HTMLElement | null; // optional portal target
+};
+
+const researchTags = [
+  "Climate Change",
+  "Coral Reef Health",
+  "Marine Biodiversity",
+  "Ocean Acidification",
+  "Deep Sea Exploration",
+  "Fisheries Management",
+  "Coastal Erosion",
+  "Marine Pollution",
+  "Ecosystem Restoration",
+  "Sustainable Aquaculture",
+  "Marine Protected Areas",
+  "Ocean Circulation",
+  "Marine Genetics",
+  "Blue Carbon",
+  "Microplastics",
+];
+
+const researchAreas = [
+  "Marine Biology",
+  "Oceanography",
+  "Marine Chemistry",
+  "Marine Geology",
+  "Marine Physics",
+  "Marine Ecology",
+  "Conservation Science",
+  "Fisheries Science",
+  "Coastal Management",
+  "Marine Policy",
+];
+
+export default function MobileFilterFullScreen({
   open,
   title = "Filters",
+  filters,
+  setFilters,
   onClose,
   onApply,
   onReset,
-  children,
-  footer,
   mountTo,
-  id = "mobile-filter",
-}) => {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const firstFocusRef = useRef<HTMLButtonElement>(null);
-  const lastFocusRef = useRef<HTMLButtonElement>(null);
+}: MobileFilterFullScreenProps) {
+  // focus trap + initial focus
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close on ESC
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    const el = panelRef.current;
 
-  // Basic focus trap + initial focus
-  useEffect(() => {
-    if (!open) return;
-    const el = dialogRef.current;
-    const focusable = el?.querySelectorAll<HTMLElement>(
+    // initial focus
+    const first = el?.querySelector<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    focusable?.[0]?.focus();
+    first?.focus();
 
-    const trap = (e: KeyboardEvent) => {
+    // trap tab
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
       if (e.key !== "Tab") return;
-      const list = focusable ? Array.from(focusable).filter(n => !n.hasAttribute("disabled")) : [];
-      if (list.length === 0) return;
-      const first = list[0];
-      const last = list[list.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault(); last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault(); first.focus();
+
+      const focusable = el?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable || focusable.length === 0) return;
+
+      const list = Array.from(focusable).filter(
+        (n) => !n.hasAttribute("disabled")
+      );
+      const firstEl = list[0];
+      const lastEl = list[list.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
       }
     };
 
-    el?.addEventListener("keydown", trap as any);
-    return () => el?.removeEventListener("keydown", trap as any);
-  }, [open]);
+    el?.addEventListener("keydown", onKeyDown as any);
+    return () => el?.removeEventListener("keydown", onKeyDown as any);
+  }, [open, onClose]);
 
-  // Lock body scroll while open
+  // lock body scroll while open
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -78,140 +124,211 @@ export const MobileFilter: React.FC<MobileFilterProps> = ({
     };
   }, [open]);
 
-  // Portal target
-  const target = mountTo ?? (typeof document !== "undefined" ? document.body : null);
-  if (!target) return null;
-  if (!open) return null;
+  // portal target
+  const target =
+    mountTo ?? (typeof document !== "undefined" ? document.body : null);
+  if (!target || !open) return null;
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // handlers reused from your sidebar
+  const handleYearRangeChange = (value: number[]) => {
+    setFilters({ ...filters, yearRange: value });
+  };
+
+  const handleTagToggle = (tag: string) => {
+    const newTags = filters.tags.includes(tag)
+      ? filters.tags.filter((t) => t !== tag)
+      : [...filters.tags, tag];
+    setFilters({ ...filters, tags: newTags });
+  };
+
+  const handleResearchAreaChange = (area: string) => {
+    const newArea = area === "all" ? "" : area;
+    setFilters({ ...filters, researchArea: newArea });
+  };
+
+  const handleResetFilters =
+    onReset ??
+    (() => {
+      setFilters({
+        yearRange: [2000, 2024],
+        researchArea: "all",
+        tags: [],
+      });
+    });
+
+  const backdropClick: React.MouseEventHandler<HTMLDivElement> = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
 
   return createPortal(
     <div
-      className="mfs-overlay"
-      onMouseDown={handleBackdropClick}
+      className="fixed inset-0 z-50 bg-black/50"
+      onMouseDown={backdropClick}
       aria-hidden={false}
       role="presentation"
     >
       <div
-        id={id}
-        ref={dialogRef}
-        className="mfs-sheet"
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        className="
+          fixed inset-0 z-50 bg-white
+          flex flex-col
+          md:max-w-md md:mx-auto md:my-6 md:rounded-xl md:shadow-xl
+          animate-in fade-in zoom-in-95 duration-150
+        "
+        // prevent backdrop close when interacting inside
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <header className="mfs-header">
-          <button
-            ref={firstFocusRef}
-            className="mfs-icon-btn"
-            onClick={onClose}
-            aria-label="Close filters"
-          >
-            ✕
-          </button>
-          <h2 className="mfs-title">{title}</h2>
-          {onReset ? (
-            <button className="mfs-text-btn" onClick={onReset}>
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
+          <div className="flex items-center gap-2 px-4 py-3">
+            <button
+              onClick={onClose}
+              aria-label="Close filters"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border bg-white text-gray-700 hover:bg-gray-50"
+            >
+              ✕
+            </button>
+            <h2 className="mx-auto text-base font-semibold text-gray-900">
+              {title}
+            </h2>
+            <button
+              onClick={handleResetFilters}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
               Reset
             </button>
-          ) : (
-            <span className="mfs-header-spacer" />
-          )}
-        </header>
+          </div>
+        </div>
 
-        <div className="mfs-content">{children}</div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-28 pt-4">
+          <Card className="border-none shadow-none">
+            <CardHeader className="p-0 mb-4">
+              <CardTitle className="text-lg font-semibold text-black">
+                Filter results
+              </CardTitle>
+            </CardHeader>
 
-        <footer className="mfs-footer">
-          {footer ?? (
-            <>
-              <button className="mfs-btn mfs-btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                ref={lastFocusRef}
-                className="mfs-btn mfs-btn-primary"
-                onClick={onApply ?? onClose}
-              >
-                Apply
-              </button>
-            </>
-          )}
-        </footer>
+            <CardContent className="p-0 space-y-6">
+              {/* Year Range */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                  Publication Year ({filters.yearRange[0]} - {filters.yearRange[1]})
+                </Label>
+                <Slider
+                  value={filters.yearRange}
+                  onValueChange={handleYearRangeChange}
+                  max={2024}
+                  min={2000}
+                  step={1}
+                  className="mt-2"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>2000</span>
+                  <span>2024</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Research Area */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                  Research Area
+                </Label>
+                <Select
+                  value={filters.researchArea || "all"}
+                  onValueChange={handleResearchAreaChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select research area..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Areas</SelectItem>
+                    {researchAreas.map((area) => (
+                      <SelectItem key={area} value={area}>
+                        {area}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* Research Tags */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                  Research Focus ({filters.tags.length} selected)
+                </Label>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {researchTags.map((tag) => (
+                    <label
+                      key={tag}
+                      htmlFor={tag}
+                      className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
+                    >
+                      <Checkbox
+                        id={tag}
+                        checked={filters.tags.includes(tag)}
+                        onCheckedChange={() => handleTagToggle(tag)}
+                      />
+                      <span className="text-sm text-gray-700">{tag}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Tags */}
+              {filters.tags.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Selected Filters
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {filters.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
+                          onClick={() => handleTagToggle(tag)}
+                        >
+                          {tag} ×
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom action bar */}
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3">
+          <div className="mx-auto flex max-w-md gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 h-12 rounded-lg border bg-gray-50 text-gray-900 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onApply ?? onClose}
+              className="flex-1 h-12 rounded-lg bg-gray-900 text-white font-semibold"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
       </div>
-
-      {/* inline CSS for convenience; move to your stylesheet if you prefer */}
-      <style>{`
-        .mfs-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,.5);
-          display: flex; justify-content: center; align-items: flex-end;
-          z-index: 60;
-          animation: mfs-fade .15s ease-out;
-        }
-        .mfs-sheet {
-          width: 100%;
-          max-width: 480px;
-          background: #fff;
-          border-top-left-radius: 16px;
-          border-top-right-radius: 16px;
-          box-shadow: 0 -8px 24px rgba(0,0,0,.2);
-          transform: translateY(8px);
-          animation: mfs-slide-up .18s ease-out;
-          display: grid;
-          grid-template-rows: auto 1fr auto;
-          max-height: 92vh;
-        }
-        .mfs-header {
-          display: grid;
-          grid-template-columns: 48px 1fr auto;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 12px 8px;
-          border-bottom: 1px solid rgba(0,0,0,.06);
-        }
-        .mfs-title { margin: 0; font-size: 18px; text-align: center; }
-        .mfs-header-spacer { width: 48px; height: 32px; }
-        .mfs-content {
-          overflow: auto;
-          padding: 12px 16px;
-        }
-        .mfs-footer {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          padding: 12px 16px 16px;
-          border-top: 1px solid rgba(0,0,0,.06);
-          position: sticky; bottom: 0; background: #fff;
-        }
-        .mfs-btn {
-          height: 44px; border-radius: 10px; border: 1px solid transparent;
-          font-size: 16px; cursor: pointer;
-        }
-        .mfs-btn-primary { background: #111827; color: #fff; }
-        .mfs-btn-secondary { background: #f3f4f6; color: #111827; }
-        .mfs-text-btn {
-          background: transparent; border: none; color: #2563eb; cursor: pointer;
-          padding: 8px 12px; font-size: 14px;
-        }
-        .mfs-icon-btn {
-          width: 36px; height: 36px; border-radius: 10px; border: none;
-          background: #f3f4f6; cursor: pointer; font-size: 18px;
-        }
-        @keyframes mfs-slide-up {
-          from { transform: translateY(24px); opacity: 0; }
-          to   { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes mfs-fade {
-          from { opacity: 0; } to { opacity: 1; }
-        }
-        @media (min-width: 640px) {
-          .mfs-overlay { align-items: center; }
-          .mfs-sheet { border-radius: 16px; max-height: 90vh; }
-        }
-      `}</style>
     </div>,
     target
   );
-};
+}
