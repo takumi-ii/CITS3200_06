@@ -183,6 +183,7 @@ const handleResetFilters =
     shadow-none border-none outline-none       // 👈 no border/shadow/outline
     focus:outline-none focus-visible:outline-none ring-0 focus:ring-0
     animate-in fade-in zoom-in-95 duration-150
+    h-dvh min-h-0
   "
   style={{ WebkitTapHighlightColor: 'transparent' }}  // 👈 remove grey tap highlight on mobile
   onMouseDown={(e) => e.stopPropagation()}
@@ -222,8 +223,12 @@ const handleResetFilters =
   </button>
 
   {/* 4) Add a bit of top padding to avoid overlap */}
-  <div className="flex-1 overflow-y-auto px-4 pb-28 pt-6">
-          <Card className="border-0 border-b border-gray-200 shadow-none">
+ <div className="
+  flex-1 overflow-y-auto px-4 pb-28 pt-6
+  [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]
+  min-h-0
+">
+  <Card className="border-0 border-b border-gray-200 shadow-none">
 
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-lg font-semibold text-black">
@@ -231,101 +236,109 @@ const handleResetFilters =
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="p-0 space-y-6">
-              {/* Year Range */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Publication Year ({filters.yearRange[0]} - {filters.yearRange[1]})
-                </Label>
-                <Slider
-                  value={filters.yearRange}
-                  onValueChange={handleYearRangeChange}
-                  max={2024}
-                  min={2000}
-                  step={1}
-                  className="mt-2"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>2000</span>
-                  <span>2024</span>
-                </div>
-              </div>
+           <CardContent className="p-0 space-y-8">
+  {/* Year Range */}
+  <section>
+    <h3 className="text-lg font-semibold text-black mb-3 tracking-tight">
+      Publication Year
+      <span className="text-gray-500 font-normal ml-1">
+        ({filters.yearRange[0]} – {filters.yearRange[1]})
+      </span>
+    </h3>
+    <Slider
+      value={filters.yearRange}
+      onValueChange={handleYearRangeChange}
+      max={2024}
+      min={2000}
+      step={1}
+      className="mt-3"
+    />
+    <div className="flex justify-between text-xs text-gray-500 mt-2">
+      <span>2000</span>
+      <span>2024</span>
+    </div>
+  </section>
 
-              <Separator />
+  <Separator />
 
-              {/* Research Area */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Research Area
-                </Label>
-                <Select
-                  value={filters.researchArea || "all"}
-                  onValueChange={handleResearchAreaChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select research area..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Areas</SelectItem>
-                    {researchAreas.map((area) => (
-                      <SelectItem key={area} value={area}>
-                        {area}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+  {/* Research Area */}
+  <section>
+    <h3 className="text-lg font-semibold text-black mb-3 tracking-tight">
+      Research Area
+    </h3>
+    <Select
+      value={filters.researchArea || "all"}
+      onValueChange={handleResearchAreaChange}
+    >
+      <SelectTrigger className="w-full border border-gray-300 rounded-lg h-11 text-sm">
+        <SelectValue placeholder="Select research area..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Areas</SelectItem>
+        {researchAreas.map((area) => (
+          <SelectItem key={area} value={area}>
+            {area}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </section>
 
-              <Separator />
+  <Separator />
 
-              {/* Research Tags */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Research Focus ({filters.tags.length} selected)
-                </Label>
+  {/* Research Focus */}
+  <section>
+    <h3 className="text-lg font-semibold text-black mb-3 tracking-tight">
+      Research Focus
+      <span className="text-gray-500 font-normal ml-1">
+        ({filters.tags.length} selected)
+      </span>
+    </h3>
 
-                <div className="grid grid-cols-1 gap-2">
-                  {researchTags.map((tag) => (
-                    <label
-                      key={tag}
-                      htmlFor={tag}
-                      className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
-                    >
-                      <Checkbox
-                        id={tag}
-                        checked={filters.tags.includes(tag)}
-                        onCheckedChange={() => handleTagToggle(tag)}
-                      />
-                      <span className="text-sm text-gray-700">{tag}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+    <div className="space-y-2">
+      {researchTags.map((tag) => (
+        <label
+          key={tag}
+          htmlFor={tag}
+          className="flex items-center gap-3 rounded-md py-2 px-2 hover:bg-gray-50 transition"
+        >
+          <Checkbox
+            id={tag}
+            checked={filters.tags.includes(tag)}
+            onCheckedChange={() => handleTagToggle(tag)}
+            className="h-5 w-5 border-gray-400"
+          />
+          <span className="text-sm text-gray-800">{tag}</span>
+        </label>
+      ))}
+    </div>
+  </section>
 
-              {/* Selected Tags */}
-              {filters.tags.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Selected Filters
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {filters.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
-                          onClick={() => handleTagToggle(tag)}
-                        >
-                          {tag} ×
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
+  {/* Selected Tags */}
+  {filters.tags.length > 0 && (
+    <>
+      <Separator />
+      <section>
+        <h3 className="text-lg font-semibold text-black mb-3 tracking-tight">
+          Selected Filters
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {filters.tags.map((tag) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
+              onClick={() => handleTagToggle(tag)}
+            >
+              {tag} ×
+            </Badge>
+          ))}
+        </div>
+      </section>
+    </>
+  )}
+</CardContent>
+
           </Card>
         </div>
 
