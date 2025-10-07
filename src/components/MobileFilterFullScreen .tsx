@@ -166,50 +166,65 @@ const handleResetFilters =
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/50"
+      className="fixed inset-0 z-50 bg-black/50 shadow-none border-none "
       onMouseDown={backdropClick}
       aria-hidden={false}
       role="presentation"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="
-          fixed inset-0 z-50 bg-white
-          flex flex-col
-          md:max-w-md md:mx-auto md:my-6 md:rounded-xl md:shadow-xl
-          animate-in fade-in zoom-in-95 duration-150
-        "
-        // prevent backdrop close when interacting inside
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="flex items-center gap-2 px-4 py-3">
-            <button
-              onClick={onClose}
-              aria-label="Close filters"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border bg-white text-gray-700 hover:bg-gray-50"
-            >
-              ✕
-            </button>
-            <h2 className="mx-auto text-base font-semibold text-gray-900">
-              {title}
-            </h2>
-            <button
-              onClick={handleResetFilters}
-              className="text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
+<div
+  ref={panelRef}
+  role="dialog"
+  aria-modal="true"
+  aria-label={title}
+  tabIndex={-1}                                // 👈 prevent default focus ring
+  className="
+    relative fixed inset-0 z-50 bg-white flex flex-col
+    md:max-w-md md:mx-auto md:my-6 md:rounded-xl
+    shadow-none border-none outline-none       // 👈 no border/shadow/outline
+    focus:outline-none focus-visible:outline-none ring-0 focus:ring-0
+    animate-in fade-in zoom-in-95 duration-150
+  "
+  style={{ WebkitTapHighlightColor: 'transparent' }}  // 👈 remove grey tap highlight on mobile
+  onMouseDown={(e) => e.stopPropagation()}
+>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-28 pt-4">
-          <Card className="border-none shadow-none">
+
+  {/* 2) REMOVE the entire sticky header block */}
+
+  {/* 3) NEW: top-right circular close button */}
+  <button
+    onClick={onClose}
+    aria-label="Close filters"
+    className="
+      absolute top-3 right-3
+      inline-flex h-9 w-9 items-center justify-center
+      rounded-full
+      bg-gray-200 text-gray-500
+      hover:bg-gray-300 hover:text-gray-600
+      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400
+    "
+  >
+    {/* slightly darker grey “X” via currentColor */}
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  </button>
+
+  {/* 4) Add a bit of top padding to avoid overlap */}
+  <div className="flex-1 overflow-y-auto px-4 pb-28 pt-6">
+          <Card className="border-0 border-b border-gray-200 shadow-none">
+
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-lg font-semibold text-black">
                 Filter results
