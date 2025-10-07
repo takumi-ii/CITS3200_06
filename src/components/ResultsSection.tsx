@@ -14,37 +14,20 @@ import PageNavigation from './ui/PageNavigation';
 
 
 
-export interface ResultsSectionProps {
+interface ResultsSectionProps {
   searchQuery: string;
   filters: {
     yearRange: number[];
     tags: string[];
     researchArea: string;
   };
-
-  // existing profile controls
+   // NEW: allow parent to control the Profile modal
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or Researcher
-
-  dataSource: 'api' | 'mock';
-
-  // NEW: control the mobile filter panel from the parent
-  mobileFilterOpen: boolean;
-  setMobileFilterOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  // optional convenience: parent-provided toggle (handy for memoized handlers)
-  toggleMobileFilter?: () => void;
+  setSelectedResearcher: React.Dispatch<React.SetStateAction<any>>; // or your Researcher type
+  dataSource:'api' | 'mock'; 
 }
 
-
-export default function ResultsSection({
-  searchQuery,
-  filters,
-  setProfileOpen,
-  setSelectedResearcher,
-  dataSource,
-  mobileFilterOpen,
-  setMobileFilterOpen,
-}: ResultsSectionProps) {
+export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher ,dataSource}: ResultsSectionProps) {
 
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('researchers');
