@@ -1124,7 +1124,7 @@ const collabsList = dataSource === "api"
 )}
 
 
-{/* AWARDS CONTENT ONLY */}
+
 {/* AWARDS CONTENT ONLY */}
 {activeTab === "Awards" && (
   <div style={{ marginTop: 16 }}>
@@ -1421,25 +1421,27 @@ console.log('collab row sample', rows[0]);
         />
 
         {/* Modal Panel */}
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "70vw",
-            maxHeight: "80vh",
-            background: "#fff",
-            borderRadius: 14,
-            boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
-            zIndex: 2147483649,
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
+<div
+  role="dialog"
+  aria-modal="true"
+  className="shared-modal-panel"                 // ✅ add this
+  style={{
+    position: "fixed",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "70vw",
+    maxHeight: "80vh",
+    background: "#fff",
+    borderRadius: 14,
+    boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
+    zIndex: 2147483649,
+    overflowY: "auto",
+    WebkitOverflowScrolling: "touch",           // ✅ optional: nicer iOS scrolling
+    display: "flex",
+    flexDirection: "column"
+  }}
+>
           {/* Header */}
           <div
             style={{
@@ -1624,8 +1626,19 @@ console.log('collab row sample', rows[0]);
       height: 100vh !important;
       border-radius: 0 !important;
     }
+
+    .shared-modal-panel {                       /* ✅ new: full-screen on mobile */
+      top: 0 !important;
+      left: 0 !important;
+      transform: none !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      border-radius: 0 !important;
+    }
   }
 `}</style>
+
 
   </>,
   document.body
