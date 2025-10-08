@@ -286,14 +286,16 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="researchers" className="flex items-center gap-2">
+     <TabsTrigger value="researchers" className="flex items-center gap-2">
   <Users className="w-4 h-4" />
-  Researchers ({sourceResearchers.length})
+  Researchers ({filteredResearchers.length})
 </TabsTrigger>
 <TabsTrigger value="outcomes" className="flex items-center gap-2">
   <BookOpen className="w-4 h-4" />
-  Research Outcomes ({sourceOutcomes.length})
+  Research Outcomes ({filteredOutcomes.length})
 </TabsTrigger>
+
+
 
           
         </TabsList>
@@ -367,7 +369,10 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
         </div>
        <p className="text-gray-600">
-  Found {sourceResearchers.length} researchers and {sourceOutcomes.length} research outcomes
+  <p className="text-gray-600">
+  Found {filteredResearchers.length} researchers and {filteredOutcomes.length} research outcomes
+</p>
+
 </p>
 
       </div>
