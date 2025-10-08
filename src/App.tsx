@@ -89,6 +89,14 @@ const pushProfile = (r: Researcher) => {
   };
 
 
+  useEffect(() => {
+  const measure = () => setNavOffset(navRef.current?.offsetHeight ?? 0);
+  measure();
+  window.addEventListener('resize', measure);
+  return () => window.removeEventListener('resize', measure);
+}, []);
+
+
 
   const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
 
@@ -96,6 +104,8 @@ const pushProfile = (r: Researcher) => {
     setDataSource(prev => (prev === 'mock' ? 'api' : 'mock'));
   };
 
+  const navRef = useRef<HTMLElement | null>(null);
+  const [navOffset, setNavOffset] = useState(0);
 
 
   
@@ -104,7 +114,10 @@ const pushProfile = (r: Researcher) => {
   return (
     <div className="min-h-screen bg-background">
    {/* Top Navigation Bar */}
-<nav className="bg-blue-900 text-white px-6 py-4">
+<nav
+      ref={navRef}
+      className="bg-blue-900 text-white px-6 py-4 sticky top-0 z-[2147483650]" // 👈 stays on top
+    >
   <div className="flex items-center justify-between max-w-7xl mx-auto">
     {/* Left side: Logos */}
     <div className="flex items-center space-x-4">
@@ -190,14 +203,15 @@ const pushProfile = (r: Researcher) => {
   setMobileFilterOpen={setMobileFilterOpen}
 />
 
-<MobileFilterFullScreen
-  open={MobileFilterOpen}
-  filters={filters}
-  setFilters={setFilters}
-  onClose={() => setMobileFilterOpen(false)}
-  onApply={() => setMobileFilterOpen(false)}
-/>
-
+ <MobileFilterFullScreen
+      open={MobileFilterOpen}
+      filters={filters}
+      setFilters={setFilters}
+      onClose={() => setMobileFilterOpen(false)}
+      onApply={() => setMobileFilterOpen(false)}
+      /** NEW: push panel under the sticky nav on mobile */
+      navOffset={navOffset}
+    />
 
 
 {/* Main Content Area */}
@@ -223,18 +237,19 @@ const pushProfile = (r: Researcher) => {
 
 
 
-       <Profile
-        open={profileOpen}
-        onClose={handleCloseProfile}
-        person={selectedResearcher}
-        dataSource = {dataSource}
-         setSelectedResearcher={setSelectedResearcher}   // add this
-         setProfileOpen={setProfileOpen} 
-        pushProfile={pushProfile}
+        <Profile
+      open={profileOpen}
+      onClose={handleCloseProfile}
+      person={selectedResearcher}
+      dataSource={dataSource}
+      setSelectedResearcher={setSelectedResearcher}
+      setProfileOpen={setProfileOpen}
+      pushProfile={pushProfile}
       popProfile={popProfile}
-      canGoBack={profileHistory.length > 1}              // add this
-      />
-
+      canGoBack={profileHistory.length > 1}
+      /** NEW: push panel + shared-outputs modal under the sticky nav on mobile */
+      navOffset={navOffset}
+    />
 
       {/* Network Heatmap */}
      <div ref={heatmapRef}>

@@ -30,6 +30,7 @@ type MobileFilterFullScreenProps = {
   onApply?: () => void;
   onReset?: () => void;
   mountTo?: HTMLElement | null;
+  navOffset?: number; // NEW
 };
 
 
@@ -73,6 +74,8 @@ export default function MobileFilterFullScreen({
   onApply,
   onReset,
   mountTo,
+  navOffset = 0,
+  
 }: MobileFilterFullScreenProps):React.ReactNode  {
   // focus trap + initial focus
   const panelRef = useRef<HTMLDivElement>(null);

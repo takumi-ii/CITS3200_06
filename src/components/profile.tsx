@@ -19,7 +19,8 @@ interface ProfileProps {
   setProfileOpen?: React.Dispatch<React.SetStateAction<boolean>>;                  // optional if using history
   pushProfile?: (r: Researcher) => void;                                           // NEW
   popProfile?: () => void;                                                         // NEW
-  canGoBack?: boolean;                                                             // NEW
+  canGoBack?: boolean; 
+  navOffset?: number; // NEW                                                            // NEW
 }
 
 
@@ -67,7 +68,7 @@ const displayAffiliation = (r: any) =>
 
 
 
-export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack}: ProfileProps) {
+export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
   const [activeTab, setActiveTab] = useState("Overview");
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -203,21 +204,23 @@ return createPortal(
   <>
     {/* Backdrop */}
     <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.65)",
-        zIndex: 2147483646
-      }}
-      aria-hidden="true"
-    />
+  onClick={onClose}
+  className="profile-backdrop"                 // ✅ add
+  style={{
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.65)",
+    zIndex: 2147483646,
+  }}
+  aria-hidden="true"
+/>
 
     {/* Modal Panel */}
    <div
   ref={panelRef}
   role="dialog"
   aria-modal="true"
+  className="profile-panel"
   style={{
     position: "fixed",
     top: "5%",
@@ -232,9 +235,10 @@ return createPortal(
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
+    ["--nav-offset" as any]: `${navOffset}px`,  // ✅ add this
   }}
-  className="profile-panel"
 >
+
 
    
 {/* Top bar */}
@@ -1411,6 +1415,7 @@ console.log('collab row sample', rows[0]);
         {/* Backdrop */}
         <div
           onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+          className="shared-modal-backdrop"
           style={{
             position: "fixed",
             inset: 0,
@@ -1439,7 +1444,8 @@ console.log('collab row sample', rows[0]);
     overflowY: "auto",
     WebkitOverflowScrolling: "touch",           // ✅ optional: nicer iOS scrolling
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    ["--nav-offset" as any]: `${navOffset}px`,  
   }}
 >
           {/* Header */}
@@ -1618,26 +1624,34 @@ console.log('collab row sample', rows[0]);
 
     <style>{`
   @media (max-width: 768px) {
+    .profile-backdrop {
+      top: var(--nav-offset, 0px) !important;
+    }
     .profile-panel {
-      top: 0 !important;
+      top: var(--nav-offset, 0px) !important;
       left: 0 !important;
       transform: none !important;
       width: 100vw !important;
-      height: 100vh !important;
+      height: calc(100vh - var(--nav-offset, 0px)) !important;
+      max-height: none !important;
       border-radius: 0 !important;
     }
 
-    .shared-modal-panel {                       /* ✅ new: full-screen on mobile */
-      top: 0 !important;
+    .shared-modal-backdrop {
+      top: var(--nav-offset, 0px) !important;
+    }
+    .shared-modal-panel {
+      top: var(--nav-offset, 0px) !important;
       left: 0 !important;
       transform: none !important;
       width: 100vw !important;
-      height: 100vh !important;
-      max-height: 100vh !important;
+      height: calc(100vh - var(--nav-offset, 0px)) !important;
+      max-height: none !important;
       border-radius: 0 !important;
     }
   }
 `}</style>
+
 
 
   </>,
