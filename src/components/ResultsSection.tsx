@@ -437,13 +437,28 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
   </div>
 )}
 
-                    <div className="flex flex-wrap gap-2 mb-3">
+<div className="flex flex-wrap gap-2 mb-3">
+  {/* 🔹 First show fingerprint concepts (if any) */}
+  {(researcher.fingerprints || [])
+    .filter((fp: any) => fp.conceptName && fp.conceptName.length <= 50)
+    .sort((a: any, b: any) => (a.rank ?? 9999) - (b.rank ?? 9999))
+    .map((fp: any) => (
+      <Badge
+        key={`fp-${fp.conceptId}`}
+        variant="secondary"
+        className="bg-blue-100 text-blue-800"
+        title={`Rank: ${fp.rank ?? '-'}, Score: ${fp.score?.toFixed?.(3) ?? '-'}`}
+      >
+        {fp.conceptName}
+      </Badge>
+    ))}
+
+  {/* 🔹 Also include existing expertise tags (useful during transition) */}
   {(researcher.expertise || [])
-    // 🔹 Filter out excessively long words (e.g., over 50 chars)
     .filter((exp: string) => exp && exp.length <= 50)
     .map((exp: string) => (
       <Badge
-        key={exp}
+        key={`exp-${exp}`}
         variant="secondary"
         className="bg-blue-100 text-blue-800"
       >
@@ -451,6 +466,7 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
       </Badge>
     ))}
 </div>
+
 
 
                     {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (

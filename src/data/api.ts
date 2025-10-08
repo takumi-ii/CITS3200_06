@@ -55,6 +55,20 @@ export type Award = {
   recipientId?: ID;
 };
 
+// ---- types ----
+export type Prize = {
+  uuid: string;
+  title: string;
+  description?: string | null;
+  organization?: string | null;
+  recognition?: string | null;   // degree_of_recognition
+  year?: number | null;
+  month?: number | null;
+  day?: number | null;
+};
+
+
+
 
 function toArr<T = any>(v: any): T[] { return Array.isArray(v) ? v : []; }
 
@@ -120,7 +134,20 @@ async function apiGrantsForResearcher(id: ID): Promise<Grant[]> {
 async function apiAwardsForResearcher(id: ID) {
   const r = await fetch(`/api/researchers/${id}/awards`);
   const j = await safeJson<any>(r);
-  return arr<Award>(j) || arr<Award>(j?.awards);
+  // j is an array; fall back to j.awards or j.prizes if server returns an older shape
+  const items = Array.isArray(j) ? j : (Array.isArray(j?.awards) ? j.awards : (Array.isArray(j?.prizes) ? j.prizes : []));
+  return items.map((a: any) => ({
+    id: a.id ?? a.uuid,
+    title: a.title ?? 'Untitled',
+    description: a.description ?? a.first_description ?? null,
+    organization: a.organization ?? a.first_granting_organization_name ?? null,
+    recognition: a.recognition ?? a.degree_of_recognition ?? null,
+    // provide a single date string (ISO-ish) and keep Y/M/D for UI flexibility
+    date: a.date ?? null,
+    year: typeof a.year === 'number' ? a.year : (a.year ? Number(a.year) : null),
+    month: typeof a.month === 'number' ? a.month : (a.month ? Number(a.month) : null),
+    day: typeof a.day === 'number' ? a.day : (a.day ? Number(a.day) : null),
+  }));
 }
 
 /* ============ Store ============ */
@@ -193,8 +220,12 @@ export async function preloadProfile(researcherId: ID) {
   const rid = String(researcherId).trim();
   setState({ loading: true, error: null });
   try {
-    const grants = await apiGrantsForResearcher(rid); // <-- only grants
+    const [grants, awards] = await Promise.all([
+      apiGrantsForResearcher(rid),
+      apiAwardsForResearcher(rid),
+    ]);
 
+    // Grants
     const grantsById = { ...state.grantsById };
     const gIds: ID[] = [];
     for (const g of grants) {
@@ -204,14 +235,25 @@ export async function preloadProfile(researcherId: ID) {
       gIds.push(gid);
     }
 
+    // Awards
+    const awardsById = { ...state.awardsById };
+    const aIds: ID[] = [];
+    for (const a of awards) {
+      const aid = String(a?.id ?? '').trim();
+      if (!aid) continue;
+      awardsById[aid] = { ...a, id: aid };
+      aIds.push(aid);
+    }
+
     setState({
       loading: false,
       grantsById,
+      awardsById,
       grantsByResearcher: { ...state.grantsByResearcher, [rid]: gIds },
-      // leave awards maps untouched
+      awardsByResearcher: { ...state.awardsByResearcher, [rid]: aIds },
     });
   } catch (e: any) {
-    setState({ loading: false, error: e?.message ?? 'Failed to load grants' });
+    setState({ loading: false, error: e?.message ?? 'Failed to load profile' });
   }
 }
 
@@ -246,6 +288,10 @@ export function getAwardsFor(researcherId: ID) {
   const ids = state.awardsByResearcher[researcherId] ?? [];
   return ids.map(id => state.awardsById[id]).filter(Boolean);
 }
+
+
+
+
 
 export function getOutcomesForResearcher(r: { id?: ID; uuid?: ID; name?: string }) {
   if (!r) return [];
