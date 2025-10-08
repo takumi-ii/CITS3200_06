@@ -424,14 +424,39 @@ return createPortal(
 
  
 
-  {person?.expertise?.length ? (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {person.expertise.map((tag: string) => (
+{(person?.fingerprints?.length || person?.expertise?.length) ? (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+    {/* 🔹 Fingerprint concepts first */}
+    {(person.fingerprints || [])
+      .filter((fp: any) => fp.conceptName && fp.conceptName.length <= 50)
+      .sort((a: any, b: any) => (a.rank ?? 9999) - (b.rank ?? 9999))
+      .map((fp: any) => (
         <span
-          key={tag}
+          key={`fp-${fp.conceptId}`}
+          title={`Rank: ${fp.rank ?? "-"}, Score: ${fp.score?.toFixed?.(3) ?? "-"}`}
           style={{
-            background: "#eef2ff",
-            color: "#3730a3",
+            background: "#dbeafe", // light blue
+            color: "#1e40af", // dark blue text
+            padding: "6px 12px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 500,
+            border: "1px solid #bfdbfe"
+          }}
+        >
+          {fp.conceptName}
+        </span>
+      ))}
+
+    {/* 🔹 Existing expertise tags */}
+    {(person.expertise || [])
+      .filter((tag: string) => tag && tag.length <= 50)
+      .map((tag: string) => (
+        <span
+          key={`exp-${tag}`}
+          style={{
+            background: "#eef2ff", // pale purple
+            color: "#3730a3", // indigo text
             padding: "6px 12px",
             borderRadius: 8,
             fontSize: 13,
@@ -442,10 +467,11 @@ return createPortal(
           {tag}
         </span>
       ))}
-    </div>
-  ) : (
-    <div style={{ color: "#9ca3af" }}>–</div>
-  )}
+  </div>
+) : (
+  <div style={{ color: "#9ca3af" }}>–</div>
+)}
+
 </div>
 
 {/* Recent Publications (with optional type + tags) */}
