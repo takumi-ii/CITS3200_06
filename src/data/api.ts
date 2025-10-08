@@ -55,6 +55,20 @@ export type Award = {
   recipientId?: ID;
 };
 
+// ---- types ----
+export type Prize = {
+  uuid: string;
+  title: string;
+  description?: string | null;
+  organization?: string | null;
+  recognition?: string | null;   // degree_of_recognition
+  year?: number | null;
+  month?: number | null;
+  day?: number | null;
+};
+
+
+
 
 function toArr<T = any>(v: any): T[] { return Array.isArray(v) ? v : []; }
 
@@ -246,6 +260,10 @@ export function getAwardsFor(researcherId: ID) {
   const ids = state.awardsByResearcher[researcherId] ?? [];
   return ids.map(id => state.awardsById[id]).filter(Boolean);
 }
+
+
+
+
 
 export function getOutcomesForResearcher(r: { id?: ID; uuid?: ID; name?: string }) {
   if (!r) return [];

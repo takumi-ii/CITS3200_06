@@ -767,37 +767,58 @@ TOP_LEVEL_CATEGORIES = [
     "Microplastics",
 ]
 
-@app.route("/api/researchers/<rid>/prizes")
-def get_prizes_for_researcher(rid: str):
+@app.route("/api/researchers/<rid>/awards")
+def awards_for_researcher(rid: str):
     """
-    Return all prizes for a specific researcher.
+    Return all prizes/awards for a specific researcher in a grants-like shape.
+    Array return (not wrapped), to mirror /grants.
     """
-    conn = sqlite3.connect('data.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT p.uuid, p.title, p.first_description,
-               p.first_granting_organization_name, p.degree_of_recognition,
-               p.year, p.month, p.day
-        FROM OIPrizes p
-        JOIN OIMembersToPrizes mp ON mp.prize_uuid = p.uuid
-        WHERE mp.re_uuid = ?
-        ORDER BY p.year DESC, p.month DESC, p.day DESC
-    """, (rid,))
-    prizes = [
-        {
-            "uuid": row[0],
-            "title": row[1],
-            "description": row[2],
-            "organization": row[3],
-            "recognition": row[4],
-            "year": row[5],
-            "month": row[6],
-            "day": row[7],
-        }
-        for row in cursor.fetchall()
-    ]
-    conn.close()
-    return jsonify({"prizes": prizes})
+    with get_db() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT
+              p.uuid  AS id,
+              p.title AS title,
+              p.first_description              AS description,
+              p.first_granting_organization_name AS organization,
+              p.degree_of_recognition          AS recognition,
+              p.year, p.month, p.day
+            FROM OIPrizes p
+            JOIN OIMembersToPrizes mp ON mp.prize_uuid = p.uuid
+            WHERE mp.re_uuid = ?
+            ORDER BY p.year DESC, p.month DESC, p.day DESC, p.rowid DESC
+        """, (rid,)).fetchall()
+
+        def iso_date(y, m, d):
+            # year is required in schema; month/day optional
+            try:
+                y = int(y) if y is not None else None
+                m = int(m) if m is not None else None
+                d = int(d) if d is not None else None
+            except Exception:
+                y = m = d = None
+            if not y:
+                return None
+            if m and d:
+                return f"{y:04d}-{m:02d}-{d:02d}"
+            if m:
+                return f"{y:04d}-{m:02d}-01"
+            return f"{y:04d}-01-01"
+
+        return jsonify([
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "description": r["description"],
+                "organization": r["organization"],
+                "recognition": r["recognition"],
+                "date": iso_date(r["year"], r["month"], r["day"]),
+                "year": r["year"],
+                "month": r["month"],
+                "day": r["day"],
+            }
+            for r in rows
+        ])
 
 def _like_param(s: str) -> str:
     return f"%{s.lower()}%"
