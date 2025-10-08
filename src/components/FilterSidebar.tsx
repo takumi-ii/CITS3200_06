@@ -81,7 +81,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
       <Card>
         <CardHeader className="flex items-center">
   <CardTitle className="text-xl font-semibold text-black">
-    Filter results
+    Filter 
   </CardTitle>
 
   <div className="ml-auto">
