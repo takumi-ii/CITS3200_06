@@ -28,6 +28,14 @@ const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
 const dateRange = (s?: string | null, e?: string | null) =>
   s && e ? `${fmt(s)} – ${fmt(e)}` : s ? `${fmt(s)} –` : e ? `– ${fmt(e)}` : "Dates TBD";
 
+// Format currency amounts with commas
+const formatCurrency = (amount: number | string | null | undefined): string => {
+  if (amount === null || amount === undefined) return "";
+  const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(numAmount)) return "";
+  return `$${numAmount.toLocaleString()}`;
+};
+
 const nameOf = (id?: string) => mockResearchers.find(r => r.id === id)?.name || id || "Unknown";
 
 // put this above where you build `rows`
@@ -1123,11 +1131,42 @@ const collabsList = dataSource === "api"
 
                 {/* Funding sources (optional) */}
                 {Array.isArray(g.fundingSources) && g.fundingSources.length > 0 && (
-                  <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                    <b>Funding sources:</b>{" "}
-                    {g.fundingSources.map((fs: any) =>
-                      [fs.name, (typeof fs.amount === "number" ? `$${fs.amount}` : null)].filter(Boolean).join(" — ")
-                    ).join(", ")}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ color: "#374151", fontSize: 13, marginBottom: 6 }}>
+                      <b>Funding sources:</b>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {g.fundingSources.map((fs: any, index: number) => (
+                        <div
+                          key={index}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: "8px 12px",
+                            minWidth: "fit-content"
+                          }}
+                        >
+                          <div style={{ color: "#475569", fontSize: 13, fontWeight: 500 }}>
+                            {fs.name}
+                          </div>
+                          <div style={{ 
+                            color: "#1c2e5b", 
+                            fontSize: 14, 
+                            fontWeight: 600,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            fontFamily: "ui-monospace, 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace"
+                          }}>
+                            {formatCurrency(fs.amount)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
