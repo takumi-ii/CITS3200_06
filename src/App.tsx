@@ -146,12 +146,12 @@ const pushProfile = (r: Researcher) => {
 
     {/* Desktop Menu */}
     <div className="hidden md:flex space-x-6 text-sm font-medium">
-      <span>About the OI</span>
-      <span>Research Priorities</span>
-      <span>Partnerships</span>
-      <span>Expeditions</span>
-      <span>Resources</span>
-      <span>Awards</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">About the OI</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">Research Priorities</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">Partnerships</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">Expeditions</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">Resources</span>
+      <span className="hover:text-blue-200 transition-colors cursor-pointer">Awards</span>
       <button
         onClick={toggleDataSource}
         className="ml-4 px-3 py-1 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
@@ -200,12 +200,12 @@ const pushProfile = (r: Researcher) => {
     }}
   >
 
-    <span className="block">About the OI</span>
-    <span className="block">Research Priorities</span>
-    <span className="block">Partnerships</span>
-    <span className="block">Expeditions</span>
-    <span className="block">Resources</span>
-    <span className="block">Awards</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">About the OI</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">Research Priorities</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">Partnerships</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">Expeditions</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">Resources</span>
+    <span className="block py-2 hover:text-blue-200 transition-colors cursor-pointer">Awards</span>
     <button
       onClick={toggleDataSource}
       className="w-full mt-2 px-3 py-2 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
@@ -243,8 +243,8 @@ const pushProfile = (r: Researcher) => {
 
 
 {/* Main Content Area */}
-<div className="max-w-7xl mx-auto px-6 py-8">
-  <div className="flex flex-col lg:flex-row gap-8">
+<div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+  <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
     {/* Sidebar (normal flow, scrolls with page) */}
     <div className="hidden lg:block basis-80 shrink-0">
       <FilterSidebar filters={filters} setFilters={setFilters} />

@@ -44,14 +44,15 @@ export default function SearchSection({
   {/* Search Input */}
   <Input
     type="text"
-    placeholder="Search researchers..."
+    placeholder="Search researchers, publications, grants, or keywords..."
     value={searchQuery}
     onChange={(e) => setSearchQuery(e.target.value)}
-    className="pr-14 pl-4 py-6 text-xl bg-black text-white border-2 border-gray-500 focus:border-[#00AEEF] w-full placeholder-gray-400 shadow-md rounded-none"
+    className="pr-14 pl-4 py-6 text-lg bg-black text-white border-2 border-gray-500 focus:border-[#00AEEF] w-full placeholder-gray-400 shadow-md rounded-xl"
+    style={{ borderRadius: '12px !important' }}
   />
 
   {/* Magnifying glass icon on the right */}
-  <Search className="absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-300 w-7 h-7 pointer-events-none" />
+  <Search className="absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-300 w-6 h-6 pointer-events-none" />
 </div>
 
 </div>
@@ -61,8 +62,9 @@ export default function SearchSection({
   <div className="mt-4">
     <Button
   size="lg"
-  className="w-full py-5 bg-[#00AEEF] text-[#002042] text-lg font-bold rounded-none hover:bg-[#0095cc] transition"
+  className="w-full py-5 bg-[#00AEEF] text-[#002042] text-lg font-bold rounded-xl hover:bg-[#0095cc] transition"
   onClick={() => setMobileFilterOpen(true)} // 👈 opens the mobile filter
+  style={{ borderRadius: '12px !important' }}
 >
   Filter Results
 </Button>

@@ -285,12 +285,12 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
      
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-     <TabsTrigger value="researchers" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
+     <TabsTrigger value="researchers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
   <Users className="w-4 h-4" />
   Researchers ({filteredResearchers.length})
 </TabsTrigger>
-<TabsTrigger value="outcomes" className="flex items-center gap-2">
+<TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
   <BookOpen className="w-4 h-4" />
   Research Outcomes ({filteredOutcomes.length})
 </TabsTrigger>
@@ -380,7 +380,7 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
         <TabsContent value="researchers" className="space-y-6">
           {paginatedResearchers.map((researcher: any) => (
-            <Card key={researcher.uuid || researcher.id} className="hover:shadow-lg transition-shadow">
+            <Card key={researcher.uuid || researcher.id} className="card-cohesive">
               <CardContent className="p-6">
                 <div className="flex gap-4">
                   <ProfileAvatar 
@@ -415,7 +415,7 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
     bg-white text-[#003087]         /* white background, UWA blue text */
     hover:bg-blue-50                /* subtle light blue hover */
     hover:border-[#003087]          /* accent the border on hover */
-    transition
+    btn-cohesive
     inline-flex items-center
   "
 >
@@ -526,7 +526,7 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
         <TabsContent value="outcomes" className="space-y-6">
           {paginatedOutcomes.map((outcome: any) => (
-            <Card key={outcome.uuid || outcome.id} className="hover:shadow-lg transition-shadow">
+            <Card key={outcome.uuid || outcome.id} className="card-cohesive">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">

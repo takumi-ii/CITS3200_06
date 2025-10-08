@@ -75,14 +75,14 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
       Explore our world-leading ocean research
     </h1>
     <p className="hero-mobile-subtitle">
-      Connect with over 200 + expert researchers .
+      Connect with over 400+ expert researchers
     </p>
 
     <button
       onClick={onExploreClick}
       className="hero-mobile-cta"
     >
-      Explore Netwok→
+      Explore Network →
     </button>
   </div>
 </div>
@@ -123,38 +123,40 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
       text-align: center;
     }
 
-    /* 🔹 Large clean heading (like your screenshot) */
+    /* 🔹 Large clean heading (consistent with desktop) */
     .oi-hero .hero-mobile-title {
-  font-size: 2rem;              /* ~32px */
-  font-weight: 500;             /* medium weight, cleaner than bold */
-  line-height: 1.25;
-  margin-bottom: 0.75rem;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  letter-spacing: 0.3px;        /* subtle spacing for a polished feel */
+  font-size: 2.5rem !important;            /* Match desktop size */
+  font-weight: 600 !important;             /* Match desktop weight */
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.2px;
+  color: white !important;
 }
 
-    /* 🔹 Smaller supporting subtitle */
+    /* 🔹 Supporting subtitle (consistent with desktop) */
     .oi-hero .hero-mobile-subtitle {
-      font-size: 1rem;              /* ~16px */
+      font-size: 1.2rem !important;            /* Match desktop size */
       line-height: 1.4;
       font-weight: 400;
       opacity: 0.9;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
       margin-bottom: 1.5rem;
+      color: white !important;
     }
 
-    /* 🔹 CTA button */
+    /* 🔹 CTA button (consistent with desktop styling) */
     .oi-hero .hero-mobile-cta {
-  background: rgba(0, 0, 0, 0);       /* subtle translucent black */
-  color: #ffffff;
+  background: #00AEEF !important;              /* Match desktop blue */
+  color: #002042 !important;                   /* Match desktop text color */
   font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
-  font-weight: 500;
+  font-weight: bold !important;                /* Match desktop weight */
   letter-spacing: 0.3px;
-  border: 2px solid rgba(255, 255, 255, 0.85);  /* crisp white border */
-  padding: 9px 22px;                    /* 🔹 smaller padding */
-  font-size: 0.95rem;                   /* 🔹 slightly smaller text */
-  border-radius: 9999px;                /* full pill shape */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: none !important;                     /* Remove border to match desktop */
+  padding: 0.75rem 1.25rem !important;        /* Match desktop padding */
+  font-size: 1rem !important;                 /* Match desktop size */
+  border-radius: 4px !important;              /* Match desktop border radius */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   transition: 
     background 0.25s ease, 
     transform 0.15s ease, 
@@ -162,9 +164,9 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
 }
 
 .oi-hero .hero-mobile-cta:hover {
-  background: rgba(0, 0, 0, 0.8);        /* darker on hover */
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  background: #0095cc;              /* Darker blue on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 
