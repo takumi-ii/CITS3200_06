@@ -219,7 +219,7 @@ return createPortal(
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.5)",
-    zIndex: 2147483646,     // ✅ below the panel (which is 2147483647)
+    zIndex: 8000,     // ✅ below the panel (which is 2147483647)
     pointerEvents: "auto",   // ✅ allow clicks
   }}
   aria-hidden="true"
@@ -243,7 +243,7 @@ return createPortal(
     background: "#fff",
     borderRadius: 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
-    zIndex: 2147483647,
+    zIndex: 8100,
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
@@ -1436,7 +1436,7 @@ console.log('collab row sample', rows[0]);
     position: "fixed",
     inset: 0,
     background: isMobile ? "transparent" : "rgba(0,0,0,0.5)", // ✅ still dark on desktop
-    zIndex: 2147483648,
+    zIndex: 8200,
     pointerEvents: isMobile ? "none" : "auto", // ✅ allow header taps through on mobile
   }}
   aria-hidden="true"
@@ -1459,7 +1459,7 @@ console.log('collab row sample', rows[0]);
     background: "#fff",
     borderRadius: isMobile ? 0 : 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
-    zIndex: 2147483649,
+    zIndex: 8300 ,
     overflowY: "auto",
     WebkitOverflowScrolling: "touch",
     display: "flex",

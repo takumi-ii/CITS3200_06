@@ -193,12 +193,12 @@ const pushProfile = (r: Researcher) => {
   {/* Mobile dropdown (appears when open) */}
 {mobileMenuOpen && (
   <div
-  className="md:hidden absolute inset-x-0 px-4 space-y-3 text-sm bg-blue-900 text-white py-4 shadow-lg"
-  style={{
-    top: headerRef.current?.offsetHeight ?? 0,
-    zIndex: 2147483651,
-  }}
->
+    className="md:hidden fixed inset-x-0 px-4 space-y-3 text-sm bg-blue-900 text-white py-4 shadow-lg"
+    style={{
+      top: navOffset,               // use the measured header height
+      zIndex: 21474836520,           // higher than header (2147483650) and modals
+    }}
+  >
 
     <span className="block">About the OI</span>
     <span className="block">Research Priorities</span>
