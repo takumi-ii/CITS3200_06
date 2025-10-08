@@ -767,6 +767,38 @@ TOP_LEVEL_CATEGORIES = [
     "Microplastics",
 ]
 
+@app.route("/api/researchers/<rid>/prizes")
+def get_prizes_for_researcher(rid: str):
+    """
+    Return all prizes for a specific researcher.
+    """
+    conn = sqlite3.connect('data.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.uuid, p.title, p.first_description,
+               p.first_granting_organization_name, p.degree_of_recognition,
+               p.year, p.month, p.day
+        FROM OIPrizes p
+        JOIN OIMembersToPrizes mp ON mp.prize_uuid = p.uuid
+        WHERE mp.re_uuid = ?
+        ORDER BY p.year DESC, p.month DESC, p.day DESC
+    """, (rid,))
+    prizes = [
+        {
+            "uuid": row[0],
+            "title": row[1],
+            "description": row[2],
+            "organization": row[3],
+            "recognition": row[4],
+            "year": row[5],
+            "month": row[6],
+            "day": row[7],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return jsonify({"prizes": prizes})
+
 def _like_param(s: str) -> str:
     return f"%{s.lower()}%"
 
