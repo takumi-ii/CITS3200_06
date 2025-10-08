@@ -211,24 +211,20 @@ const resolveResearcher = (rid?: string) => {
 return createPortal(
   <>
    {/* Backdrop — desktop only */}
-{!isMobile && (
-  <div
-  onClick={
-    isMobile
-      ? undefined
-      : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })
-  }
-  className="shared-modal-backdrop"
+{/* Backdrop for the PROFILE modal (works on all viewports) */}
+<div
+  onClick={onClose}  // ✅ close the profile
+  className="profile-backdrop"
   style={{
     position: "fixed",
     inset: 0,
-    background: isMobile ? "transparent" : "rgba(0,0,0,0.5)",
-    zIndex: 2147483648,
-    pointerEvents: isMobile ? "none" : "auto",   // ← key: don’t capture mobile taps
+    background: "rgba(0,0,0,0.5)",
+    zIndex: 2147483646,     // ✅ below the panel (which is 2147483647)
+    pointerEvents: "auto",   // ✅ allow clicks
   }}
   aria-hidden="true"
 />
-)}
+
 
 
     {/* Modal Panel */}
