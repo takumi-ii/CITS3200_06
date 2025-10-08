@@ -96,7 +96,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
     cursor: 'pointer',
     transition: 'color 0.2s ease',
   }}
-  onMouseEnter={(e) => (e.currentTarget.style.color = '#3B82F6')}
+  onMouseEnter={(e) => (e.currentTarget.style.color = '#003087')}
   onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
 >
   Reset
@@ -111,7 +111,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
           
           {/* Year Range */}
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
+            <Label className="text-base font-semibold text-gray-900 mb-3 block tracking-wide">
               Publication Year ({filters.yearRange[0]} - {filters.yearRange[1]})
             </Label>
             <Slider
@@ -132,7 +132,7 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
 
           {/* Research Area */}
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
+           <Label className="text-base font-semibold text-gray-900 mb-3 block tracking-wide">
               Research Area
             </Label>
             <Select value={filters.researchArea || 'all'} onValueChange={handleResearchAreaChange}>
@@ -152,15 +152,9 @@ export default function FilterSidebar({ filters, setFilters }: FilterSidebarProp
 
           {/* Research Tags */}
           <div>
-  <Label
-    style={{
-      fontSize: "0.875rem",
-      fontWeight: 500,
-      color: "#374151",
-      marginBottom: "0.75rem",
-      display: "block",
-    }}
-  >
+  <Label className="text-base font-semibold text-gray-900 mb-3 block tracking-wide">
+
+
     Research Focus ({filters.tags.length} selected)
   </Label>
 
