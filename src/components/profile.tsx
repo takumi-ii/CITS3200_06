@@ -1627,7 +1627,7 @@ console.log('collab row sample', rows[0]);
                             Show abstract
                           </summary>
                           <div style={{ color: "#374151", fontSize: 13, marginTop: 8, whiteSpace: "pre-wrap" }}>
-                            {output.abstract}
+                            {output.abstract?.replace(/<[^>]*>/g, '')}
                           </div>
                         </details>
                       )}
