@@ -191,22 +191,30 @@ const pushProfile = (r: Researcher) => {
   </div>
 
   {/* Mobile dropdown (appears when open) */}
-  {mobileMenuOpen && (
-    <div className="md:hidden mt-4 px-4 space-y-3 text-sm">
-      <span className="block">About the OI</span>
-      <span className="block">Research Priorities</span>
-      <span className="block">Partnerships</span>
-      <span className="block">Expeditions</span>
-      <span className="block">Resources</span>
-      <span className="block">Awards</span>
-      <button
-        onClick={toggleDataSource}
-        className="w-full mt-2 px-3 py-2 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
-      >
-        {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
-      </button>
-    </div>
-  )}
+{mobileMenuOpen && (
+  <div
+  className="md:hidden absolute inset-x-0 px-4 space-y-3 text-sm bg-blue-900 text-white py-4 shadow-lg"
+  style={{
+    top: headerRef.current?.offsetHeight ?? 0,
+    zIndex: 2147483651,
+  }}
+>
+
+    <span className="block">About the OI</span>
+    <span className="block">Research Priorities</span>
+    <span className="block">Partnerships</span>
+    <span className="block">Expeditions</span>
+    <span className="block">Resources</span>
+    <span className="block">Awards</span>
+    <button
+      onClick={toggleDataSource}
+      className="w-full mt-2 px-3 py-2 rounded bg-white text-blue-900 font-semibold hover:bg-gray-100 transition"
+    >
+      {dataSource === 'mock' ? 'Switch to API' : 'Switch to Mock'}
+    </button>
+  </div>
+)}
+
 </nav>
 </header>
 
