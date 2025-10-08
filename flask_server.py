@@ -300,17 +300,7 @@ def get_researcher_fingerprints(rid: str):
       - limit: int (default 25)
       - min_score: float (default 0)
       - order: 'rank' (asc) or 'score' (desc), default 'rank'
-    Response:
-      [
-        {
-          "conceptId": "...",
-          "conceptName": "...",
-          "score": 0.0,
-          "rank": 1,
-          "frequency": 0.0,
-          "weightedRank": 0.0
-        }, ...
-      ]
+    Response items include 'score' which is an alias of weightedRank.
     """
     limit = request.args.get("limit", "").strip()
     try:
@@ -324,25 +314,24 @@ def get_researcher_fingerprints(rid: str):
         min_score = 0.0
 
     order = (request.args.get("order", "rank") or "rank").lower()
-    # Default: lowest rank is best. Alternative: highest score first.
+    # 'score' means weightedRank in this schema.
     if order == "score":
-        order_by = "f.score DESC, f.rank ASC"
+        order_by = "f.weightedRank DESC, f.rank ASC"
     else:
-        order_by = "f.rank ASC, f.score DESC"
+        order_by = "f.rank ASC, f.weightedRank DESC"
 
     sql = f"""
         SELECT
-          f.concept_uuid      AS conceptId,
+          f.concept_uuid       AS conceptId,
           COALESCE(c.name, '') AS conceptName,
-          f.score,
+          f.weightedRank       AS score,       -- alias for frontend
           f.rank,
           f.frequency,
           f.weightedRank
         FROM OIFingerprints f
-        LEFT JOIN OIConcepts c ON c.uuid = f.concept_uuid
-        WHERE f.origin_type = 'OIMembers'
-          AND f.origin_uuid = ?
-          AND f.score >= ?
+        LEFT JOIN ALLConcepts c ON c.uuid = f.concept_uuid
+        WHERE f.origin_uuid = ?                -- no origin_type in schema
+          AND f.weightedRank >= ?
         ORDER BY {order_by}
         LIMIT ?
     """
@@ -365,7 +354,7 @@ def api_researchers():
       - grantIds via OIResearchOutputsCollaborators -> OIResearchOutputsToGrants
       - collaboratorIds as co-authors on shared outputs
       - awardIds empty (no awards table in schema)
-      - fingerprints: ALL fingerprints for each researcher from OIFingerprints (origin_type='OIMembers')
+      - fingerprints: ALL fingerprints for each researcher from OIFingerprints
     """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
@@ -463,17 +452,16 @@ def api_researchers():
     # NEW: preload ALL member fingerprints in one shot (no LIMIT)
     preload_finger_sql = """
       SELECT
-        f.origin_uuid           AS researcherId,
-        f.concept_uuid          AS conceptId,
-        COALESCE(c.name,'')     AS conceptName,
-        f.score,
+        f.origin_uuid        AS researcherId,
+        f.concept_uuid       AS conceptId,
+        COALESCE(c.name,'')  AS conceptName,
+        f.weightedRank       AS score,      -- alias so frontend can use 'score'
         f.rank,
         f.frequency,
         f.weightedRank
       FROM OIFingerprints f
-      LEFT JOIN OIConcepts c ON c.uuid = f.concept_uuid
-      WHERE f.origin_type = 'OIMembers'
-      ORDER BY f.rank ASC, f.score DESC
+      LEFT JOIN ALLConcepts c ON c.uuid = f.concept_uuid
+      ORDER BY f.rank ASC, f.weightedRank DESC
     """
 
     try:
