@@ -291,6 +291,68 @@ def _debug_db():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# -------------------- NEW: per-researcher fingerprints --------------------
+@app.get("/api/researchers/<rid>/fingerprints")
+def get_researcher_fingerprints(rid: str):
+    """
+    Fingerprints for a single researcher (OIMembers).
+    Query params:
+      - limit: int (default 25)
+      - min_score: float (default 0)
+      - order: 'rank' (asc) or 'score' (desc), default 'rank'
+    Response:
+      [
+        {
+          "conceptId": "...",
+          "conceptName": "...",
+          "score": 0.0,
+          "rank": 1,
+          "frequency": 0.0,
+          "weightedRank": 0.0
+        }, ...
+      ]
+    """
+    limit = request.args.get("limit", "").strip()
+    try:
+        limit = int(limit) if limit else 25
+    except ValueError:
+        limit = 25
+
+    try:
+        min_score = float(request.args.get("min_score", "0").strip() or 0)
+    except ValueError:
+        min_score = 0.0
+
+    order = (request.args.get("order", "rank") or "rank").lower()
+    # Default: lowest rank is best. Alternative: highest score first.
+    if order == "score":
+        order_by = "f.score DESC, f.rank ASC"
+    else:
+        order_by = "f.rank ASC, f.score DESC"
+
+    sql = f"""
+        SELECT
+          f.concept_uuid      AS conceptId,
+          COALESCE(c.name, '') AS conceptName,
+          f.score,
+          f.rank,
+          f.frequency,
+          f.weightedRank
+        FROM OIFingerprints f
+        LEFT JOIN OIConcepts c ON c.uuid = f.concept_uuid
+        WHERE f.origin_type = 'OIMembers'
+          AND f.origin_uuid = ?
+          AND f.score >= ?
+        ORDER BY {order_by}
+        LIMIT ?
+    """
+
+    try:
+        with get_db() as conn:
+            rows = conn.execute(sql, (rid, min_score, limit)).fetchall()
+            return jsonify([dict(r) for r in rows])
+    except sqlite3.Error as err:
+        return jsonify({"error": str(err)}), 500
 
 @app.route("/api/researchers")
 def api_researchers():
@@ -303,10 +365,7 @@ def api_researchers():
       - grantIds via OIResearchOutputsCollaborators -> OIResearchOutputsToGrants
       - collaboratorIds as co-authors on shared outputs
       - awardIds empty (no awards table in schema)
-    
-    Note: External collaborators (position='External Collaborator') are filtered out to improve 
-    performance and show only UWA staff. External collaborators with real names are still 
-    available via the /api/researchers/{id}/collaborators endpoint.
+      - fingerprints: ALL fingerprints for each researcher from OIFingerprints (origin_type='OIMembers')
     """
     TEST_RESEARCHER = {
         "id": "test-researcher-1",
@@ -327,6 +386,7 @@ def api_researchers():
         "grantIds": [],
         "collaboratorIds": [],
         "awardIds": [],
+        "fingerprints": [],
     }
 
     base_sql = """
@@ -372,100 +432,138 @@ def api_researchers():
       ORDER BY m.name
     """
 
+    recent_sql = """
+      SELECT ro.name AS title,
+             ro.journal_name AS journal,
+             ro.publication_year AS year
+      FROM OIResearchOutputs ro
+      JOIN OIResearchOutputsCollaborators c
+        ON c.ro_uuid = ro.uuid
+      WHERE c.researcher_uuid = ?
+      ORDER BY (ro.publication_year IS NULL) ASC,
+               ro.publication_year DESC,
+               ro.rowid DESC
+      LIMIT 2
+    """
+
+    collab_sql = """
+      SELECT c1.researcher_uuid AS me, c2.researcher_uuid AS other
+      FROM OIResearchOutputsCollaborators c1
+      JOIN OIResearchOutputsCollaborators c2
+        ON c1.ro_uuid = c2.ro_uuid
+      WHERE c1.researcher_uuid != c2.researcher_uuid
+    """
+
+    grants_sql = """
+      SELECT DISTINCT c.researcher_uuid AS rid, g.grant_uuid AS gid
+      FROM OIResearchOutputsCollaborators c
+      JOIN OIResearchOutputsToGrants g ON g.ro_uuid = c.ro_uuid
+    """
+
+    # NEW: preload ALL member fingerprints in one shot (no LIMIT)
+    preload_finger_sql = """
+      SELECT
+        f.origin_uuid           AS researcherId,
+        f.concept_uuid          AS conceptId,
+        COALESCE(c.name,'')     AS conceptName,
+        f.score,
+        f.rank,
+        f.frequency,
+        f.weightedRank
+      FROM OIFingerprints f
+      LEFT JOIN OIConcepts c ON c.uuid = f.concept_uuid
+      WHERE f.origin_type = 'OIMembers'
+      ORDER BY f.rank ASC, f.score DESC
+    """
+
     try:
         with get_db() as conn:
             rows = conn.execute(base_sql).fetchall()
             if not rows:
                 return {"researchers": [TEST_RESEARCHER]}
 
-            # --- precompute collaboratorIds and grantIds per researcher ---
-
-            # collaboratorIds: other authors on the same outputs
-            collab_sql = """
-              SELECT c1.researcher_uuid AS me, c2.researcher_uuid AS other
-              FROM OIResearchOutputsCollaborators c1
-              JOIN OIResearchOutputsCollaborators c2
-                ON c1.ro_uuid = c2.ro_uuid
-              WHERE c1.researcher_uuid != c2.researcher_uuid
-            """
+            # collaborator map
             collab_map: dict[str, set[str]] = {}
             for r in conn.execute(collab_sql):
                 collab_map.setdefault(r["me"], set()).add(r["other"])
 
-            # grantIds: outputs for the researcher -> grants linked to those outputs
-            grants_sql = """
-              SELECT DISTINCT c.researcher_uuid AS rid, g.grant_uuid AS gid
-              FROM OIResearchOutputsCollaborators c
-              JOIN OIResearchOutputsToGrants g ON g.ro_uuid = c.ro_uuid
-            """
+            # grants map
             grants_map: dict[str, list[str]] = {}
             for r in conn.execute(grants_sql):
                 rid, gid = r["rid"], r["gid"]
                 grants_map.setdefault(rid, []).append(gid)
 
-            # recent publications (2): join through collaborators table
-            recent_sql = """
-              SELECT ro.name AS title,
-                     ro.journal_name AS journal,
-                     ro.publication_year AS year
-              FROM OIResearchOutputs ro
-              JOIN OIResearchOutputsCollaborators c
-                ON c.ro_uuid = ro.uuid
-              WHERE c.researcher_uuid = ?
-              ORDER BY ro.publication_year DESC NULLS LAST, ro.rowid DESC
-              LIMIT 2
-            """
+            # fingerprints map (ALL fingerprints per researcher)
+            finger_map: dict[str, list[dict]] = {}
+            for fp in conn.execute(preload_finger_sql):
+                rid = fp["researcherId"]
+                finger_map.setdefault(rid, []).append({
+                    "conceptId": fp["conceptId"],
+                    "conceptName": fp["conceptName"],
+                    "score": fp["score"],
+                    "rank": fp["rank"],
+                    "frequency": fp["frequency"],
+                    "weightedRank": fp["weightedRank"],
+                })
 
             data = []
             for r in rows:
                 rid = r["id"]
-                expertise = (r["expertise_concat"] or "")
-                expertise = expertise.split("||") if expertise else []
 
-                # --- labels ---
+                # expertise
+                expertise_concat = (r["expertise_concat"] or "")
+                expertise = expertise_concat.split("||") if expertise_concat else []
+
+                # labels/flags
                 labels_concat = (r["labels_concat"] or "")
                 labels_list = labels_concat.split("||") if labels_concat else []
-                promote_weight = r["promote_weight"]  # may be None
+                promote_weight = r["promote_weight"]
                 has_no_show = bool(r["has_no_show"])
 
-                # Build recent pubs
+                # recent publications
                 recents_rows = conn.execute(recent_sql, (rid,)).fetchall()
                 recent_pubs = [_pub_tile(rr["title"], rr["journal"], rr["year"]) for rr in recents_rows]
+                if not recent_pubs:
+                    recent_pubs = [_pub_tile("Untitled", "", None)]
 
-                # Relationships
+                # relationships
                 collaborator_ids = sorted(list(collab_map.get(rid, set())))
-                # de-dupe while preserving order for grants
                 grant_ids = list(dict.fromkeys(grants_map.get(rid, [])))
+
+                # ALL fingerprints for this researcher
+                fingerprints = finger_map.get(rid, [])
 
                 data.append({
                     "id": rid,
                     "name": r["name"],
-                    "title": r["first_title"] or "",           # <- from first_title
-                    "role": r["position"] or "",               # <- from position
+                    "title": r["first_title"] or "",
+                    "role": r["position"] or "",
                     "department": r["main_research_area"] or "",
                     "email": r["email"] or None,
                     "phone": r["phone"] or None,
                     "photoUrl": (r["photo_url"] or None),
                     "profileUrl": (r["profile_url"] or None),
 
-                    "labels": labels_list,                                   # e.g. ["promote"] or ["no_show"]
+                    "labels": labels_list,
                     "primaryLabel": "promote" if promote_weight is not None else None,
                     "promoteWeight": int(promote_weight) if promote_weight is not None else 0,
                     "noShow": has_no_show,
 
                     "expertise": expertise,
 
-                    # counts come straight from OIMembersMetaInfo
                     "publicationsCount": int(r["publicationsCount"] or 0),
                     "grantsCount": int(r["grantsCount"] or 0),
                     "collaboratorsCount": int(r["collaboratorsCount"] or 0),
 
                     "bio": r["bio"] or "",
-                    "recentPublications": recent_pubs or [_pub_tile("Untitled", "", None)],
+                    "recentPublications": recent_pubs,
 
                     "grantIds": grant_ids,
                     "collaboratorIds": collaborator_ids,
-                    "awardIds": [],   # no awards table in schema
+                    "awardIds": [],
+
+                    # ALL fingerprints (front-end can trim/top-N as needed)
+                    "fingerprints": fingerprints,
                 })
 
             return {"researchers": data}
