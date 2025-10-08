@@ -350,7 +350,7 @@ return createPortal(
 {/* Profile Tabs (Summary Nav) */}
 <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: 20 }}>
   <div style={{ display: "flex", gap: 24, fontSize: 14, fontWeight: 500 }}>
-    {["Overview", "Research Outputs", "Grants", "Collaborators"].map(
+    {["Overview", "Research Outputs", "Grants", "Collaborators","Awards"].map(
       (tab) => (
         <button
           key={tab}
@@ -1125,61 +1125,107 @@ const collabsList = dataSource === "api"
 
 
 {/* AWARDS CONTENT ONLY */}
-
-{activeTab === "Awards1" && (
+{/* AWARDS CONTENT ONLY */}
+{activeTab === "Awards" && (
   <div style={{ marginTop: 16 }}>
     {(() => {
-      // Resolve IDs → award objects, newest first (by date)
-      const awards = (person?.awardIds ?? [])
-        .map(id => mockAwards.find(a => a.id === id))
-        .filter((a): a is NonNullable<typeof a> => Boolean(a))
-        .sort((a, b) => {
-          const at = a.date ? Date.parse(a.date) : 0;
-          const bt = b.date ? Date.parse(b.date) : 0;
-          return bt - at;
-        });
+      const isApi = dataSource === "api";
+
+      // Build awards list
+      // API path: you already computed `const awards = useMemo(() => getAwardsFor(person.id), ...)` above.
+      // Mock path: keep your old ID -> mockAwards resolution.
+      let list: any[] = [];
+      if (isApi) {
+        list = person?.id ? getAwardsFor(person.id) : [];
+      } else {
+        list = (person?.awardIds ?? [])
+          .map(id => mockAwards.find(a => a.id === id))
+          .filter((a): a is NonNullable<typeof a> => Boolean(a));
+      }
+
+      // Sort newest first by `date` (falls back to 0)
+      list = list.sort((a: any, b: any) => {
+        const at = a?.date ? Date.parse(a.date) : 0;
+        const bt = b?.date ? Date.parse(b.date) : 0;
+        return bt - at;
+      });
 
       return (
         <>
           {/* Header */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
             <div style={{ fontWeight: 600, fontSize: 16 }}>Awards</div>
-            <div style={{ color: "#6b7280", fontSize: 13 }}>({awards.length})</div>
+            <div style={{ color: "#6b7280", fontSize: 13 }}>({list.length})</div>
           </div>
 
           {/* Empty state */}
-          {!awards.length && (
+          {!list.length && (
             <div style={{ color: "#9ca3af" }}>No awards recorded for this researcher.</div>
           )}
 
           {/* List */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            {awards.map(a => {
-              const recips = a.recipientId ? [a.recipientId] : [];
-              const meIncluded = recips.includes(person!.id);
+            {list.map((a: any) => {
+              // New API shape (awards endpoint):
+              // { id, title, description, organization, recognition, date, year, month, day }
+              // We don’t receive recipients; since these are fetched *for the researcher*,
+              // we can mark them as Recipient in API mode. Mock keeps the old logic.
+              const meIncluded = isApi ? true : !!a.recipientId && a.recipientId === person?.id;
+
+              // Title field changed (name -> title)
+              const title = a.title ?? a.name ?? "Untitled award";
+
               return (
                 <div
                   key={a.id}
                   style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}
                 >
                   {/* Title */}
-                  <div style={{ fontWeight: 600, color: "#0b2a4a" }}>{a.name}</div>
+                  <div style={{ fontWeight: 600, color: "#0b2a4a" }}>{title}</div>
 
-                  {/* Meta row: date */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
+                  {/* Meta row: date + recipient badge */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      color: "#6b7280",
+                      fontSize: 13,
+                      marginTop: 4
+                    }}
+                  >
                     <span>{a.date ? fmt(a.date) : "Date TBD"}</span>
                     {meIncluded && (
-                      <span style={{ marginLeft: "auto", background: "#ecfeff", border: "1px solid #a5f3fc", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#075985" }}>
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          background: "#ecfeff",
+                          border: "1px solid #a5f3fc",
+                          borderRadius: 999,
+                          padding: "2px 8px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#075985"
+                        }}
+                      >
                         Recipient
                       </span>
                     )}
                   </div>
 
-                  {/* Recipient */}
-                  {!!recips.length && (
+                  {/* Organization / Recognition */}
+                  {(a.organization || a.recognition) && (
                     <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                      <b>Recipient:</b>{" "}
-                      {recips.map(nameOf).join(", ")}
+                      {a.organization && <div><b>Organization:</b> {a.organization}</div>}
+                      {a.recognition && <div><b>Recognition:</b> {a.recognition}</div>}
+                    </div>
+                  )}
+
+                  {/* Description (optional) */}
+                  {a.description && (
+                    <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
+                      {a.description}
                     </div>
                   )}
                 </div>
@@ -1191,7 +1237,6 @@ const collabsList = dataSource === "api"
     })()}
   </div>
 )}
-
 
 
 
