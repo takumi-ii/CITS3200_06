@@ -235,11 +235,11 @@ return createPortal(
   className="profile-panel"
   style={{
     position: "fixed",
-    top: "5%",
+    top: `calc(${navOffset}px + 24px)`,
     left: "50%",
     transform: "translateX(-50%)",
     width: "55vw",
-    height: "90vh",
+    height: `calc(100vh - (${navOffset}px + 48px))`, // so it fits nicely below the nav
     background: "#fff",
     borderRadius: 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
@@ -1331,7 +1331,7 @@ console.log('collab row sample', rows[0]);
   }
 }}
 
-                style={{
+            style={{
     background: isExternal ? "#f8fafc" : "#fff",
     border: isExternal ? "1px solid #cbd5e1" : "1px solid #e5e7eb",
     borderRadius: 10,
