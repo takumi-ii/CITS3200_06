@@ -105,15 +105,34 @@ const pushProfile = (r: Researcher) => {
   };
 
   const navRef = useRef<HTMLElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);     // 👈 observe this
   const [navOffset, setNavOffset] = useState(0);
 
 
-  
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const el = headerRef.current;
+
+    // Watch the header/nav height change (dropdown open/close, etc.)
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setNavOffset(Math.round(rect.height));
+    });
+
+    ro.observe(el);
+    // initial measure
+    setNavOffset(el.offsetHeight);
+
+    return () => ro.disconnect();
+  }, []);
+
 
 
   return (
     <div className="min-h-screen bg-background">
    {/* Top Navigation Bar */}
+
+    <header ref={headerRef} className="sticky top-0 z-[2147483650]">
 <nav
       ref={navRef}
       className="bg-blue-900 text-white px-6 py-4 sticky top-0 z-[2147483650]" // 👈 stays on top
@@ -189,6 +208,7 @@ const pushProfile = (r: Researcher) => {
     </div>
   )}
 </nav>
+</header>
 
 
       {/* Hero Section */}

@@ -78,6 +78,14 @@ export default function Profile({ open, onClose, person ,dataSource,setProfileOp
     outputs: []
   });
   const [loadingSharedOutputs, setLoadingSharedOutputs] = useState(false);
+ const [isMobile, setIsMobile] = useState(false);
+useEffect(() => {
+  const mq = window.matchMedia("(max-width: 768px)");
+  const update = () => setIsMobile(mq.matches);
+  update();
+  mq.addEventListener("change", update);
+  return () => mq.removeEventListener("change", update);
+}, []);
 
 useEffect(() => {
   const resetProfileView = () => {
@@ -202,18 +210,26 @@ const resolveResearcher = (rid?: string) => {
 
 return createPortal(
   <>
-    {/* Backdrop */}
-    <div
-  onClick={onClose}
-  className="profile-backdrop"                 // ✅ add
+   {/* Backdrop — desktop only */}
+{!isMobile && (
+  <div
+  onClick={
+    isMobile
+      ? undefined
+      : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })
+  }
+  className="shared-modal-backdrop"
   style={{
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.65)",
-    zIndex: 2147483646,
+    background: isMobile ? "transparent" : "rgba(0,0,0,0.5)",
+    zIndex: 2147483648,
+    pointerEvents: isMobile ? "none" : "auto",   // ← key: don’t capture mobile taps
   }}
   aria-hidden="true"
 />
+)}
+
 
     {/* Modal Panel */}
    <div
@@ -1413,41 +1429,49 @@ console.log('collab row sample', rows[0]);
     {sharedOutputsModal.open && createPortal(
       <>
         {/* Backdrop */}
-        <div
-          onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
-          className="shared-modal-backdrop"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            zIndex: 2147483648
-          }}
-          aria-hidden="true"
-        />
+  <div
+  onClick={
+    isMobile
+      ? undefined // 🚫 don't close modal on mobile
+      : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })
+  }
+  className="shared-modal-backdrop"
+  style={{
+    position: "fixed",
+    inset: 0,
+    background: isMobile ? "transparent" : "rgba(0,0,0,0.5)", // ✅ still dark on desktop
+    zIndex: 2147483648,
+    pointerEvents: isMobile ? "none" : "auto", // ✅ allow header taps through on mobile
+  }}
+  aria-hidden="true"
+/>
+
 
         {/* Modal Panel */}
 <div
   role="dialog"
   aria-modal="true"
-  className="shared-modal-panel"                 // ✅ add this
+  className="shared-modal-panel"
   style={{
     position: "fixed",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: "70vw",
-    maxHeight: "80vh",
+    top: isMobile ? "var(--nav-offset, 0px)" : "50%",
+    left: isMobile ? 0 : "50%",
+    transform: isMobile ? "none" : "translate(-50%, -50%)",
+    width: isMobile ? "100vw" : "70vw",
+    height: isMobile ? "calc(100svh - var(--nav-offset, 0px))" : "auto",
+    maxHeight: isMobile ? "none" : "80vh",
     background: "#fff",
-    borderRadius: 14,
+    borderRadius: isMobile ? 0 : 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
     zIndex: 2147483649,
     overflowY: "auto",
-    WebkitOverflowScrolling: "touch",           // ✅ optional: nicer iOS scrolling
+    WebkitOverflowScrolling: "touch",
     display: "flex",
     flexDirection: "column",
-    ["--nav-offset" as any]: `${navOffset}px`,  
+    ["--nav-offset" as any]: `${navOffset}px`, // important for mobile
   }}
 >
+
           {/* Header */}
           <div
             style={{
@@ -1622,7 +1646,7 @@ console.log('collab row sample', rows[0]);
       document.body
     )}
 
-    <style>{`
+ <style>{`
   @media (max-width: 768px) {
     .profile-backdrop {
       top: var(--nav-offset, 0px) !important;
@@ -1632,11 +1656,10 @@ console.log('collab row sample', rows[0]);
       left: 0 !important;
       transform: none !important;
       width: 100vw !important;
-      height: calc(100vh - var(--nav-offset, 0px)) !important;
+      height: calc(100svh - var(--nav-offset, 0px)) !important; /* svh handles mobile UI chrome */
       max-height: none !important;
       border-radius: 0 !important;
     }
-
     .shared-modal-backdrop {
       top: var(--nav-offset, 0px) !important;
     }
@@ -1645,12 +1668,13 @@ console.log('collab row sample', rows[0]);
       left: 0 !important;
       transform: none !important;
       width: 100vw !important;
-      height: calc(100vh - var(--nav-offset, 0px)) !important;
+      height: calc(100svh - var(--nav-offset, 0px)) !important;
       max-height: none !important;
       border-radius: 0 !important;
     }
   }
 `}</style>
+
 
 
 
