@@ -406,16 +406,19 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
     setProfileOpen(true);
   }}
   className="
-    border border-gray-300     /* light grey border */
-    bg-white text-black       /* white background, black text */
-    hover:bg-gray-100         /* subtle gray hover */
-    hover:text-black
+    border border-gray-300          /* light grey border */
+    bg-white text-[#003087]         /* white background, UWA blue text */
+    hover:bg-blue-50                /* subtle light blue hover */
+    hover:border-[#003087]          /* accent the border on hover */
     transition
+    inline-flex items-center
   "
 >
-  <ExternalLink className="w-4 h-4 mr-1" />
+  <ExternalLink className="w-4 h-4 mr-1 text-[#003087]" />
   View Profile
 </Button>
+
+
 
 
                     </div>
@@ -534,35 +537,24 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
                   </div>
                   {outcome.url && (
                     <a
-                      href={outcome.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        backgroundColor: "#1C2E5B",
-                        color: "white",
-                        textDecoration: "none",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        border: "1px solid #1C2E5B",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#0f1a3a";
-                        e.currentTarget.style.borderColor = "#0f1a3a";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#1C2E5B";
-                        e.currentTarget.style.borderColor = "#1C2E5B";
-                      }}
-                    >
-                      <Book className="w-4 h-4" />
-                      View Paper
-                    </a>
+  href={outcome.url}
+  target="_blank"
+  rel="noreferrer"
+  className="
+    inline-flex items-center gap-1.5
+    border border-gray-300
+    bg-white text-black
+    px-3 py-1.5 rounded-md
+    text-sm font-medium
+    hover:bg-gray-100
+    transition
+  "
+  style={{ textDecoration: "none" }}
+>
+  <Book className="w-4 h-4 mr-1 text-black" />
+  View Paper
+</a>
+
                   )}
                 </div>
 
