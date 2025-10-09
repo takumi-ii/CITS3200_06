@@ -104,16 +104,25 @@ useEffect(() => {
   return () => mq.removeEventListener("change", update);
 }, []);
 
-useEffect(() => {
-  const resetProfileView = () => {
-    setActiveTab("Overview");
-    panelRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  };
+const prevPersonId = React.useRef<string | null>(null);
+const didOpenOnce = React.useRef(false);
 
-  if (open) {
-    resetProfileView();
+useEffect(() => {
+  if (!open) return;
+
+  // always scroll to top when opening
+  panelRef.current?.scrollTo({ top: 0, behavior: "auto" });
+
+  const currId = person?.id ?? null;
+
+  // only reset the tab if we actually switched to a different person
+  if (didOpenOnce.current && prevPersonId.current && prevPersonId.current !== currId) {
+    setActiveTab("Overview");
   }
-}, [open, person]);
+
+  didOpenOnce.current = true;
+  prevPersonId.current = currId;
+}, [open, person?.id]);                  // ✅ depend on id, not the whole object
 
 const navigateToResearcher = (full: Researcher) => {
   if (pushProfile) {
