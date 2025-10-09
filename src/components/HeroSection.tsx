@@ -146,17 +146,17 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
     }
 
     /* 🔹 CTA button (consistent with desktop styling) */
-    .oi-hero .hero-mobile-cta {
-  background: #00AEEF !important;              /* Match desktop blue */
-  color: #002042 !important;                   /* Match desktop text color */
+.oi-hero .hero-mobile-cta {
+  background: rgba(0, 0, 0, 0.4) !important;   /* Black with lower opacity */
+  color: #FFFFFF !important;                   /* White text for contrast */
   font-family: 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
-  font-weight: bold !important;                /* Match desktop weight */
+  font-weight: bold !important;
   letter-spacing: 0.3px;
-  border: none !important;                     /* Remove border to match desktop */
-  padding: 0.75rem 1.25rem !important;        /* Match desktop padding */
-  font-size: 1rem !important;                 /* Match desktop size */
-  border-radius: 4px !important;              /* Match desktop border radius */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  border: 2px solid #FFFFFF !important;        /* White border */
+  padding: 0.75rem 1.25rem !important;
+  font-size: 1rem !important;
+  border-radius: 20px !important;              /* More rounded corners */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: 
     background 0.25s ease, 
     transform 0.15s ease, 
@@ -164,9 +164,9 @@ export default function HeroSection({ onExploreClick }: HeroSectionProps) {
 }
 
 .oi-hero .hero-mobile-cta:hover {
-  background: #0095cc;              /* Darker blue on hover */
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.8) !important;   /* Slightly darker on hover */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 
