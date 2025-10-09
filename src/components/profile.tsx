@@ -89,11 +89,15 @@ const [activeTab, setActiveTab] = useLocalStorageState<string>(
 );
 
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const [sharedOutputsModal, setSharedOutputsModal] = useState<{open: boolean, collaborator: any, outputs: any[]}>({
-    open: false,
-    collaborator: null,
-    outputs: []
-  });
+ const [sharedOutputsModal, setSharedOutputsModal] = useLocalStorageState<{
+  open: boolean;
+  collaborator: { id?: string; name?: string } | null;
+  outputs: any[];
+}>(
+  'profile.sharedOutputs',
+  { open: false, collaborator: null, outputs: [] }
+);
+
   const [loadingSharedOutputs, setLoadingSharedOutputs] = useState(false);
  const [isMobile, setIsMobile] = useState(false);
 useEffect(() => {
@@ -229,6 +233,29 @@ const awards = useMemo(
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // --- Forward backdrop scroll to panel ---
+const touchY = React.useRef<number | null>(null);
+
+const handleBackdropWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  if (!panelRef.current) return;
+  panelRef.current.scrollTop += e.deltaY;
+  e.preventDefault(); // 
+};
+
+const handleBackdropTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  touchY.current = e.touches[0].clientY;
+};
+
+const handleBackdropTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+  if (!panelRef.current || touchY.current == null) return;
+  const y = e.touches[0].clientY;
+  const dy = touchY.current - y;
+  panelRef.current.scrollTop += dy;
+  touchY.current = y;
+  e.preventDefault(); // stop background scroll
+};
+
+
   if (!open) return null;
   const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 3).map(c => {
   const r = mockResearchers.find(r => r.id === c.collaboratorId);
@@ -252,17 +279,22 @@ return createPortal(
    {/* Backdrop — desktop only */}
 {/* Backdrop for the PROFILE modal (works on all viewports) */}
 <div
-  onClick={onClose}  // ✅ close the profile
+  onClick={onClose}
+  onWheel={handleBackdropWheel}
+  onTouchStart={handleBackdropTouchStart}
+  onTouchMove={handleBackdropTouchMove}
   className="profile-backdrop"
   style={{
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.5)",
-    zIndex: 8000,     // ✅ below the panel (which is 2147483647)
-    pointerEvents: "auto",   // ✅ allow clicks
+    zIndex: 8000,
+    pointerEvents: "auto",     
+    overflow: "auto",          
+    overscrollBehavior: "none" 
   }}
-  aria-hidden="true"
 />
+
 
 
 
@@ -286,6 +318,9 @@ return createPortal(
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
+    maxHeight: '100vh',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain', // don't bubble to page
     ["--nav-offset" as any]: `${navOffset}px`,  // ✅ add this
   }}
 >
