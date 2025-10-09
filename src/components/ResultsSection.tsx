@@ -36,10 +36,15 @@ const [sortBy, setSortBy] = useLocalStorageState<'default'|'recent-publications'
 
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
-  // Reset to first page when sorting changes
-  useEffect(() => {
+  const didMount = useRef(false);
+  // only reset after the first render
+useEffect(() => {
+  if (didMount.current) {
     setCurrentPage(1);
-  }, [sortBy]);
+  } else {
+    didMount.current = true;
+  }
+}, [sortBy]);
 
   // Live data from central store (no fetching here)
 const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
