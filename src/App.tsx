@@ -56,9 +56,18 @@ const [filters, setFilters] = useLocalStorageState<{
 
 
 
-   const [profileOpen, setProfileOpen] = useState(false);
-   const [selectedResearcher, setSelectedResearcher] = useState<Researcher | null>(null);
-   const [profileHistory, setProfileHistory] = useState<Researcher[]>([]);
+   const [profileOpen, setProfileOpen] = useLocalStorageState<boolean>(
+  'app.profileOpen',
+  false
+);
+const [selectedResearcher, setSelectedResearcher] = useLocalStorageState<Researcher | null>(
+  'app.selectedResearcher',
+  null
+);
+const [profileHistory, setProfileHistory] = useLocalStorageState<Researcher[]>(
+  'app.profileHistory',
+  []
+);
    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
    const [MobileFilterOpen,setMobileFilterOpen] = useState(false);
    const toggleMobileFilter = useCallback(() => {
