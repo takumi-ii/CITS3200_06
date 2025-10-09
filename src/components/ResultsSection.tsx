@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -30,9 +30,10 @@ interface ResultsSectionProps {
 export default function ResultsSection({ searchQuery, filters, setProfileOpen, setSelectedResearcher ,dataSource}: ResultsSectionProps) {
 
   const resultsTopRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState('researchers');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState('default');
+  const [activeTab, setActiveTab] = useLocalStorageState<'researchers'|'outcomes'>('results.activeTab', 'researchers');
+const [currentPage, setCurrentPage] = useLocalStorageState<number>('results.page', 1);
+const [sortBy, setSortBy] = useLocalStorageState<'default'|'recent-publications'|'position-rank'>('results.sortBy', 'default');
+
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
   // Reset to first page when sorting changes
