@@ -8,6 +8,7 @@ import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
 import MobileFilterFullScreen from './components/MobileFilterFullScreen ';
+import { useLocalStorageState } from './hooks/useLocalStorageState';
 
 // src/main.tsx or src/main.jsx
 import './index.css';
@@ -24,13 +25,21 @@ useEffect(() => {
 }, []);
 
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    yearRange: [2020, 2024],
-    tags: [],
-    researchArea: ''
-  });
+  
+const [searchQuery, setSearchQuery] = useLocalStorageState<string>(
+  'app.searchQuery',
+  ''
+);
 
+const [filters, setFilters] = useLocalStorageState<{
+  yearRange: [number, number];
+  tags: string[];
+  researchArea: string; // '' means "all"
+}>('app.filters', {
+  yearRange: [2020, 2024],
+  tags: [],
+  researchArea: '' // keep consistent with your Select's 'all' mapping
+});
 
   
   //target to scroll to
