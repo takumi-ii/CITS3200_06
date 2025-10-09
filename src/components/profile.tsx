@@ -104,6 +104,19 @@ useEffect(() => {
   return () => mq.removeEventListener("change", update);
 }, []);
 
+useEffect(() => {
+  if (open) {
+    // Lock scrolling
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      // Restore scrolling when profile closes
+      document.body.style.overflow = originalStyle;
+    };
+  }
+}, [open]);
+
 const prevPersonId = React.useRef<string | null>(null);
 const didOpenOnce = React.useRef(false);
 
