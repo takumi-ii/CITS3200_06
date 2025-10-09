@@ -1119,15 +1119,7 @@ const collabsList = dataSource === "api"
                 {/* Title */}
                 <div style={{ fontWeight: 600, color: "#0b2a4a" }}>{g.title || "Untitled grant"}</div>
 
-                {/* Meta row */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-                  <span>{dateRange(g.startDate, g.endDate)}</span>
-                  {g.funder && (
-                    <span style={{ marginLeft: "auto", background: "#f1f5f9", border: "1px solid #e5e7eb", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
-                      {g.funder}
-                    </span>
-                  )}
-                </div>
+                
 
                 {/* Funding sources (optional) */}
                 {Array.isArray(g.fundingSources) && g.fundingSources.length > 0 && (
