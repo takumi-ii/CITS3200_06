@@ -8,6 +8,7 @@ import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api'
 import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '../data/api';
 import { Info,GraduationCap,Book,Users} from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 
 
 interface ProfileProps {
@@ -78,7 +79,15 @@ const displayAffiliation = (r: any) =>
 
 export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
-  const [activeTab, setActiveTab] = useState("Overview");
+ 
+// const [activeTab, setActiveTab] = useState("Overview");
+
+// AFTER
+const [activeTab, setActiveTab] = useLocalStorageState<string>(
+  'profile.activeTab',
+  'Overview'
+);
+
   const panelRef = React.useRef<HTMLDivElement>(null);
   const [sharedOutputsModal, setSharedOutputsModal] = useState<{open: boolean, collaborator: any, outputs: any[]}>({
     open: false,
