@@ -585,11 +585,19 @@ def api_research_outcomes():
     page = max(int(request.args.get("page", 1) or 1), 1)
     per_page = min(max(int(request.args.get("per_page", 12) or 12), 1), 50)
 
+    # NEW: parse optional year range
+    year_min = _to_int_or_none(request.args.get("year_min"))   # NEW
+    year_max = _to_int_or_none(request.args.get("year_max"))   # NEW
+
     with get_db() as conn:
         where = []
         params = []
         if q:
-            where.append("(LOWER(COALESCE(ro.name,'')) LIKE ? OR LOWER(COALESCE(ro.publisher_name,'')) LIKE ? OR LOWER(COALESCE(ro.journal_name,'')) LIKE ?)")
+            where.append("("
+                         "LOWER(COALESCE(ro.name,'')) LIKE ? OR "
+                         "LOWER(COALESCE(ro.publisher_name,'')) LIKE ? OR "
+                         "LOWER(COALESCE(ro.journal_name,'')) LIKE ?)"
+            )
             like = f"%{q}%"
             params += [like, like, like]
 
@@ -602,6 +610,14 @@ def api_research_outcomes():
                 or_clauses.append("LOWER(t.name) LIKE ?")
                 params.append(f"%{t}%")
             where.append("(" + " OR ".join(or_clauses) + ")")
+
+        # NEW: year range filters (inclusive)
+        if year_min is not None:
+            where.append("ro.publication_year >= ?")           # NEW
+            params.append(year_min)                             # NEW
+        if year_max is not None:
+            where.append("ro.publication_year <= ?")           # NEW
+            params.append(year_max)                             # NEW
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 

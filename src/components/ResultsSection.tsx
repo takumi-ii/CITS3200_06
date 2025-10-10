@@ -241,7 +241,7 @@ useEffect(() => {
     });
 
   return () => ac.abort();
-}, [searchQuery, filters.tags, sortBy, currentPage, dataSource]);
+}, [searchQuery, filters.tags, filters.yearRange, sortBy, currentPage, dataSource]);
 
 // Use server-provided items as the filtered/paginated researchers list
 const filteredResearchers = rItems;
@@ -258,12 +258,14 @@ const filteredResearchers = rItems;
     }
 
     const ac = new AbortController();
-    const params = new URLSearchParams({
-      q: searchQuery || "",
-      tags: (filters.tags || []).join(","),
-      page: String(currentPage),
-      per_page: String(PER_PAGE),
-    });
+   const params = new URLSearchParams({
+  q: searchQuery || "",
+  tags: (filters.tags || []).join(","),
+  page: String(currentPage),
+  per_page: String(PER_PAGE),
+  year_min: String(filters.yearRange[0]),
+  year_max: String(filters.yearRange[1]),
+});
 
     fetch(`/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
       .then(r => {
@@ -280,7 +282,7 @@ const filteredResearchers = rItems;
       });
 
     return () => ac.abort();
-  }, [searchQuery, filters.tags, currentPage, dataSource]);
+ }, [searchQuery, filters.tags, filters.yearRange, currentPage, dataSource]);
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
