@@ -1112,6 +1112,32 @@ def outcomes_for_researcher(rid: string):
             "per_page": per_page,
         })
 
+@app.route("/api/researchers/<rid>/outputs")
+def outputs_for_researcher(rid: str):
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT
+              ro.uuid AS id,
+              ro.name AS title,
+              ro.journal_name AS journal,
+              ro.publication_year AS year,
+              COALESCE(ro.num_citations,0) AS citations,
+              COALESCE(ro.abstract,'') AS abstract
+            FROM OIResearchOutputs ro
+            JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
+            WHERE c.researcher_uuid = ?
+            ORDER BY (ro.publication_year IS NULL), ro.publication_year DESC, ro.rowid DESC
+        """, (rid,)).fetchall()
+        
+        results = [dict(r) for r in rows]
+        
+        # 🟡 Add this line to log what’s returned:
+        print(f"[DEBUG] Returning {len(results)} outputs for researcher {rid}")
+        for i, r in enumerate(results[:5]):  # only show first 5 for safety
+            print(f"  [{i+1}] {r.get('title')} ({r.get('year')})")
+        
+        return jsonify(results)
+
 # ------------------ end API routes ------------------
 
 # SPA catch-all route (MUST be last so API routes win)

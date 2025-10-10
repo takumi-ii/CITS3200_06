@@ -9,6 +9,7 @@ import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '..
 import { Info,GraduationCap,Book,Users} from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { fetchOutputsForResearcher } from "../data/api";
 
 
 interface ProfileProps {
@@ -79,6 +80,7 @@ const displayAffiliation = (r: any) =>
 
 export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
+  const [researchOutputs, setResearchOutputs] = useState<any[]>([]);
  
 // const [activeTab, setActiveTab] = useState("Overview");
 
@@ -232,6 +234,20 @@ const awards = useMemo(
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+
+
+
+useEffect(() => {
+  if (dataSource === 'api' && person?.id) {
+    fetchOutputsForResearcher(person.id)
+      .then(setResearchOutputs)
+      .catch(err => {
+        console.error("Failed to load researcher outputs", err);
+        setResearchOutputs([]);
+      });
+  }
+}, [person?.id, dataSource]);
 
   // --- Forward backdrop scroll to panel ---
 const touchY = React.useRef<number | null>(null);
@@ -880,6 +896,9 @@ const collabsList = dataSource === "api"
 )}
 {/* RESEARCH OUTPUTS CONTENT ONLY */}
 {activeTab === "Research Outputs" && (
+
+
+
   <div style={{ marginTop: 16 }}>
     {(() => {
       // --- helpers ----------------------------------------------------------
@@ -911,16 +930,25 @@ const collabsList = dataSource === "api"
 
       // --- compute outputs once --------------------------------------------
       // MOCK path: keep your existing publicationIds -> mockResearchOutcomes
-      // API path: derive from the already-loaded store outcomes by author match
+      // API path: derive from the already-fetched `researchOutputs` state by author match
       let outputs: any[] = [];
 
       if (isApi) {
-        // IMPORTANT: import getAllOutcomes from ../data/api at the top of Profile.tsx
-        //   import { getAllOutcomes, subscribe } from '../data/api';
-        const all = getAllOutcomes();
-        outputs = all
-          .filter(o => authoredBy(o, person))
-          .sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+        // Use the `researchOutputs` state (populated via fetchOutputsForResearcher)
+        // `researchOutputs` is a component state defined near the top of this file.
+        outputs = (researchOutputs || [])
+          .map((o: any) => ({
+            id: o.id ?? o.uuid,
+            title: o.title ?? o.name ?? 'Untitled',
+            journal: o.journal ?? o.publisher ?? '',
+            year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+            url: o.url ?? null,
+            authors: Array.isArray(o.authors) ? o.authors : [],
+            // include any remaining fields the UI expects
+            ...o,
+          }))
+          .filter(() => true)
+          .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
       } else {
         // IMPORTANT: import mockResearchOutcomes from ../data/mockData
         //   import { mockResearchOutcomes } from '../data/mockData';

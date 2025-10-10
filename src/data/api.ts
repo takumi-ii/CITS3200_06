@@ -307,3 +307,20 @@ export function getOutcomesForResearcher(r: { id?: ID; uuid?: ID; name?: string 
     );
   });
 }
+
+
+export async function fetchOutputsForResearcher(id: string) {
+  const r = await fetch(`/api/researchers/${id}/outputs`);
+  if (!r.ok) throw new Error("Failed to load outputs");
+  const raw = await r.json();
+  const arr = Array.isArray(raw) ? raw : (Array.isArray(raw?.outputs) ? raw.outputs : []);
+  return arr.map((o: any) => ({
+    id: o.id ?? o.uuid,
+    title: o.title ?? o.name ?? 'Untitled',
+    journal: o.journal ?? o.publisher ?? '',
+    year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+    url: o.url ?? null,
+    authors: Array.isArray(o.authors) ? o.authors : [],
+    ...o,
+  }));
+}
