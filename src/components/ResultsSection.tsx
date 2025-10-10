@@ -591,9 +591,9 @@ const filteredResearchers = rItems;
                       {outcome.citations && <span>{outcome.citations} citations</span>}
                     </div>
                   </div>
-                  {outcome.url && (
+                  {outcome.link_to_paper && (
                     <a
-  href={outcome.url}
+  href={outcome.link_to_paper}
   target="_blank"
   rel="noreferrer"
   className="

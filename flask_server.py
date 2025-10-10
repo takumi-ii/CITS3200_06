@@ -1014,6 +1014,104 @@ def pure_proxy(resource: str):
         return (resp.content, resp.status_code, {"Content-Type": resp.headers.get("Content-Type", "application/json")})
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 502
+
+
+
+@app.get("/api/researchers/<rid>/outcomes")
+def outcomes_for_researcher(rid: string):
+    """
+    Paginated research outputs for a single researcher.
+    Query params:
+      - page: 1-based page number (default 1)
+      - per_page: items per page (default 25, max 100)
+      - order: 'year-desc' (default) | 'year-asc' | 'title'
+    Response: { items: [...], total: int, page: int, per_page: int }
+    """
+    try:
+        page = max(int(request.args.get("page", 1) or 1), 1)
+    except ValueError:
+        page = 1
+
+    try:
+        per_page = min(max(int(request.args.get("per_page", 25) or 25), 1), 100)
+    except ValueError:
+        per_page = 25
+
+    order = (request.args.get("order", "year-desc") or "year-desc").lower()
+    if order == "year-asc":
+        order_by = " (ro.publication_year IS NULL) ASC, ro.publication_year ASC, ro.rowid ASC "
+    elif order == "title":
+        order_by = " LOWER(COALESCE(ro.name, '')) ASC, ro.rowid DESC "
+    else:
+        # default: newest first, then stable by rowid
+        order_by = " (ro.publication_year IS NULL) ASC, ro.publication_year DESC, ro.rowid DESC "
+
+    offset = (page - 1) * per_page
+
+    with get_db() as conn:
+        # total distinct outputs for this researcher
+        total = conn.execute(
+            """
+            SELECT COUNT(DISTINCT ro.uuid) AS c
+            FROM OIResearchOutputs ro
+            JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
+            WHERE c.researcher_uuid = ?
+            """,
+            (rid,),
+        ).fetchone()["c"]
+
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT
+              ro.uuid                         AS id,
+              COALESCE(ro.name, '')           AS title,
+              COALESCE(ro.journal_name, '')   AS journal,
+              ro.publication_year             AS year,
+              NULL                            AS url   -- fill if you have doi/url columns
+            FROM OIResearchOutputs ro
+            JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
+            WHERE c.researcher_uuid = ?
+            ORDER BY {order_by}
+            LIMIT ? OFFSET ?
+            """,
+            (rid, per_page, offset),
+        ).fetchall()
+
+        items = []
+        # Optional: attach authors for each output (so UI can show chips)
+        for r in rows:
+            authors = conn.execute(
+                """
+                SELECT
+                  m.uuid AS id,
+                  COALESCE(m.name, '') AS name
+                FROM OIResearchOutputsCollaborators cc
+                LEFT JOIN OIMembers m ON m.uuid = cc.researcher_uuid
+                WHERE cc.ro_uuid = ?
+                ORDER BY LOWER(COALESCE(m.name, '')) ASC
+                """,
+                (r["id"],),
+            ).fetchall()
+
+            items.append({
+                "id": r["id"],
+                "title": r["title"],
+                "journal": r["journal"],
+                "year": r["year"],
+                "url": r["url"],
+                "authors": [dict(a) for a in authors],
+                # keep a minimal, stable shape your UI expects
+                "keywords": [],  # add if/when you have them
+                "type": None,
+            })
+
+        return jsonify({
+            "items": items,
+            "total": int(total or 0),
+            "page": page,
+            "per_page": per_page,
+        })
+
 # ------------------ end API routes ------------------
 
 # SPA catch-all route (MUST be last so API routes win)
