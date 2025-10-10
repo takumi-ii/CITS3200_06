@@ -1138,6 +1138,123 @@ def outputs_for_researcher(rid: str):
         
         return jsonify(results)
 
+# --- NEW: single researcher (full shape used by Results list) -----------------
+@app.get("/api/researchers/<rid>")
+def api_researcher_one(rid: str):
+    """
+    Returns a single researcher object with the same fields as /api/researchers items,
+    plus a small 'recentPublications' list and 'fingerprints'.
+    """
+    try:
+        with get_db() as conn:
+            # Base person + meta + expertise + last_pub_year (matches /api/researchers)
+            row = conn.execute("""
+              WITH exp AS (
+                SELECT researcher_uuid, GROUP_CONCAT(field, '||') AS expertise_concat
+                FROM OIExpertise GROUP BY researcher_uuid
+              ),
+              labels AS (
+                SELECT
+                  researcher_uuid,
+                  MAX(CASE WHEN label='promote' THEN COALESCE(weight,0) END) AS promote_weight
+                FROM OIMemberLabels
+                WHERE (starts_at IS NULL OR DATE(starts_at) <= DATE('now'))
+                  AND (expires_at IS NULL OR DATE(expires_at) >= DATE('now'))
+                GROUP BY researcher_uuid
+              ),
+              pubs AS (
+                SELECT
+                  c.researcher_uuid AS rid,
+                  MAX(ro.publication_year) AS last_pub_year
+                FROM OIResearchOutputsCollaborators c
+                JOIN OIResearchOutputs ro ON ro.uuid = c.ro_uuid
+                GROUP BY c.researcher_uuid
+              )
+              SELECT
+                m.uuid AS id,
+                m.name,
+                COALESCE(m.first_title,'') AS title,
+                COALESCE(m.position,'') AS role,
+                COALESCE(m.main_research_area,'') AS department,
+                NULLIF(m.email,'') AS email,
+                NULLIF(m.phone,'') AS phone,
+                NULLIF(m.photo_url,'') AS photoUrl,
+                NULLIF(m.profile_url,'') AS profileUrl,
+                COALESCE(meta.num_research_outputs,0) AS publicationsCount,
+                COALESCE(meta.num_grants,0) AS grantsCount,
+                COALESCE(meta.num_collaborations,0) AS collaboratorsCount,
+                COALESCE(m.bio,'') AS bio,
+                COALESCE(e.expertise_concat,'') AS expertise_concat,
+                l.promote_weight,
+                pubs.last_pub_year
+              FROM OIMembers m
+              LEFT JOIN OIMembersMetaInfo meta ON meta.researcher_uuid = m.uuid
+              LEFT JOIN exp e ON e.researcher_uuid = m.uuid
+              LEFT JOIN labels l ON l.researcher_uuid = m.uuid
+              LEFT JOIN pubs   ON pubs.rid = m.uuid
+              WHERE m.uuid = ?
+            """, (rid,)).fetchone()
+
+            if not row:
+                return jsonify({"error": "not found"}), 404
+
+            expertise = (row["expertise_concat"] or "").split("||") if row["expertise_concat"] else []
+
+            # Recent publications (small N)
+            recents = conn.execute("""
+              SELECT ro.name AS title, ro.journal_name AS journal, ro.publication_year AS year
+              FROM OIResearchOutputs ro
+              JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
+              WHERE c.researcher_uuid = ?
+              ORDER BY (ro.publication_year IS NULL) ASC, ro.publication_year DESC, ro.rowid DESC
+              LIMIT 6
+            """, (rid,)).fetchall()
+
+            recentPublications = [
+                {"title": r["title"] or "Untitled", "journal": r["journal"] or "", "year": r["year"]}
+                for r in recents
+            ]
+
+            # Fingerprints (reuse the same SQL as /api/researchers/<rid>/fingerprints)
+            fps = conn.execute("""
+              SELECT
+                f.concept_uuid       AS conceptId,
+                COALESCE(c.name, '') AS conceptName,
+                f.weightedRank       AS score,
+                f.rank,
+                f.frequency
+              FROM OIFingerprints f
+              LEFT JOIN ALLConcepts c ON c.uuid = f.concept_uuid
+              WHERE f.origin_uuid = ?
+              ORDER BY f.rank ASC, f.weightedRank DESC
+              LIMIT 50
+            """, (rid,)).fetchall()
+
+            return jsonify({
+                "id": row["id"],
+                "name": row["name"],
+                "title": row["title"],
+                "role": row["role"],
+                "department": row["department"],
+                "email": row["email"],
+                "phone": row["phone"],
+                "photoUrl": row["photoUrl"],
+                "profileUrl": row["profileUrl"],
+                "publicationsCount": int(row["publicationsCount"] or 0),
+                "grantsCount": int(row["grantsCount"] or 0),
+                "collaboratorsCount": int(row["collaboratorsCount"] or 0),
+                "bio": row["bio"],
+                "expertise": expertise,
+                "recentPublications": recentPublications or [{"title": "Untitled", "journal": "", "year": None}],
+                "grantIds": [],
+                "collaboratorIds": [],
+                "awardIds": [],
+                "fingerprints": [dict(x) for x in fps],
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ------------------ end API routes ------------------
 
 # SPA catch-all route (MUST be last so API routes win)

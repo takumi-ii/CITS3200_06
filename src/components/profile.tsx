@@ -26,6 +26,20 @@ interface ProfileProps {
 }
 
 
+// helper to resolve researcher object by ID from the API or mock data
+const resolveResearcher = (id?: string): Researcher | null => {
+  if (!id) return null;
+  // for mock mode
+  const found = mockResearchers.find(r => r.id === id);
+  if (found) return found;
+
+  // for API mode (if you cached researchers)
+  const apiList = getAllResearchers?.() ?? [];
+  const apiFound = apiList.find((r: any) => r.id === id || r.uuid === id);
+  return apiFound || null;
+};
+
+
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
 const dateRange = (s?: string | null, e?: string | null) =>
   s && e ? `${fmt(s)} – ${fmt(e)}` : s ? `${fmt(s)} –` : e ? `– ${fmt(e)}` : "Dates TBD";
@@ -279,15 +293,6 @@ const handleBackdropTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
 });
 
 // inside Profile component
-const resolveResearcher = (rid?: string) => {
-  if (!rid) return null;
-  if (dataSource === 'api') {
-    const all = getAllResearchers();                 // live store snapshot
-    return all.find((r: any) => r.id === rid || r.uuid === rid) || null;
-  }
-  // mock path
-  return mockResearchers.find(r => r.id === rid) || null;
-};
 
 
 return createPortal(
@@ -727,18 +732,26 @@ type CollabLike = {
 };
 
 const collabsList = dataSource === "api"
-  ? collabs.map((c: any) => ({
-      id: c.collaboratorId,
-      name: c.name,
-      title: c.title,
-      email: c.email,
-      institution: c.institution,
-      department: c.department,
-      affiliation: c.affiliation,
-      photoUrl: c.photo_url,
-      total: c.total,
-      
-    }))
+  ? collabs.map((c: any) => {
+      const id =
+        c.collaboratorId ||
+        c.collaborator_uuid ||
+        c.id ||
+        c.uuid ||
+        null;
+
+      return {
+        id,
+        name: c.name,
+        title: c.title,
+        email: c.email,
+        institution: c.institution,
+        department: c.department,
+        affiliation: c.affiliation,
+        photoUrl: c.photo_url,
+        total: c.total,
+      };
+    })
   : (person?.id
       ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
           const r = mockResearchers.find(r => r.id === c.collaboratorId);
@@ -791,13 +804,37 @@ const collabsList = dataSource === "api"
             return (
               <div
                 key={c.id ?? `${name}-${i}`}
-                onClick={() => {
-  const full = resolveResearcher(c.id /* or r.id */);
+               onClick={() => {
+  const id = c.id;
+  const name = c.name ?? 'Unknown';
+
+  // Try existing resolver first (works in mock / cached API)
+  const full = resolveResearcher(id);
+
   if (full) {
     if (dataSource === 'api') preloadProfile(full.id);
     navigateToResearcher(full);
+    return;
   }
+
+ if (dataSource === 'api' && id) {
+  // Try to load a full object to match Results list behavior
+  fetch(`/api/researchers/${id}`)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then((full) => {
+      // optional: preload grants/awards/outcomes by id
+      preloadProfile(full.id);
+      navigateToResearcher(full);
+    })
+    .catch(() => {
+      // last-resort fallback so the UI still opens
+      preloadProfile(id);
+      navigateToResearcher({ id, name } as Researcher);
+    });
+}
+
 }}
+
 
                 style={{
                   flex: "0 0 auto",
@@ -1388,35 +1425,48 @@ const collabsList = dataSource === "api"
       if (!person?.id) return null;
 
      // Build rows from API when dataSource === 'api'; otherwise use mock index
-const rows: CollabRow[] = (dataSource === "api"
-  ? (collabs || []).map((c: any): CollabRow => ({
-      id: c.collaboratorId,
-      name: c.name ?? c.collaboratorId,
-      email: c.email ?? undefined,
-      title: c.title ?? undefined,
-      total: c.total ?? c.pubCount ?? 0,
-      pubCount: c.pubCount ?? c.total ?? 0,
-      grantCount: c.grantCount ?? 0,
-      photoUrl: c.photo_url,              // ✅ API → camelCase
-    }))
-  : getAllCollaboratorsFor(person.id, collabIdx)
-      .map(c => {
-        const r = findResearcher(c.collaboratorId);
-        return r && ({
-          id: r.id,
-          name: r.name,
-          email: r.email,
-          title: r.title,
-          institution: r.institution,
-          department: r.department,
-          total: c.total,
-          pubCount: c.pubCount,
-          grantCount: c.grantCount,
-          photoUrl: r.photoUrl,           // ✅ use r.photoUrl (not c.photoUrl)
-        } as CollabRow);
+const rows: CollabRow[] = (
+  dataSource === "api"
+    ? (collabs || []).map((c: any): CollabRow => {
+        const id =
+          c.collaboratorId ??
+          c.collaborator_uuid ??
+          c.id ??
+          c.uuid ??
+          "";
+
+        return {
+          id,
+          name: c.name ?? id,
+          email: c.email ?? undefined,
+          title: c.title ?? undefined,
+          institution: c.institution ?? undefined,
+          department: c.department ?? undefined,
+          total: c.total ?? c.pubCount ?? 0,
+          pubCount: c.pubCount ?? c.total ?? 0,
+          grantCount: c.grantCount ?? 0,
+          photoUrl: c.photo_url ?? c.photoUrl,
+        };
       })
-      .filter(Boolean) as CollabRow[]
+    : getAllCollaboratorsFor(person!.id, collabIdx)
+        .map(c => {
+          const r = findResearcher(c.collaboratorId);
+          return r && ({
+            id: r.id,
+            name: r.name,
+            email: r.email,
+            title: r.title,
+            institution: r.institution,
+            department: r.department,
+            total: c.total,
+            pubCount: c.pubCount,
+            grantCount: c.grantCount,
+            photoUrl: r.photoUrl,
+          } as CollabRow);
+        })
+        .filter(Boolean) as CollabRow[]
 );
+
 console.log('collab row sample', rows[0]);
 
       // Sort strongest-first
