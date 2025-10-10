@@ -541,7 +541,7 @@ def api_researchers():
           JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
           WHERE c.researcher_uuid = ?
           ORDER BY (ro.publication_year IS NULL) ASC, ro.publication_year DESC, ro.rowid DESC
-          LIMIT 2
+          LIMIT 6
         """
         for r in rows:
             total = r["total"]
