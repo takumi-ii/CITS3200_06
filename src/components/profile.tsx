@@ -1498,13 +1498,37 @@ console.log('collab row sample', rows[0]);
               return (
               <div
                 key={r.id}
-                  onClick={() => {
-  const full = resolveResearcher(r.id /* or r.id */);
+               onClick={() => {
+  const id = r.id;
+  const name = r.name ?? 'Unknown';
+
+  // Try existing resolver first (works in mock / cached API)
+  const full = resolveResearcher(id);
+
   if (full) {
     if (dataSource === 'api') preloadProfile(full.id);
     navigateToResearcher(full);
+    return;
   }
+
+ if (dataSource === 'api' && id) {
+  // Try to load a full object to match Results list behavior
+  fetch(`/api/researchers/${id}`)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then((full) => {
+      // optional: preload grants/awards/outcomes by id
+      preloadProfile(full.id);
+      navigateToResearcher(full);
+    })
+    .catch(() => {
+      // last-resort fallback so the UI still opens
+      preloadProfile(id);
+      navigateToResearcher({ id, name } as Researcher);
+    });
+}
+
 }}
+
 
             style={{
     background: isExternal ? "#f8fafc" : "#fff",
