@@ -46,6 +46,13 @@ useEffect(() => {
   }
 }, [sortBy]);
 
+// Also reset page to 1 when the search query or tag filters change (after initial mount)
+useEffect(() => {
+  if (didMount.current) {
+    setCurrentPage(1);
+  }
+}, [searchQuery, filters.tags]);
+
   // Live data from central store (no fetching here)
 const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
 const [outcomes, setOutcomes] = useState<any[]>(getAllOutcomes());
@@ -72,10 +79,11 @@ useEffect(() => {
 }, [handleStoreChange]);
   // Choose live data if available; otherwise use mocks (only when no active search)
 const q = (searchQuery || '').toLowerCase();
+const [rItems, setRItems] = useState<any[]>([]);
+const [rTotal, setRTotal] = useState(0);
+const [oItems, setOItems] = useState<any[]>([]);
+const [oTotal, setOTotal] = useState(0);
 
-// base arrays: real store data or mocks, depending on dataSource
-const sourceResearchers = dataSource === 'mock' ? mockResearchers : researchers;
-const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcomes;
 
 // Sorting functions
 const sortResearchers = (researchers: any[], sortOption: string) => {
@@ -195,48 +203,84 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
   }
 };
 
-// --- Filter, group (promote/no_show), and sort ---
-const visibleResearchers = sourceResearchers.filter((researcher: any) => {
-  const labels: string[] = Array.isArray(researcher.labels) ? researcher.labels : [];
+// Researchers are now fetched from an API endpoint. The client drives q/tags/sort/page.
+// Results are stored in rItems and rTotal (server-side pagination + promote/exclude handled server-side).
+useEffect(() => {
+  // If using local/mock data source, just populate from the mock set
+  if (dataSource !== 'api') {
+    const mockFiltered = mockResearchers || [];
+    setRItems(mockFiltered);
+    setRTotal(mockFiltered.length);
+    return;
+  }
 
-  // 🔹 Drop any researcher with the no_show label or explicit flag
-  if (researcher.noShow === true || labels.includes("no_show")) return false;
+  const ac = new AbortController();
+  const params = new URLSearchParams({
+    q: searchQuery || "",
+    tags: (filters.tags || []).join(","),
+    sort: sortBy,
+    page: String(currentPage),
+    per_page: String(PER_PAGE),
+    promote_first: "true",
+    exclude_no_show: "true",
+  });
 
-  const matchesQuery =
-    !q ||
-    (researcher.name || "").toLowerCase().includes(q) ||
-    (researcher.expertise || []).some((exp: string) =>
-      (exp || "").toLowerCase().includes(q)
-    );
+  fetch(`/api/researchers?${params.toString()}`, { signal: ac.signal })
+    .then(r => {
+      if (!r.ok) throw new Error('Network response was not ok');
+      return r.json();
+    })
+    .then(({ items, total }) => {
+      setRItems(items || []);
+      setRTotal(total || 0);
+    })
+    .catch((err) => {
+      if (err.name === 'AbortError') return;
+      // swallow other errors but log for debugging
+      console.error('Failed to fetch researchers', err);
+    });
 
-  const matchesTags =
-    (filters.tags?.length ?? 0) === 0 ||
-    filters.tags.some((tag) =>
-      (researcher.expertise || []).some((exp: string) =>
-        (exp || "").toLowerCase().includes((tag || "").toLowerCase())
-      )
-    );
+  return () => ac.abort();
+}, [searchQuery, filters.tags, sortBy, currentPage, dataSource]);
 
-  return matchesQuery && matchesTags;
-});
+// Use server-provided items as the filtered/paginated researchers list
+const filteredResearchers = rItems;
 
-// 🔹 Split promoted vs non-promoted
-const promoted = visibleResearchers.filter((r) => {
-  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
-  return labels.includes("promote") || r.primaryLabel === "promote";
-});
+  const sourceOutcomes = (outcomes && outcomes.length) ? outcomes : mockResearchOutcomes;
 
-const nonPromoted = visibleResearchers.filter((r) => {
-  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
-  return !labels.includes("promote") && r.primaryLabel !== "promote";
-});
+  // If using API, fetch outcomes for the list view (server handles filtering/pagination)
+  useEffect(() => {
+    if (dataSource !== 'api') {
+      const fallback = sourceOutcomes || [];
+      setOItems(fallback);
+      setOTotal(fallback.length);
+      return;
+    }
 
-// 🔹 Sort each subset using your existing sort logic
-const sortedPromoted = sortResearchers(promoted, sortBy);
-const sortedNonPromoted = sortResearchers(nonPromoted, sortBy);
+    const ac = new AbortController();
+    const params = new URLSearchParams({
+      q: searchQuery || "",
+      tags: (filters.tags || []).join(","),
+      page: String(currentPage),
+      per_page: String(PER_PAGE),
+    });
 
-// 🔹 Combine promoted first
-const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
+    fetch(`/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
+      .then(r => {
+        if (!r.ok) throw new Error('Network response was not ok');
+        return r.json();
+      })
+      .then(({ items, total }) => {
+        setOItems(items || []);
+        setOTotal(total || 0);
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        console.error('Failed to fetch outcomes', err);
+      });
+
+    return () => ac.abort();
+  }, [searchQuery, filters.tags, currentPage, dataSource]);
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -266,8 +310,8 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
     return matchesQuery && matchesTags && matchesYear;
   });
 
-  const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
-  const totalPagesOutcomes  = Math.max(1, Math.ceil(filteredOutcomes.length / PER_PAGE));
+  const totalPagesResearchers = Math.max(1, Math.ceil(rTotal / PER_PAGE));
+  const totalPagesOutcomes  = Math.max(1, Math.ceil((dataSource === 'api' ? oTotal : filteredOutcomes.length) / PER_PAGE));
   const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
 
   const HEADER_OFFSET = 300;
@@ -280,8 +324,9 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
   const startIndex = (currentPage - 1) * PER_PAGE;
   const endIndex = startIndex + PER_PAGE;
-  const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
-  const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
+  const paginatedOutcomes = dataSource === 'api' ? oItems : filteredOutcomes.slice(startIndex, endIndex);
+  // rItems is already server-paginated for the requested page when dataSource==='api'
+  const paginatedResearchers  = rItems;
 
 
   
@@ -291,15 +336,15 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
      
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
-     <TabsTrigger value="researchers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
-  <Users className="w-4 h-4" />
-  Researchers ({filteredResearchers.length})
-</TabsTrigger>
-<TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
-  <BookOpen className="w-4 h-4" />
-  Research Outcomes ({filteredOutcomes.length})
-</TabsTrigger>
+         <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
+         <TabsTrigger value="researchers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
+      <Users className="w-4 h-4" />
+      Researchers ({dataSource === 'api' ? rTotal : filteredResearchers.length})
+    </TabsTrigger>
+    <TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
+      <BookOpen className="w-4 h-4" />
+      Research Outcomes ({dataSource === 'api' ? oTotal : filteredOutcomes.length})
+    </TabsTrigger>
 
 
 
@@ -376,7 +421,7 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
         </div>
        <p className="text-gray-600">
   <p className="text-gray-600">
-  Found {filteredResearchers.length} researchers and {filteredOutcomes.length} research outcomes
+  Found {dataSource === 'api' ? rTotal : filteredResearchers.length} researchers and {dataSource === 'api' ? oTotal : filteredOutcomes.length} research outcomes
 </p>
 
 </p>
