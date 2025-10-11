@@ -214,6 +214,24 @@ useEffect(() => {
   return () => unsub();
 }, []);
 const [collabs, setCollabs] = useState<any[]>([]);
+// per-output abstract expanded state
+const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolean>>({});
+
+const toggleAbstract = (id: string) => {
+  setExpandedAbstracts(prev => ({ ...prev, [id]: !prev[id] }));
+};
+
+// Search for research outputs
+const [searchQuery, setSearchQuery] = useState("");
+const [debouncedQuery, setDebouncedQuery] = useState("");
+useEffect(() => {
+  const t = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 250);
+  return () => clearTimeout(t);
+}, [searchQuery]);
+
+const onSearchChange = (v: string) => {
+  setSearchQuery(v);
+};
 
 useEffect(() => {
   if (!person?.id) { setCollabs([]); return; }
@@ -1031,22 +1049,42 @@ const collabsList = dataSource === "api"
           .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
       }
 
+      // apply search filter
+      const filteredOutputs = debouncedQuery
+        ? outputs.filter(o => {
+            const t = (o.title || "").toString().toLowerCase();
+            const a = (o.abstract || "").toString().toLowerCase();
+            return t.includes(debouncedQuery) || a.includes(debouncedQuery);
+          })
+        : outputs;
+
       return (
         <>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>Research Outputs</div>
-            <div style={{ color: "#6b7280", fontSize: 13 }}>({outputs.length})</div>
-          </div>
+              {/* Header */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  <div style={{ fontWeight: 600, fontSize: 16 }}>Research Outputs</div>
+                  <div style={{ color: "#6b7280", fontSize: 13 }}>({filteredOutputs.length})</div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    type="search"
+                    placeholder="Search title or abstract"
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+                  />
+                </div>
+              </div>
 
           {/* Empty state */}
-          {!outputs.length && (
+          {!filteredOutputs.length && (
             <div style={{ color: "#9ca3af" }}>No research outputs for this researcher.</div>
           )}
 
           {/* List */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            {outputs.map(o => (
+            {filteredOutputs.map(o => (
               <div
                 key={o.id}
                 style={{
@@ -1131,14 +1169,45 @@ const collabsList = dataSource === "api"
                   </div>
                 )}
 
-                {/* Abstract (collapsible) */}
+                {/* Abstract (2-line clamp + expand) */}
                 {typeof o.abstract === "string" && o.abstract.trim().length > 0 && (
-                  <details style={{ marginTop: 8 }}>
-                    <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>Show abstract</summary>
-                    <div style={{ color: "#374151", fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap" }}>
+                  <div style={{ marginTop: 8 }}>
+                    <div
+                      style={{
+                        color: "#374151",
+                        fontSize: 14,
+                        marginTop: 6,
+                        whiteSpace: 'pre-wrap',
+                        display: '-webkit-box',
+                        WebkitLineClamp: expandedAbstracts[o.id] ? 'none' : 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
                       {o.abstract}
                     </div>
-                  </details>
+
+                    <div style={{ marginTop: 6 }}>
+                      {!expandedAbstracts[o.id] ? (
+                        <button
+                          onClick={() => toggleAbstract(o.id)}
+                          aria-label={`Read more abstract for ${o.title || 'publication'}`}
+                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0 }}
+                        >
+                          Read more
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => toggleAbstract(o.id)}
+                          aria-label={`Hide abstract for ${o.title || 'publication'}`}
+                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0 }}
+                        >
+                          Hide
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {/* Keywords */}
