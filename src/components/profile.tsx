@@ -6,7 +6,7 @@ import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUti
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '../data/api';
-import { Info,GraduationCap,Book,Users} from "lucide-react";
+import { Info,GraduationCap,Book,Users, Maximize2, Minimize2 } from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fetchOutputsForResearcher } from "../data/api";
@@ -123,6 +123,19 @@ useEffect(() => {
   mq.addEventListener("change", update);
   return () => mq.removeEventListener("change", update);
 }, []);
+
+// Biography expand/collapse
+const BIO_WORD_LIMIT = 250;
+const [bioExpanded, setBioExpanded] = useState(false);
+const bioText = person?.bio ?? "";
+const bioWords = useMemo(() => (bioText ? bioText.trim().split(/\s+/) : []), [bioText]);
+const bioTooLong = bioWords.length > BIO_WORD_LIMIT;
+const bioExcerpt = bioTooLong ? bioWords.slice(0, BIO_WORD_LIMIT).join(" ") + '…' : bioText;
+
+// reset expansion when switching person
+useEffect(() => {
+  setBioExpanded(false);
+}, [person?.id]);
 
 useEffect(() => {
   if (open) {
@@ -336,11 +349,10 @@ return createPortal(
     borderRadius: 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
     zIndex: 8100,
-    overflowY: "auto",
     display: "flex",
     flexDirection: "column",
     maxHeight: '100vh',
-    overflowY: 'auto',
+    overflowY: "auto",
     overscrollBehavior: 'contain', // don't bubble to page
     ["--nav-offset" as any]: `${navOffset}px`,  // ✅ add this
   }}
@@ -502,15 +514,39 @@ return createPortal(
     >
   
 
-<div className="flex items-center gap-2 py-2 border-b border-gray-100">
+<div className="flex items-center justify-between gap-2 py-2 border-b border-gray-100">
   <span className="font-semibold text-gray-800">Biography:</span>
-  
+  {bioTooLong ? (
+    <button
+      onClick={() => setBioExpanded(x => !x)}
+      aria-expanded={bioExpanded}
+      aria-label={bioExpanded ? 'Collapse biography' : 'Expand biography'}
+      style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center' }}
+    >
+  {bioExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+    </button>
+  ) : null}
 </div>
 
 
       <div style={{ height: 1, background: "#f1f5f9", marginBottom: 12 }} /> {/* thin divider */}
-      <div style={{ color: person?.bio ? "#374151" : "#9ca3af" }}>
-        {person?.bio || "Empty"}
+      <div style={{ color: person?.bio ? "#374151" : "#9ca3af", display: 'block' }}>
+        <div style={{ whiteSpace: 'pre-wrap' }}>
+          {bioTooLong && !bioExpanded ? (
+            <>
+              {bioExcerpt}
+              <button
+                onClick={() => setBioExpanded(true)}
+                aria-label="Read more biography"
+                style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', marginLeft: 6, padding: 0 }}
+              >
+                Read more
+              </button>
+            </>
+          ) : (
+            <>{bioText || "Empty"}</>
+          )}
+        </div>
       </div>
     </div>
     {/* Expertise card */}
@@ -535,10 +571,10 @@ return createPortal(
 
  
 
-{(person?.fingerprints?.length || person?.expertise?.length) ? (
+{(safeArray((person as any)?.fingerprints).length || safeArray((person as any)?.expertise).length) ? (
   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
     {/* 🔹 Fingerprint concepts first */}
-    {(person.fingerprints || [])
+  {safeArray((person as any)?.fingerprints)
       .filter((fp: any) => fp.conceptName && fp.conceptName.length <= 50)
       .sort((a: any, b: any) => (a.rank ?? 9999) - (b.rank ?? 9999))
       .map((fp: any) => (
@@ -560,9 +596,9 @@ return createPortal(
       ))}
 
     {/* 🔹 Existing expertise tags */}
-    {(person.expertise || [])
-      .filter((tag: string) => tag && tag.length <= 50)
-      .map((tag: string) => (
+  {safeArray((person as any)?.expertise)
+      .filter((tag: any) => tag && (tag as string).length <= 50)
+      .map((tag: any) => (
         <span
           key={`exp-${tag}`}
           style={{
