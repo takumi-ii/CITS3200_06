@@ -114,6 +114,14 @@ const [activeTab, setActiveTab] = useLocalStorageState<string>(
   { open: false, collaborator: null, outputs: [] }
 );
 
+  // Filter state for shared outputs modal
+  const [sharedFilterQuery, setSharedFilterQuery] = useState("");
+  const [sharedDebouncedQuery, setSharedDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSharedDebouncedQuery(sharedFilterQuery.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [sharedFilterQuery]);
+
   const [loadingSharedOutputs, setLoadingSharedOutputs] = useState(false);
  const [isMobile, setIsMobile] = useState(false);
 useEffect(() => {
@@ -1729,82 +1737,54 @@ console.log('collab row sample', rows[0]);
     {sharedOutputsModal.open && createPortal(
       <>
         {/* Backdrop */}
-  <div
-  onClick={
-    isMobile
-      ? undefined // 🚫 don't close modal on mobile
-      : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })
-  }
-  className="shared-modal-backdrop"
-  style={{
-    position: "fixed",
-    inset: 0,
-    background: isMobile ? "transparent" : "rgba(0,0,0,0.5)", // ✅ still dark on desktop
-    zIndex: 8200,
-    pointerEvents: isMobile ? "none" : "auto", // ✅ allow header taps through on mobile
-  }}
-  aria-hidden="true"
-/>
-
+        <div
+          onClick={isMobile ? undefined : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+          className="shared-modal-backdrop"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: isMobile ? "transparent" : "rgba(0,0,0,0.5)",
+            zIndex: 8200,
+            pointerEvents: isMobile ? "none" : "auto",
+          }}
+          aria-hidden="true"
+        />
 
         {/* Modal Panel */}
-<div
-  role="dialog"
-  aria-modal="true"
-  className="shared-modal-panel"
-  style={{
-    position: "fixed",
-    top: isMobile ? "var(--nav-offset, 0px)" : "50%",
-    left: isMobile ? 0 : "50%",
-    transform: isMobile ? "none" : "translate(-50%, -50%)",
-    width: isMobile ? "100vw" : "70vw",
-    height: isMobile ? "calc(100svh - var(--nav-offset, 0px))" : "auto",
-    maxHeight: isMobile ? "none" : "80vh",
-    background: "#fff",
-    borderRadius: isMobile ? 0 : 14,
-    boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
-    zIndex: 8300 ,
-    overflowY: "auto",
-    WebkitOverflowScrolling: "touch",
-    display: "flex",
-    flexDirection: "column",
-    ["--nav-offset" as any]: `${navOffset}px`, // important for mobile
-  }}
->
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="shared-modal-panel"
+          style={{
+            position: "fixed",
+            top: isMobile ? "var(--nav-offset, 0px)" : "50%",
+            left: isMobile ? 0 : "50%",
+            transform: isMobile ? "none" : "translate(-50%, -50%)",
+            width: isMobile ? "100vw" : "70vw",
+            height: isMobile ? "calc(100svh - var(--nav-offset, 0px))" : "auto",
+            maxHeight: isMobile ? "none" : "80vh",
+            background: "#fff",
+            borderRadius: isMobile ? 0 : 14,
+            boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
+            zIndex: 8300,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            display: "flex",
+            flexDirection: "column",
+            ["--nav-offset" as any]: `${navOffset}px`,
+          }}
+        >
 
           {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 20px",
-              borderBottom: "1px solid #eee",
-              background: "#f8fafc",
-              position: "sticky",
-              top: 0,
-              zIndex: 1
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #eee", background: "#f8fafc", position: "sticky", top: 0, zIndex: 60 }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 18, color: "#0b2a4a" }}>
-                Shared Research Outputs
-              </div>
-              <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>
-                Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}
-              </div>
+              <div style={{ fontWeight: 600, fontSize: 18, color: "#0b2a4a" }}>Shared Research Outputs</div>
+              <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}</div>
             </div>
             <button
               onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
               aria-label="Close modal"
-              style={{
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                padding: "8px 12px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 14
-              }}
+              style={{ border: "1px solid #e5e7eb", background: "#fff", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
               onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
               onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
             >
@@ -1815,129 +1795,149 @@ console.log('collab row sample', rows[0]);
           {/* Body */}
           <div style={{ padding: 20 }}>
             {loadingSharedOutputs ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
-                Loading shared research outputs...
-              </div>
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>Loading shared research outputs...</div>
             ) : sharedOutputsModal.outputs.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af" }}>
-                No shared research outputs found.
-              </div>
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af" }}>No shared research outputs found.</div>
             ) : (
               <>
-                <div style={{ marginBottom: 16, color: "#374151", fontSize: 14 }}>
-                  Found <strong>{sharedOutputsModal.outputs.length}</strong> shared research output{sharedOutputsModal.outputs.length !== 1 ? 's' : ''}
-                </div>
+                {/* compute filtered list and render (includes the search input so the count appears immediately under it) */}
+                {(() => {
+                  const total = sharedOutputsModal.outputs.length;
+                  const q = sharedDebouncedQuery;
+                  const filtered = q
+                    ? sharedOutputsModal.outputs.filter((output: any) => {
+                        const title = (output.title || "").toString().toLowerCase();
+                        const journal = (output.journal || output.publisher || "").toString().toLowerCase();
+                        const authors = (Array.isArray(output.authors) ? output.authors.join(' ') : (output.authors || '')).toString().toLowerCase();
+                        const abstract = (output.abstract || "").toString().toLowerCase();
+                        return title.includes(q) || journal.includes(q) || authors.includes(q) || abstract.includes(q);
+                      })
+                    : sharedOutputsModal.outputs;
 
-                {/* List of shared outputs */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-                  {sharedOutputsModal.outputs.map((output: any) => (
-                    <div
-                      key={output.uuid}
-                      style={{
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: 16
-                      }}
-                    >
-                      {/* Title */}
-                      <div style={{ fontWeight: 600, color: "#0b2a4a", fontSize: 16, marginBottom: 8 }}>
-                        {output.url ? (
-                          <a
-                            href={output.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: "inherit", textDecoration: "none" }}
-                          >
-                            {output.title}
-                          </a>
-                        ) : (
-                          output.title
-                        )}
+                  return (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                        <div style={{ width: '100%' }}>
+                          <input
+                            type="search"
+                            placeholder={`Filter shared outputs (title, journal, author, abstract)`}
+                            value={sharedFilterQuery}
+                            onChange={(e) => setSharedFilterQuery(e.target.value)}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+                          />
+                        </div>
+
+                        <div style={{ color: '#4b5563', fontSize: 12, fontWeight: 400, opacity: 0.95 }}>
+                          Showing {filtered.length} out of {total}
+                        </div>
                       </div>
 
-                      {/* View Paper button */}
-                      {output.url && (
-                        <div style={{ marginBottom: 8 }}>
-                          <a
-                            href={output.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "6px 12px",
-                              backgroundColor: "#1C2E5B",
-                              color: "white",
-                              textDecoration: "none",
-                              borderRadius: 6,
-                              fontSize: 13,
-                              fontWeight: 500,
-                              border: "1px solid #1C2E5B",
-                              transition: "all 0.2s ease"
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#0f1a3a";
-                              e.currentTarget.style.borderColor = "#0f1a3a";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = "#1C2E5B";
-                              e.currentTarget.style.borderColor = "#1C2E5B";
-                            }}
-                          >
-                            <Book className="w-4 h-4" />
-                            View Paper
-                          </a>
-                        </div>
-                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+                        {filtered.map((output: any) => (
+                          <div key={output.uuid || output.id} style={{ position: 'relative', background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, paddingRight: 140 }}>
+                            {/* Title */}
+                            <div style={{ fontWeight: 600, color: "#0b2a4a", fontSize: 16, marginBottom: 8, paddingRight: 120, overflowWrap: 'break-word', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              {output.url ? (
+                                <a href={output.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none", display: 'inline-block' }}>{output.title}</a>
+                              ) : <span style={{ display: 'inline-block' }}>{output.title}</span>}
+                            </div>
 
-                      {/* Meta row: year, journal */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>
-                        {output.year && <span>({output.year})</span>}
-                        {output.journal && (
-                          <>
-                            {output.year && <span>·</span>}
-                            <span>{output.journal}</span>
-                          </>
-                        )}
-                        {output.publisher && (
-                          <>
-                            <span>·</span>
-                            <span>{output.publisher}</span>
-                          </>
-                        )}
-                        {output.citations !== null && output.citations !== undefined && (
-                          <>
-                            <span>·</span>
-                            <span style={{ color: "#059669", fontWeight: 500 }}>
-                              {output.citations} citation{output.citations !== 1 ? 's' : ''}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                            {/* View Paper button (top-right) */}
+                            {output.url && (
+                              <a
+                                href={output.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  position: 'absolute',
+                                  top: 12,
+                                  right: 12,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '6px 10px',
+                                  backgroundColor: '#fff',
+                                  color: '#6b7280',
+                                  textDecoration: 'none',
+                                  borderRadius: 6,
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  border: '1px solid #e5e7eb',
+                                  zIndex: 40 // keep it below the sticky header so the header/close button remains on top
+                                }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+                              >
+                                <Book className="w-4 h-4" />
+                                View Paper
+                              </a>
+                            )}
 
-                      {/* Authors */}
-                      {output.authors && output.authors.length > 0 && (
-                        <div style={{ color: "#374151", fontSize: 13, marginBottom: 8 }}>
-                          <strong>Authors:</strong> {output.authors.join(", ")}
-                        </div>
-                      )}
+                            {/* Meta row */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>
+                              {output.year && <span>({output.year})</span>}
+                              {output.journal && (<><span>{output.year ? '·' : ''}</span><span>{output.journal}</span></>)}
+                              {output.publisher && (<><span>·</span><span>{output.publisher}</span></>)}
+                              {output.citations !== null && output.citations !== undefined && (<><span>·</span><span style={{ color: "#6b7280", fontWeight: 400 }}>{output.citations} citation{output.citations !== 1 ? 's' : ''}</span></>)}
+                            </div>
 
-                      {/* Abstract (collapsible) */}
-                      {output.abstract && (
-                        <details style={{ marginTop: 8 }}>
-                          <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>
-                            Show abstract
-                          </summary>
-                          <div style={{ color: "#374151", fontSize: 13, marginTop: 8, whiteSpace: "pre-wrap" }}>
-                            {output.abstract?.replace(/<[^>]*>/g, '')}
+                            {/* Authors */}
+                            {output.authors && output.authors.length > 0 && (<div style={{ color: "#374151", fontSize: 13, marginBottom: 8 }}><strong>Authors:</strong> {Array.isArray(output.authors) ? output.authors.join(', ') : output.authors}</div>)}
+
+                            {/* Abstract: 2-line clamp + toggle (uses expandedAbstracts state) */}
+                            {output.abstract && (() => {
+                              const key = output.uuid || output.id;
+                              const isExpanded = !!(key && expandedAbstracts[key]);
+                              return (
+                                <div style={{ marginTop: 8 }}>
+                                  <div
+                                    style={{
+                                      color: "#374151",
+                                      fontSize: 13,
+                                      marginTop: 6,
+                                      whiteSpace: "pre-wrap",
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: isExpanded ? 'none' : 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}
+                                  >
+                                    {output.abstract?.replace(/<[^>]*>/g, '')}
+                                  </div>
+
+                                  <div style={{ marginTop: 6 }}>
+                                    {key ? (
+                                      !isExpanded ? (
+                                        <button
+                                          onClick={() => toggleAbstract(key)}
+                                          aria-label={`Show more abstract for ${output.title || 'output'}`}
+                                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0, fontSize: 13 }}
+                                        >
+                                          Show more
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => toggleAbstract(key)}
+                                          aria-label={`Hide abstract for ${output.title || 'output'}`}
+                                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0, fontSize: 13 }}
+                                        >
+                                          Hide
+                                        </button>
+                                      )
+                                    ) : (
+                                      <div style={{ color: '#6b7280', fontSize: 12 }}> {output.abstract?.slice(0, 200)}{(output.abstract || '').length > 200 ? '…' : ''}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
-                        </details>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
