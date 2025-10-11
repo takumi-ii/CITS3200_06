@@ -737,7 +737,7 @@ return createPortal(
         padding: "4px 10px",
         fontSize: 12,
         fontWeight: 500,
-        color: pub.url ? "#2563eb" : "#9ca3af",
+        color: pub.url ? "#9ca3af" : "#9ca3af",
         textDecoration: "none",
         cursor: pub.url ? "pointer" : "default",
         whiteSpace: "nowrap"

@@ -1138,21 +1138,21 @@ def outputs_for_researcher(rid: str):
               ro.journal_name AS journal,
               ro.publication_year AS year,
               COALESCE(ro.num_citations,0) AS citations,
-              COALESCE(ro.abstract,'') AS abstract
+              COALESCE(ro.abstract,'') AS abstract,
+              ro.link_to_paper AS url,           -- ✅ add this
+              ro.publisher_name AS publisher     -- (optional) nice to have
             FROM OIResearchOutputs ro
             JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
             WHERE c.researcher_uuid = ?
             ORDER BY (ro.publication_year IS NULL), ro.publication_year DESC, ro.rowid DESC
         """, (rid,)).fetchall()
-        
+
         results = [dict(r) for r in rows]
-        
-        # 🟡 Add this line to log what’s returned:
         print(f"[DEBUG] Returning {len(results)} outputs for researcher {rid}")
-        for i, r in enumerate(results[:5]):  # only show first 5 for safety
-            print(f"  [{i+1}] {r.get('title')} ({r.get('year')})")
-        
+        for i, r in enumerate(results[:5]):
+            print(f"  [{i+1}] {r.get('title')} ({r.get('year')}) -> {r.get('url')}")
         return jsonify(results)
+
 
 # --- NEW: single researcher (full shape used by Results list) -----------------
 @app.get("/api/researchers/<rid>")
