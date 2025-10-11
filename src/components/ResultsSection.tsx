@@ -11,6 +11,7 @@ import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
 import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
 import PageNavigation from './ui/PageNavigation';
+import SafeHtmlRenderer from './SafeHtmlRenderer';
 
 
 
@@ -530,9 +531,10 @@ const filteredResearchers = rItems;
 
                     {researcher.bio && (
   <div className="mb-3">
-    <p className="text-gray-700 bioClamp3">
-      {researcher.bio}
-    </p>
+    <SafeHtmlRenderer 
+      content={researcher.bio}
+      className="text-gray-700 bioClamp3"
+    />
     <button
       className="mt-1 text-sm  text-gray-400 hover:underline"
       onClick={() => {
@@ -737,7 +739,10 @@ const filteredResearchers = rItems;
                 </div>
 
                 {outcome.abstract && (
-                  <p className="text-gray-700 mb-3">{outcome.abstract}</p>
+                  <SafeHtmlRenderer 
+                    content={outcome.abstract}
+                    className="text-gray-700 mb-3"
+                  />
                 )}
 
                 {Array.isArray(outcome.authors) && (
@@ -757,7 +762,10 @@ const filteredResearchers = rItems;
                 {outcome.grantFunding && (
                   <div className="mb-3">
                     <span className="text-sm font-medium text-gray-700">Funding: </span>
-                    <span className="text-sm text-gray-600">{outcome.grantFunding}</span>
+                    <SafeHtmlRenderer 
+                      content={outcome.grantFunding}
+                      className="text-sm text-gray-600"
+                    />
                   </div>
                 )}
 

@@ -10,6 +10,7 @@ import { Info,GraduationCap,Book,Users, Maximize2, Minimize2,Link2 } from "lucid
 import ProfileAvatar from './ProfileAvatar';
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fetchOutputsForResearcher } from "../data/api";
+import SafeHtmlRenderer from './SafeHtmlRenderer';
 
 
 interface ProfileProps {
@@ -586,22 +587,24 @@ return createPortal(
 
       <div style={{ height: 1, background: "#f1f5f9", marginBottom: 12 }} /> {/* thin divider */}
       <div style={{ color: person?.bio ? "#374151" : "#9ca3af", display: 'block' }}>
-        <div style={{ whiteSpace: 'pre-wrap' }}>
-          {bioTooLong && !bioExpanded ? (
-            <>
-              {bioExcerpt}
-              <button
-                onClick={() => setBioExpanded(true)}
-                aria-label="Read more biography"
-                style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', marginLeft: 6, padding: 0 }}
-              >
-                Read more
-              </button>
-            </>
-          ) : (
-            <>{bioText || "Empty"}</>
-          )}
-        </div>
+        {bioTooLong && !bioExpanded ? (
+          <>
+            <SafeHtmlRenderer 
+              content={bioExcerpt}
+            />
+            <button
+              onClick={() => setBioExpanded(true)}
+              aria-label="Read more biography"
+              style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', marginLeft: 6, padding: 0 }}
+            >
+              Read more
+            </button>
+          </>
+        ) : (
+          <SafeHtmlRenderer 
+            content={bioText || "Empty"}
+          />
+        )}
       </div>
     </div>
     {/* Expertise card */}
@@ -1210,21 +1213,19 @@ type CollabLike = {
                 {/* Abstract (2-line clamp + expand) */}
                 {typeof o.abstract === "string" && o.abstract.trim().length > 0 && (
                   <div style={{ marginTop: 8 }}>
-                    <div
+                    <SafeHtmlRenderer
+                      content={o.abstract}
                       style={{
                         color: "#374151",
                         fontSize: 14,
                         marginTop: 6,
-                        whiteSpace: 'pre-wrap',
                         display: '-webkit-box',
                         WebkitLineClamp: expandedAbstracts[o.id] ? 'none' : 2,
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis'
                       }}
-                    >
-                      {o.abstract}
-                    </div>
+                    />
 
                     <div style={{ marginTop: 6 }}>
                       {!expandedAbstracts[o.id] ? (
@@ -1271,7 +1272,10 @@ type CollabLike = {
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Funding</div>
                     {o.grantFundingText && (
-                      <div style={{ color: "#374151", fontSize: 13, marginTop: 4 }}>{o.grantFundingText}</div>
+                      <SafeHtmlRenderer 
+                        content={o.grantFundingText}
+                        style={{ color: "#374151", fontSize: 13, marginTop: 4 }}
+                      />
                     )}
                     {!!o.grantFundingDetails?.length && (
                       <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
@@ -1545,9 +1549,10 @@ type CollabLike = {
 
                   {/* Description (optional) */}
                   {a.description && (
-                    <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                      {a.description}
-                    </div>
+                    <SafeHtmlRenderer 
+                      content={a.description}
+                      style={{ color: "#374151", fontSize: 13, marginTop: 6 }}
+                    />
                   )}
                 </div>
               );
@@ -1963,21 +1968,19 @@ console.log('collab row sample', rows[0]);
                               const isExpanded = !!(key && expandedAbstracts[key]);
                               return (
                                 <div style={{ marginTop: 8 }}>
-                                  <div
+                                  <SafeHtmlRenderer
+                                    content={output.abstract}
                                     style={{
                                       color: "#374151",
                                       fontSize: 13,
                                       marginTop: 6,
-                                      whiteSpace: "pre-wrap",
                                       display: "-webkit-box",
                                       WebkitLineClamp: isExpanded ? 'none' : 2,
                                       WebkitBoxOrient: 'vertical',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis'
                                     }}
-                                  >
-                                    {output.abstract?.replace(/<[^>]*>/g, '')}
-                                  </div>
+                                  />
 
                                   <div style={{ marginTop: 6 }}>
                                     {key ? (
