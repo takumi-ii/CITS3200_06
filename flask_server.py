@@ -536,7 +536,7 @@ def api_researchers():
         total = 0
         # lightweight "recentPublications" (N=2) via the collaborators join you already use. :contentReference[oaicite:7]{index=7}
         recent_sql = """
-          SELECT ro.name AS title, ro.journal_name AS journal, ro.publication_year AS year
+          SELECT ro.name AS title, ro.journal_name AS journal, ro.publication_year AS year,  ro.link_to_paper AS url
           FROM OIResearchOutputs ro
           JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
           WHERE c.researcher_uuid = ?
@@ -547,7 +547,7 @@ def api_researchers():
             total = r["total"]
             expertise = (r["expertise_concat"] or "").split("||") if r["expertise_concat"] else []
             recents = [
-                {"title": rr["title"] or "Untitled", "journal": rr["journal"] or "", "year": rr["year"]}
+                {"title": rr["title"] or "Untitled", "journal": rr["journal"] or "", "year": rr["year"], "url": rr["url"] or None}
                 for rr in conn.execute(recent_sql, (r["id"],)).fetchall()
             ]
             items.append({
@@ -1218,7 +1218,7 @@ def api_researcher_one(rid: str):
 
             # Recent publications (small N)
             recents = conn.execute("""
-              SELECT ro.name AS title, ro.journal_name AS journal, ro.publication_year AS year
+              SELECT ro.name AS title, ro.journal_name AS journal, ro.publication_year AS year, ro.link_to_paper AS url
               FROM OIResearchOutputs ro
               JOIN OIResearchOutputsCollaborators c ON c.ro_uuid = ro.uuid
               WHERE c.researcher_uuid = ?
@@ -1227,7 +1227,7 @@ def api_researcher_one(rid: str):
             """, (rid,)).fetchall()
 
             recentPublications = [
-                {"title": r["title"] or "Untitled", "journal": r["journal"] or "", "year": r["year"]}
+                {"title": r["title"] or "Untitled", "journal": r["journal"] or "", "year": r["year"],  "url": r["url"] or None}
                 for r in recents
             ]
 
