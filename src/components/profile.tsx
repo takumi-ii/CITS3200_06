@@ -178,15 +178,17 @@ useEffect(() => {
   prevPersonId.current = currId;
 }, [open, person?.id]);                  // ✅ depend on id, not the whole object
 
-const navigateToResearcher = (full: Researcher) => {
-  if (pushProfile) {
-    pushProfile(full);
-  } else {
-    // backward-compat behaviour
-    setSelectedResearcher?.(full);
-    setProfileOpen?.(true);
-  }
-};
+  const navigateToResearcher = (full: Researcher) => {
+    // reset any transient UI state when navigating to a new profile
+    resetTransientState();
+    if (pushProfile) {
+      pushProfile(full);
+    } else {
+      // backward-compat behaviour
+      setSelectedResearcher?.(full);
+      setProfileOpen?.(true);
+    }
+  };
 
 const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: string) => {
   if (!person?.id || dataSource !== 'api') return;
@@ -227,6 +229,25 @@ const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolea
 
 const toggleAbstract = (id: string) => {
   setExpandedAbstracts(prev => ({ ...prev, [id]: !prev[id] }));
+};
+
+// Reset transient UI state (called when closing profile, switching person, or navigating)
+const resetTransientState = () => {
+  try {
+    setExpandedAbstracts({});
+  } catch (e) {}
+  try {
+    setSearchQuery("");
+    setDebouncedQuery("");
+  } catch (e) {}
+  try {
+    setSharedFilterQuery("");
+    setSharedDebouncedQuery("");
+  } catch (e) {}
+  try {
+    // close shared outputs modal and clear its contents
+    setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+  } catch (e) {}
 };
 
 // Search for research outputs
@@ -333,13 +354,18 @@ const handleBackdropTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
 
 // inside Profile component
 
+// close helper (reset transient UI state then call outer onClose)
+const closeProfile = () => {
+  resetTransientState();
+  onClose();
+};
 
 return createPortal(
   <>
    {/* Backdrop — desktop only */}
 {/* Backdrop for the PROFILE modal (works on all viewports) */}
 <div
-  onClick={onClose}
+  onClick={closeProfile}
   onWheel={handleBackdropWheel}
   onTouchStart={handleBackdropTouchStart}
   onTouchMove={handleBackdropTouchMove}
@@ -422,7 +448,10 @@ return createPortal(
   </div>
 
   <button
-    onClick={onClose}
+    onClick={() => {
+  closeProfile();
+  setActiveTab("Overview");
+}}
     aria-label="Close profile"
     style={{
       border: "1px solid #e5e7eb",
@@ -1738,7 +1767,13 @@ console.log('collab row sample', rows[0]);
       <>
         {/* Backdrop */}
         <div
-          onClick={isMobile ? undefined : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+          onClick={isMobile ? undefined : () => {
+            // reset shared modal transient state
+            setSharedFilterQuery("");
+            setSharedDebouncedQuery("");
+            setExpandedAbstracts({});
+            setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+          }}
           className="shared-modal-backdrop"
           style={{
             position: "fixed",
@@ -1782,7 +1817,13 @@ console.log('collab row sample', rows[0]);
               <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}</div>
             </div>
             <button
-              onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
+              onClick={() => {
+                setSharedFilterQuery("");
+                setSharedDebouncedQuery("");
+                setExpandedAbstracts({});
+                setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+               
+              }}
               aria-label="Close modal"
               style={{ border: "1px solid #e5e7eb", background: "#fff", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
               onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
