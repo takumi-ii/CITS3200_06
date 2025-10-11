@@ -1615,17 +1615,48 @@ console.log('collab row sample', rows[0]);
       // Sort strongest-first
       rows.sort((a, b) => b.total - a.total || b.pubCount - a.pubCount);
 
+      // Apply search filter
+      const filteredRows = debouncedQuery
+        ? rows.filter(r => {
+            const name = (r.name || "").toString().toLowerCase();
+            const email = (r.email || "").toString().toLowerCase();
+            const title = (r.title || "").toString().toLowerCase();
+            const institution = (r.institution || "").toString().toLowerCase();
+            const department = (r.department || "").toString().toLowerCase();
+            return name.includes(debouncedQuery) || 
+                   email.includes(debouncedQuery) || 
+                   title.includes(debouncedQuery) || 
+                   institution.includes(debouncedQuery) || 
+                   department.includes(debouncedQuery);
+          })
+        : rows;
+
       return (
         <>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>All collaborators</div>
-            <div style={{ color: "#6b7280", fontSize: 13 }}>({rows.length})</div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>All collaborators</div>
+              <div style={{ color: "#6b7280", fontSize: 13 }}>({filteredRows.length})</div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <input
+                type="search"
+                placeholder="Search collaborators by name, email, title, or institution"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+              />
+            </div>
           </div>
 
           {/* Empty state */}
-          {!rows.length && (
-            <div style={{ color: "#9ca3af" }}>No collaborators found for this researcher.</div>
+          {!filteredRows.length && (
+            <div style={{ color: "#9ca3af" }}>
+              {rows.length === 0 
+                ? "No collaborators found for this researcher." 
+                : "No collaborators match your search criteria."}
+            </div>
           )}
 
           {/* Grid */}
@@ -1636,7 +1667,7 @@ console.log('collab row sample', rows[0]);
               gap: 12
             }}
           >
-            {rows.map(r => {
+            {filteredRows.map(r => {
               const isExternal = r.title === "External Collaborator";
               return (
               <div
