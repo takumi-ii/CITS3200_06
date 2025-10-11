@@ -530,44 +530,47 @@ const filteredResearchers = rItems;
 
 
 
-                    {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
-    <div className="grid grid-cols-3 gap-2 md:gap-4 text-[11px] md:text-sm text-gray-600 mb-3">
-  {typeof researcher.publicationsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.publicationsCount}</span>
-      <span>Publications</span>
-    </div>
-  )}
+                    <div className="grid grid-cols-3 gap-2 md:gap-4 text-[11px] md:text-sm text-gray-600 mb-3">
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.publicationsCount === 'number' ? researcher.publicationsCount : 0}</span>
+    <span>Publications</span>
+  </div>
 
-  {typeof researcher.grantsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <Award className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.grantsCount}</span>
-      <span>Grants</span>
-    </div>
-  )}
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <Award className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.grantsCount === 'number' ? researcher.grantsCount : 0}</span>
+    <span>Grants</span>
+  </div>
 
-  {typeof researcher.collaboratorsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <Users className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.collaboratorsCount}</span>
-      <span>Collaborations</span>
-    </div>
-  )}
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <Users className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.collaboratorsCount === 'number' ? researcher.collaboratorsCount : 0}</span>
+    <span>Collaborations</span>
+  </div>
 </div>
 
-)}
 
-
-                    {Array.isArray(researcher.recentPublications) && (
+                    {Array.isArray(researcher.recentPublications) && researcher.recentPublications.length > 0 && (
                       <div className="border-t pt-3">
                         <h5 className="font-medium text-gray-800 mb-2">Recent Publications</h5>
-                        {researcher.recentPublications.map((pub: any, idx: number) => (
+                        {researcher.recentPublications.slice(0, 2).map((pub: any, idx: number) => (
                           <div key={idx} className="text-sm text-gray-600 mb-1">
                             <span className="font-medium">{pub.title}</span> {pub.year && `(${pub.year})`} {pub.journal && `- ${pub.journal}`}
                           </div>
                         ))}
+                        {researcher.recentPublications.length > 2 && (
+                          <button
+                            className="mt-1 text-sm text-gray-500 hover:underline"
+                            onClick={() => {
+                              // open profile modal to show full publication list
+                              setSelectedResearcher(researcher);
+                              setProfileOpen(true);
+                            }}
+                          >
+                            and {researcher.recentPublications.length - 2} more
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
