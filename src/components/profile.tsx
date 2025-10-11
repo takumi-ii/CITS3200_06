@@ -6,7 +6,7 @@ import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUti
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '../data/api';
-import { Info,GraduationCap,Book,Users, Maximize2, Minimize2 } from "lucide-react";
+import { Info,GraduationCap,Book,Users, Maximize2, Minimize2,Link2 } from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fetchOutputsForResearcher } from "../data/api";
@@ -347,7 +347,7 @@ const handleBackdropTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
 
 
   if (!open) return null;
-  const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 3).map(c => {
+  const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 5).map(c => {
   const r = mockResearchers.find(r => r.id === c.collaboratorId);
   return { ...r, ...c }; // merge collaborator info + counts
 });
@@ -737,11 +737,14 @@ return createPortal(
         padding: "4px 10px",
         fontSize: 12,
         fontWeight: 500,
-        color: pub.url ? "#9ca3af" : "#9ca3af",
+        color: "#6b7280", // default grey
         textDecoration: "none",
         cursor: pub.url ? "pointer" : "default",
-        whiteSpace: "nowrap"
+        whiteSpace: "nowrap",
+        transition: "color 0.12s ease"
       }}
+      onMouseEnter={(e) => { if (pub.url) (e.currentTarget.style.color = '#2563eb'); }}
+      onMouseLeave={(e) => { if (pub.url) (e.currentTarget.style.color = '#6b7280'); }}
     >
       View
     </a>
@@ -822,7 +825,7 @@ type CollabLike = {
   photoUrl?: string;
 };
 
-const collabsList = dataSource === "api"
+  const collabsList = dataSource === "api"
   ? collabs.map((c: any) => {
       const id =
         c.collaboratorId ||
@@ -843,7 +846,7 @@ const collabsList = dataSource === "api"
         total: c.total,
       };
     })
-  : (person?.id
+      : (person?.id
       ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
           const r = mockResearchers.find(r => r.id === c.collaboratorId);
           return {
@@ -992,16 +995,16 @@ const collabsList = dataSource === "api"
     fetchSharedOutputs(c.id!, name);
   }}
   style={{
-    color: "#4338ca",
+    color: "#6b7280",
     fontSize: 12,
     fontWeight: 600,
     marginTop: 6,
     cursor: "pointer",
-    textDecoration: "underline",
-    textDecorationStyle: "dotted"
+    textDecoration: "none",
+    transition: "color 0.12s ease",
   }}
-  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
-  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
+  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#2563eb'; (e.currentTarget as HTMLElement).style.textDecoration = 'underline solid'; }}
+  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#6b7280'; (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
 >
   {c.total} shared collaboration{c.total !== 1 ? 's' : ''}
 </div>
@@ -1128,7 +1131,8 @@ const collabsList = dataSource === "api"
                   background: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
-                  padding: 8
+                  padding: 8,
+                  position: 'relative' // allow absolute-positioned View link
                 }}
               >
                 {/* Title (link) */}
@@ -1142,40 +1146,37 @@ const collabsList = dataSource === "api"
                   )}
                 </div>
 
-                {/* View Paper button */}
+                {/* View Paper (small top-right link) */}
                 {o.url && (
-                  <div style={{ marginTop: 8 }}>
-                    <a
-                      href={o.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        backgroundColor: "#1C2E5B",
-                        color: "white",
-                        textDecoration: "none",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        border: "1px solid #1C2E5B",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#0f1a3a";
-                        e.currentTarget.style.borderColor = "#0f1a3a";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#1C2E5B";
-                        e.currentTarget.style.borderColor = "#1C2E5B";
-                      }}
-                    >
-                      <Book className="w-4 h-4" />
-                      View Paper
-                    </a>
-                  </div>
+                  <a
+                    href={o.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      padding: "4px 10px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#6b7280", // default grey
+                      textDecoration: "none",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "color 0.12s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                     
+                      borderRadius: 6,
+                     
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#2563eb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+                  >
+                    <Link2 className="w-4 h-4" />
+                    View
+                  </a>
                 )}
 
                 {/* Meta row: year • journal/type • badges */}
@@ -1722,16 +1723,16 @@ console.log('collab row sample', rows[0]);
                       fetchSharedOutputs(r.id, r.name || r.id);
                     }}
                     style={{ 
-                      color: "#4338ca", 
+                      color: "#6b7280", 
                       fontSize: 12, 
                       fontWeight: 600, 
                       marginTop: 6,
                       cursor: "pointer",
-                      textDecoration: "underline",
-                      textDecorationStyle: "dotted"
+                      textDecoration: "none",
+                      transition: "color 0.12s ease",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
-                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#2563eb'; (e.currentTarget as HTMLElement).style.textDecoration = 'underline solid'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#6b7280'; (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
                   >
                     {r.total} shared collaboration{r.total !== 1 ? 's' : ''}
                     {/* <span style={{ color: "#6b7280", fontWeight: 500 }}>
