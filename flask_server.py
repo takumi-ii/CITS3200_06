@@ -584,6 +584,7 @@ def api_research_outcomes():
     tags = [t.strip().lower() for t in tag_param.split(",") if t.strip()]
     page = max(int(request.args.get("page", 1) or 1), 1)
     per_page = min(max(int(request.args.get("per_page", 12) or 12), 1), 50)
+    sort = (request.args.get("sort") or "recent").strip().lower()
 
     # NEW: parse optional year range
     year_min = _to_int_or_none(request.args.get("year_min"))   # NEW
@@ -621,6 +622,16 @@ def api_research_outcomes():
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
+        # Sorting logic for research outcomes
+        order_by_clauses = {
+            "recent": "(year IS NULL), year DESC, title",
+            "cited": "citations DESC, (year IS NULL), year DESC, title", 
+            "alphabetical": "title ASC",
+            "journal": "journal ASC, title ASC",
+            "oldest": "(year IS NULL), year ASC, title"
+        }
+        order_by = order_by_clauses.get(sort, order_by_clauses["recent"])
+
         sql = f"""
           WITH base AS (
             SELECT
@@ -637,7 +648,7 @@ def api_research_outcomes():
           )
           SELECT *, COUNT(*) OVER() AS total
           FROM base
-          ORDER BY (year IS NULL), year DESC, title
+          ORDER BY {order_by}
           LIMIT ? OFFSET ?;
         """
         rows = conn.execute(sql, (*params, per_page, (page-1)*per_page)).fetchall()

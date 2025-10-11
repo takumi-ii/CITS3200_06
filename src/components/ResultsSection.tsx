@@ -32,7 +32,8 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useLocalStorageState<'researchers'|'outcomes'>('results.activeTab', 'researchers');
 const [currentPage, setCurrentPage] = useLocalStorageState<number>('results.page', 1);
-const [sortBy, setSortBy] = useLocalStorageState<'default'|'recent-publications'|'position-rank'>('results.sortBy', 'default');
+const [researcherSortBy, setResearcherSortBy] = useLocalStorageState<'default'|'recent-publications'|'position-rank'>('results.researcherSortBy', 'default');
+const [outcomeSortBy, setOutcomeSortBy] = useLocalStorageState<'recent'|'cited'|'alphabetical'|'journal'|'oldest'>('results.outcomeSortBy', 'recent');
 
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
@@ -44,7 +45,7 @@ useEffect(() => {
   } else {
     didMount.current = true;
   }
-}, [sortBy]);
+}, [researcherSortBy, outcomeSortBy]);
 
 // Also reset page to 1 when the search query or tag filters change (after initial mount)
 useEffect(() => {
@@ -218,7 +219,7 @@ useEffect(() => {
   const params = new URLSearchParams({
     q: searchQuery || "",
     tags: (filters.tags || []).join(","),
-    sort: sortBy,
+    sort: researcherSortBy,
     page: String(currentPage),
     per_page: String(PER_PAGE),
     promote_first: "true",
@@ -241,7 +242,7 @@ useEffect(() => {
     });
 
   return () => ac.abort();
-}, [searchQuery, filters.tags, filters.yearRange, sortBy, currentPage, dataSource]);
+}, [searchQuery, filters.tags, filters.yearRange, researcherSortBy, currentPage, dataSource]);
 
 // Use server-provided items as the filtered/paginated researchers list
 const filteredResearchers = rItems;
@@ -265,6 +266,7 @@ const filteredResearchers = rItems;
   per_page: String(PER_PAGE),
   year_min: String(filters.yearRange[0]),
   year_max: String(filters.yearRange[1]),
+  sort: outcomeSortBy,
 });
 
     fetch(`/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
@@ -282,7 +284,7 @@ const filteredResearchers = rItems;
       });
 
     return () => ac.abort();
- }, [searchQuery, filters.tags, filters.yearRange, currentPage, dataSource]);
+ }, [searchQuery, filters.tags, filters.yearRange, currentPage, dataSource, outcomeSortBy]);
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -312,8 +314,64 @@ const filteredResearchers = rItems;
     return matchesQuery && matchesTags && matchesYear;
   });
 
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  const endIndex = startIndex + PER_PAGE;
+  
+  // Sort research outcomes when not using API
+  const sortOutcomes = (outcomes: any[], sortOption: 'recent'|'cited'|'alphabetical'|'journal'|'oldest') => {
+    return [...outcomes].sort((a, b) => {
+      switch (sortOption) {
+        case 'recent':
+          // Most recent first (null years last)
+          const aYear = a.year || 0;
+          const bYear = b.year || 0;
+          if (aYear === 0 && bYear === 0) return 0;
+          if (aYear === 0) return 1;
+          if (bYear === 0) return -1;
+          return bYear - aYear;
+          
+        case 'cited':
+          // Most cited first
+          const aCitations = a.citations || 0;
+          const bCitations = b.citations || 0;
+          if (aCitations !== bCitations) return bCitations - aCitations;
+          // Tiebreaker: most recent
+          return (b.year || 0) - (a.year || 0);
+          
+        case 'alphabetical':
+          // Alphabetical by title
+          const aTitle = (a.title || a.name || '').toLowerCase();
+          const bTitle = (b.title || b.name || '').toLowerCase();
+          return aTitle.localeCompare(bTitle);
+          
+        case 'journal':
+          // By journal name, then by title
+          const aJournal = (a.journal || '').toLowerCase();
+          const bJournal = (b.journal || '').toLowerCase();
+          if (aJournal !== bJournal) return aJournal.localeCompare(bJournal);
+          const aTitle2 = (a.title || a.name || '').toLowerCase();
+          const bTitle2 = (b.title || b.name || '').toLowerCase();
+          return aTitle2.localeCompare(bTitle2);
+          
+        case 'oldest':
+          // Oldest first (null years last)
+          const aYearOld = a.year || 0;
+          const bYearOld = b.year || 0;
+          if (aYearOld === 0 && bYearOld === 0) return 0;
+          if (aYearOld === 0) return 1;
+          if (bYearOld === 0) return -1;
+          return aYearOld - bYearOld;
+          
+        default:
+          return 0;
+      }
+    });
+  };
+  
+  const sortedOutcomes = dataSource === 'api' ? oItems : sortOutcomes(filteredOutcomes, outcomeSortBy);
+
   const totalPagesResearchers = Math.max(1, Math.ceil(rTotal / PER_PAGE));
-  const totalPagesOutcomes  = Math.max(1, Math.ceil((dataSource === 'api' ? oTotal : filteredOutcomes.length) / PER_PAGE));
+  const totalPagesOutcomes  = Math.max(1, Math.ceil((dataSource === 'api' ? oTotal : sortedOutcomes.length) / PER_PAGE));
   const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
 
   const HEADER_OFFSET = 300;
@@ -324,18 +382,12 @@ const filteredResearchers = rItems;
     window.scrollTo({ top: y, behavior: 'smooth' });
   };
 
-  const startIndex = (currentPage - 1) * PER_PAGE;
-  const endIndex = startIndex + PER_PAGE;
-  const paginatedOutcomes = dataSource === 'api' ? oItems : filteredOutcomes.slice(startIndex, endIndex);
+  const paginatedOutcomes = dataSource === 'api' ? oItems : sortedOutcomes.slice(startIndex, endIndex);
   // rItems is already server-paginated for the requested page when dataSource==='api'
   const paginatedResearchers  = rItems;
 
-
-  
-
   return (
     <div className="flex-1 min-w-0">
-     
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
          <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
@@ -345,7 +397,7 @@ const filteredResearchers = rItems;
     </TabsTrigger>
     <TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
       <BookOpen className="w-4 h-4" />
-      Research Outcomes ({dataSource === 'api' ? oTotal : filteredOutcomes.length})
+      Research Outcomes ({dataSource === 'api' ? oTotal : sortedOutcomes.length})
     </TabsTrigger>
 
 
@@ -357,73 +409,10 @@ const filteredResearchers = rItems;
           <h3 className="text-xl font-medium text-gray-500">
             Search Results
           </h3>
-          <div className="flex items-center gap-2">
- 
-
-{/* MOBILE: round icon-only button */}
-<div className="md:hidden">
-  <Select value={sortBy} onValueChange={setSortBy}>
-    <SelectTrigger
-      aria-label="Sort"
-      className="
-        h-10 w-10 p-0 rounded-full
-        flex items-center justify-center
-        border border-gray-300 bg-white
-        hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
-        transition
-        /* hide SelectValue text + default chevron only on this trigger */
-        [&>span]:sr-only                 /* the SelectValue span */
-        [&>svg:last-child]:hidden        /* Radix chevron is appended last */
-      "
-    >
-      <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
-
-      <SelectValue placeholder="Sort" />
-    </SelectTrigger>
-
-    <SelectContent className="border border-gray-200 shadow-md">
-      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
-        Default (Current Staff First)
-      </SelectItem>
-      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
-        Recent Publications
-      </SelectItem>
-      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
-        Position Rank
-      </SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-
-{/* DESKTOP: standard text dropdown */}
-<div className="hidden md:flex items-center gap-2">
-  <ArrowUpDown className="w-4 h-4 text-gray-600" />
-  <Select value={sortBy} onValueChange={setSortBy}>
-    <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
-      <SelectValue placeholder="Sort options..." />
-    </SelectTrigger>
-
-    <SelectContent className="border border-gray-200 shadow-md">
-      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
-        Default (Current Staff First)
-      </SelectItem>
-      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
-        Recent Publications
-      </SelectItem>
-      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
-        Position Rank
-      </SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-
-
-</div>
-
         </div>
        <p className="text-gray-600">
   <p className="text-gray-600">
-  Found {dataSource === 'api' ? rTotal : filteredResearchers.length} researchers and {dataSource === 'api' ? oTotal : filteredOutcomes.length} research outcomes
+  Found {dataSource === 'api' ? rTotal : filteredResearchers.length} researchers and {dataSource === 'api' ? oTotal : sortedOutcomes.length} research outcomes
 </p>
 
 </p>
@@ -432,6 +421,64 @@ const filteredResearchers = rItems;
         <div ref={resultsTopRef} />
 
         <TabsContent value="researchers" className="space-y-6">
+          {/* Researcher Sorting Dropdown */}
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {/* MOBILE: round icon-only button */}
+            <div className="md:hidden">
+              <Select value={researcherSortBy} onValueChange={setResearcherSortBy}>
+                <SelectTrigger
+                  aria-label="Sort Researchers"
+                  className="
+                    h-10 w-10 p-0 rounded-full
+                    flex items-center justify-center
+                    border border-gray-300 bg-white
+                    hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
+                    transition
+                    [&>span]:sr-only
+                    [&>svg:last-child]:hidden
+                  "
+                >
+                  <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Default (Current Staff First)
+                  </SelectItem>
+                  <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Recent Publications
+                  </SelectItem>
+                  <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Position Rank
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* DESKTOP: standard text dropdown */}
+            <div className="hidden md:flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-gray-600" />
+              <Select value={researcherSortBy} onValueChange={setResearcherSortBy}>
+                <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
+                  <SelectValue placeholder="Sort researchers..." />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Default (Current Staff First)
+                  </SelectItem>
+                  <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Recent Publications
+                  </SelectItem>
+                  <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Position Rank
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {paginatedResearchers.map((researcher: any) => (
             <Card key={researcher.uuid || researcher.id} className="card-cohesive">
               <CardContent className="p-6">
@@ -581,6 +628,76 @@ const filteredResearchers = rItems;
         </TabsContent>
 
         <TabsContent value="outcomes" className="space-y-6">
+          {/* Research Outcomes Sorting Dropdown */}
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {/* MOBILE: round icon-only button */}
+            <div className="md:hidden">
+              <Select value={outcomeSortBy} onValueChange={setOutcomeSortBy}>
+                <SelectTrigger
+                  aria-label="Sort Research Outcomes"
+                  className="
+                    h-10 w-10 p-0 rounded-full
+                    flex items-center justify-center
+                    border border-gray-300 bg-white
+                    hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
+                    transition
+                    [&>span]:sr-only
+                    [&>svg:last-child]:hidden
+                  "
+                >
+                  <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="recent" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Recent
+                  </SelectItem>
+                  <SelectItem value="cited" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Cited
+                  </SelectItem>
+                  <SelectItem value="alphabetical" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Alphabetical
+                  </SelectItem>
+                  <SelectItem value="journal" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Journal Name
+                  </SelectItem>
+                  <SelectItem value="oldest" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Oldest First
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* DESKTOP: standard text dropdown */}
+            <div className="hidden md:flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-gray-600" />
+              <Select value={outcomeSortBy} onValueChange={setOutcomeSortBy}>
+                <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
+                  <SelectValue placeholder="Sort research outcomes..." />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="recent" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Recent
+                  </SelectItem>
+                  <SelectItem value="cited" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Cited
+                  </SelectItem>
+                  <SelectItem value="alphabetical" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Alphabetical
+                  </SelectItem>
+                  <SelectItem value="journal" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Journal Name
+                  </SelectItem>
+                  <SelectItem value="oldest" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Oldest First
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {paginatedOutcomes.map((outcome: any) => (
             <Card key={outcome.uuid || outcome.id} className="card-cohesive">
               <CardContent className="p-6">
