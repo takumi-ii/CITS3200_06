@@ -95,6 +95,7 @@ const displayAffiliation = (r: any) =>
 
 export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
   console.log('[Profile] rid =', person?.id);
+  console.log('[Profile] full person entity:', person);
   const [researchOutputs, setResearchOutputs] = useState<any[]>([]);
  
 // const [activeTab, setActiveTab] = useState("Overview");

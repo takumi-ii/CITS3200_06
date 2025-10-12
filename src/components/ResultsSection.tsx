@@ -9,7 +9,7 @@ import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User, Book, Arr
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
-import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+import { getAllOutcomes,getAllResearchers,subscribe, API_PREFIX} from '../data/api';
 import PageNavigation from './ui/PageNavigation';
 import SafeHtmlRenderer from './SafeHtmlRenderer';
 
@@ -65,6 +65,8 @@ console.log(
   "researchers:", researchers.length,
   "outcomes:", outcomes.length
 );
+console.log("Researchers sample:", researchers.slice(0,5));
+console.log("Outcomes sample:", outcomes.slice(0,5));
 
 
 const handleStoreChange = React.useCallback(() => {
@@ -227,7 +229,7 @@ useEffect(() => {
     exclude_no_show: "true",
   });
 
-  fetch(`/api/researchers?${params.toString()}`, { signal: ac.signal })
+  fetch(API_PREFIX + `/api/researchers?${params.toString()}`, { signal: ac.signal })
     .then(r => {
       if (!r.ok) throw new Error('Network response was not ok');
       return r.json();
@@ -270,7 +272,7 @@ const filteredResearchers = rItems;
   sort: outcomeSortBy,
 });
 
-    fetch(`/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
+    fetch(API_PREFIX + `/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
       .then(r => {
         if (!r.ok) throw new Error('Network response was not ok');
         return r.json();

@@ -1,6 +1,8 @@
 // src/data/api.ts
 import { useSyncExternalStore } from "react";
 
+export const API_PREFIX = 'http://oidataportal.southeastasia.cloudapp.azure.com:8080'; // adjust if needed
+
 /* ============ Types (trim as needed) ============ */
 export type ID = string;
 
@@ -79,7 +81,7 @@ async function safeJson<T = any>(res: Response): Promise<T | null> {
 
 // --- Researchers (load-all) -----------------------------------------------
 async function apiResearchers(): Promise<any[]> {
-  const res = await fetch('/api/researchers');
+  const res = await fetch(API_PREFIX + '/api/researchers');
   const j: any = await safeJson(res);
   const arr = toArr(j?.researchers);
   // Normalize: ensure id exists, map publications -> publicationsCount
@@ -93,7 +95,7 @@ async function apiResearchers(): Promise<any[]> {
 
 // --- Outcomes (load-all) ---------------------------------------------------
 async function apiOutcomes(): Promise<any[]> {
-  const res = await fetch('/api/researchOutcomes');
+  const res = await fetch(API_PREFIX + '/api/researchOutcomes');
   const j: any = await safeJson(res);
   const arr = toArr(j?.outcomes);
   // Normalize: ensure id exists, coerce year
@@ -108,7 +110,7 @@ async function apiOutcomes(): Promise<any[]> {
   }));
 }
 async function apiGrantsForResearcher(id: ID): Promise<Grant[]> {
-  const r = await fetch(`/api/researchers/${id}/grants`);
+  const r = await fetch(API_PREFIX + `/api/researchers/${id}/grants`);
   const j = await safeJson<any>(r);
   const items = toArr(j); // endpoint returns an array
 
@@ -132,7 +134,7 @@ async function apiGrantsForResearcher(id: ID): Promise<Grant[]> {
 }
 
 async function apiAwardsForResearcher(id: ID) {
-  const r = await fetch(`/api/researchers/${id}/awards`);
+  const r = await fetch(API_PREFIX + `/api/researchers/${id}/awards`);
   const j = await safeJson<any>(r);
   // j is an array; fall back to j.awards or j.prizes if server returns an older shape
   const items = Array.isArray(j) ? j : (Array.isArray(j?.awards) ? j.awards : (Array.isArray(j?.prizes) ? j.prizes : []));
@@ -310,7 +312,7 @@ export function getOutcomesForResearcher(r: { id?: ID; uuid?: ID; name?: string 
 
 
 export async function fetchOutputsForResearcher(id: string) {
-  const r = await fetch(`/api/researchers/${id}/outputs`);
+  const r = await fetch(API_PREFIX + `/api/researchers/${id}/outputs`);
   if (!r.ok) throw new Error("Failed to load outputs");
   const raw = await r.json();
   const arr = Array.isArray(raw) ? raw : (Array.isArray(raw?.outputs) ? raw.outputs : []);
