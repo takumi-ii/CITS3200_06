@@ -1,0 +1,22 @@
+# EditorConfig - Maintains consistent coding styles across different editors and IDEs
+# @see https://EditorConfig.org
+
+# This is the root configuration file
+root = true
+
+# Apply to all files
+[*]
+charset = utf-8                    # Use UTF-8 encoding for all files
+end_of_line = lf                   # Use Unix-style line endings (\n)
+insert_final_newline = true        # Add newline at end of file
+trim_trailing_whitespace = true    # Remove trailing whitespace on save
+
+# Apply to source code and config files
+[*.{js,jsx,ts,tsx,json,css}]
+indent_style = space               # Use spaces (not tabs) for indentation
+indent_size = 2                    # Use 2 spaces per indentation level
+
+# Markdown files: preserve trailing spaces (used for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+

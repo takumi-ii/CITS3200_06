@@ -1,4 +1,23 @@
-import { useState, useRef, useEffect,useCallback  } from 'react';
+/**
+ * Main App Component
+ * 
+ * This is the root component of the Oceans Institute Research Database application.
+ * It manages the overall layout and coordinates state between all major sections:
+ * - Hero section with call-to-action
+ * - Search and filter functionality
+ * - Results display (researchers & publications)
+ * - Researcher profile modal
+ * - Network visualization heatmap
+ * 
+ * State Management:
+ * - Uses custom useLocalStorageState hook to persist user preferences
+ * - Loads all data from API on mount via loadAllData()
+ * - Supports both API and mock data modes for development
+ * 
+ * @module App
+ */
+
+import { useState, useRef, useEffect, useCallback } from 'react';
 import HeroSection from './components/HeroSection';
 import SearchSection from './components/SearchSection';
 import FilterSidebar from './components/FilterSidebar';
@@ -7,154 +26,245 @@ import NetworkHeatmap from './components/NetworkHeatmap';
 import Profile from './components/profile';
 import { Researcher } from './data/mockData';
 import { loadAllData } from './data/api';
-import MobileFilterFullScreen from './components/MobileFilterFullScreen ';
+import MobileFilterFullScreen from './components/MobileFilterFullScreen';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
-
-// src/main.tsx or src/main.jsx
 import './index.css';
 
-
-
-
-
 export default function App() {
-// App.tsx
-useEffect(() => {
-  console.log('App: calling loadAllData');
-  loadAllData();
-}, []);
-
-
+  /* ============================================================
+     DATA INITIALIZATION
+     ============================================================ */
   
-const [searchQuery, setSearchQuery] = useLocalStorageState<string>(
-  'app.searchQuery',
-  ''
-);
+  /**
+   * Load all researchers and research outcomes on initial mount
+   * This populates the central store that all components can access
+   */
+  useEffect(() => {
+    loadAllData();
+  }, []);
 
-const [filters, setFilters] = useLocalStorageState<{
-  yearRange: [number, number];
-  tags: string[];
-  researchArea: string; // '' means "all"
-}>('app.filters', {
-  yearRange: [2020, 2024],
-  tags: [],
-  researchArea: '' // keep consistent with your Select's 'all' mapping
-});
-
+  /* ============================================================
+     SEARCH & FILTER STATE
+     ============================================================ */
   
-  //target to scroll to
+  /**
+   * Search query entered by the user
+   * Persisted to localStorage to remember between sessions
+   */
+  const [searchQuery, setSearchQuery] = useLocalStorageState<string>(
+    'app.searchQuery',
+    ''
+  );
+
+  /**
+   * Filter settings for narrowing down results
+   * - yearRange: Min and max publication years
+   * - tags: Array of selected keyword tags
+   * - researchArea: Selected research area (empty string = all areas)
+   * 
+   * Persisted to localStorage
+   */
+  const [filters, setFilters] = useLocalStorageState<{
+    yearRange: [number, number];
+    tags: string[];
+    researchArea: string;
+  }>('app.filters', {
+    yearRange: [2020, 2024],
+    tags: [],
+    researchArea: ''
+  });
+
+  /* ============================================================
+     SCROLL & NAVIGATION
+     ============================================================ */
+  
+  /** Reference to the network heatmap section for smooth scrolling */
   const heatmapRef = useRef<HTMLDivElement | null>(null);
 
-  // smooth scroll (accounts for the sticky top-nav height)
-   const scrollToHeatmap = () => {
+  /**
+   * Smoothly scrolls to the network heatmap section
+   * Accounts for the sticky navigation bar height
+   */
+  const scrollToHeatmap = () => {
     const el = heatmapRef.current;
     if (!el) return;
-    const NAV_HEIGHT = 96; // adjust if your navbar height changes
+    const NAV_HEIGHT = 96; // Height of sticky navbar
     const top = el.getBoundingClientRect().top + window.scrollY - NAV_HEIGHT;
     window.scrollTo({ top, behavior: 'smooth' });
   };
 
+  /* ============================================================
+     PROFILE MODAL STATE
+     ============================================================ */
+  
+  /**
+   * Whether the researcher profile modal is currently open
+   * Persisted so users can refresh without losing their place
+   */
+  const [profileOpen, setProfileOpen] = useLocalStorageState<boolean>(
+    'app.profileOpen',
+    false
+  );
 
+  /**
+   * The currently selected researcher whose profile is displayed
+   * Null when no profile is open
+   */
+  const [selectedResearcher, setSelectedResearcher] = useLocalStorageState<Researcher | null>(
+    'app.selectedResearcher',
+    null
+  );
 
-   const [profileOpen, setProfileOpen] = useLocalStorageState<boolean>(
-  'app.profileOpen',
-  false
-);
-const [selectedResearcher, setSelectedResearcher] = useLocalStorageState<Researcher | null>(
-  'app.selectedResearcher',
-  null
-);
-const [profileHistory, setProfileHistory] = useLocalStorageState<Researcher[]>(
-  'app.profileHistory',
-  []
-);
-   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-   const [MobileFilterOpen,setMobileFilterOpen] = useState(false);
-   const toggleMobileFilter = useCallback(() => {
-    setMobileFilterOpen((prev) => !prev);
-  }, []);
+  /**
+   * History stack for profile navigation
+   * Allows users to click through related researchers and go back
+   * Similar to browser back/forward functionality
+   */
+  const [profileHistory, setProfileHistory] = useLocalStorageState<Researcher[]>(
+    'app.profileHistory',
+    []
+  );
 
+  /* ============================================================
+     MOBILE UI STATE
+     ============================================================ */
+  
+  /** Whether the mobile navigation menu is open */
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  /** Whether the mobile filter panel is open */
+  const [MobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  const openProfile = (r: Researcher) => {
+  /* ============================================================
+     PROFILE NAVIGATION FUNCTIONS
+     ============================================================ */
+  
+  /**
+   * Navigates to a new researcher profile (forward navigation)
+   * Adds the new researcher to the history stack
+   * 
+   * @param r - Researcher to navigate to
+   */
+  const pushProfile = (r: Researcher) => {
+    setProfileHistory((prev: Researcher[]) => {
+      // If history is empty, seed it with the current researcher first
+      const base = prev.length === 0 && selectedResearcher
+        ? [selectedResearcher]
+        : prev;
+      return [...base, r];
+    });
     setSelectedResearcher(r);
-    setProfileHistory([r]);     // start a fresh stack
-    setProfileOpen(true);
   };
 
-const pushProfile = (r: Researcher) => {
-  setProfileHistory(prev => {
-    // if empty, seed with the current person first
-    const base = prev.length === 0 && selectedResearcher
-      ? [selectedResearcher]
-      : prev;
-    return [...base, r];
-  });
-  setSelectedResearcher(r);
-};
+  /**
+   * Navigates back to the previous researcher in the history stack
+   * Similar to browser "back" button
+   */
   const popProfile = () => {
-    setProfileHistory(prev => {
-      if (prev.length <= 1) return prev;     // nothing to pop
+    setProfileHistory((prev: Researcher[]) => {
+      if (prev.length <= 1) return prev;  // Can't go back further
       const next = prev.slice(0, -1);
       setSelectedResearcher(next[next.length - 1]);
       return next;
     });
   };
 
+  /**
+   * Closes the profile modal and clears all profile state
+   */
   const handleCloseProfile = () => {
     setProfileOpen(false);
     setSelectedResearcher(null);
-    setProfileHistory([]); // clear on close
+    setProfileHistory([]);
   };
 
 
+  /**
+   * Measures the navigation bar height for responsive calculations
+   * Used to position modals and dropdowns correctly below the navbar
+   */
   useEffect(() => {
-  const measure = () => setNavOffset(navRef.current?.offsetHeight ?? 0);
-  measure();
-  window.addEventListener('resize', measure);
-  return () => window.removeEventListener('resize', measure);
-}, []);
+    const measure = () => setNavOffset(navRef.current?.offsetHeight ?? 0);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
-
-
+  /* ============================================================
+     DATA SOURCE TOGGLE (Development Feature)
+     ============================================================ */
+  
+  /**
+   * Current data source: 'api' (real backend) or 'mock' (local test data)
+   * Useful for development when backend is unavailable
+   */
   const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
 
+  /**
+   * Toggles between API and mock data sources
+   */
   const toggleDataSource = () => {
-    setDataSource(prev => (prev === 'mock' ? 'api' : 'mock'));
+    setDataSource((prev: 'api' | 'mock') => (prev === 'mock' ? 'api' : 'mock'));
   };
 
+  /* ============================================================
+     LAYOUT MEASUREMENTS
+     ============================================================ */
+  
+  /** Reference to the navigation element */
   const navRef = useRef<HTMLElement | null>(null);
-  const headerRef = useRef<HTMLElement | null>(null);     // 👈 observe this
+  
+  /** Reference to the header element (includes nav and dropdowns) */
+  const headerRef = useRef<HTMLElement | null>(null);
+  
+  /** Current height of the navigation/header area in pixels */
   const [navOffset, setNavOffset] = useState(0);
 
 
+  /**
+   * Observes header height changes using ResizeObserver
+   * This handles:
+   * - Mobile menu opening/closing
+   * - Window resizing
+   * - Dynamic content changes
+   * 
+   * The measured height is used to position modals and dropdowns correctly
+   */
   useEffect(() => {
     if (!headerRef.current) return;
     const el = headerRef.current;
 
-    // Watch the header/nav height change (dropdown open/close, etc.)
+    // ResizeObserver watches for size changes including dropdown opens/closes
     const ro = new ResizeObserver((entries) => {
       const rect = entries[0].contentRect;
       setNavOffset(Math.round(rect.height));
     });
 
     ro.observe(el);
-    // initial measure
-    setNavOffset(el.offsetHeight);
+    setNavOffset(el.offsetHeight);  // Initial measurement
 
     return () => ro.disconnect();
   }, []);
 
 
 
+  /* ============================================================
+     COMPONENT RENDER
+     ============================================================ */
+  
   return (
     <div className="min-h-screen bg-background">
-   {/* Top Navigation Bar */}
-
-    <header ref={headerRef} className="sticky top-0 z-[2147483650]">
-<nav
-      ref={navRef}
-      className="bg-blue-900 text-white px-6 py-4 sticky top-0 z-[2147483650]" // 👈 stays on top
-    >
+      {/* ==================== NAVIGATION BAR ==================== */}
+      {/* 
+        Sticky header that stays at the top of the viewport
+        Contains the UWA/Oceans Institute branding and main navigation
+        Includes mobile menu toggle and data source switcher
+      */}
+      <header ref={headerRef} className="sticky top-0 z-[2147483650]">
+        <nav
+          ref={navRef}
+          className="bg-blue-900 text-white px-6 py-4 sticky top-0 z-[2147483650]"
+        >
   <div className="flex items-center justify-between max-w-7xl mx-auto">
     {/* Left side: Logos */}
     <div className="flex items-center space-x-4">
@@ -183,7 +293,7 @@ const pushProfile = (r: Researcher) => {
   <div className="flex overflow-hidden shadow">
     {/* Hamburger block (dark navy) */}
     <button
-      onClick={() => setMobileMenuOpen(v => !v)}
+      onClick={() => setMobileMenuOpen((v: boolean) => !v)}
       aria-label="Menu"
       className="h-10 w-12 grid place-items-center bg-[#0B1E51] focus:outline-none focus:ring-2 focus:ring-white"
     >

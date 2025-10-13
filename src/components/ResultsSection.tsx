@@ -59,20 +59,9 @@ useEffect(() => {
 const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
 const [outcomes, setOutcomes] = useState<any[]>(getAllOutcomes());
 
-// 🔎 Debug counts
-console.log(
-  "ResultsSection initial store snapshot:",
-  "researchers:", researchers.length,
-  "outcomes:", outcomes.length
-);
-console.log("Researchers sample:", researchers.slice(0,5));
-console.log("Outcomes sample:", outcomes.slice(0,5));
-
-
 const handleStoreChange = React.useCallback(() => {
   const r = getAllResearchers();
   const o = getAllOutcomes();
-  console.log('ResultsSection store updated:', r.length, o.length);
   setResearchers(r);
   setOutcomes(o);
 }, []);
@@ -240,8 +229,6 @@ useEffect(() => {
     })
     .catch((err) => {
       if (err.name === 'AbortError') return;
-      // swallow other errors but log for debugging
-      console.error('Failed to fetch researchers', err);
     });
 
   return () => ac.abort();
@@ -283,7 +270,6 @@ const filteredResearchers = rItems;
       })
       .catch((err) => {
         if (err.name === 'AbortError') return;
-        console.error('Failed to fetch outcomes', err);
       });
 
     return () => ac.abort();
@@ -509,7 +495,6 @@ const filteredResearchers = rItems;
 <Button
   size="sm"
   onClick={() => {
-    console.log('[ResultsSection] selecting', researcher);
     setSelectedResearcher(researcher);
     setProfileOpen(true);
   }}

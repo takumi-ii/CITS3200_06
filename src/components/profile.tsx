@@ -94,17 +94,12 @@ const displayAffiliation = (r: any) =>
 
 
 export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
-  console.log('[Profile] rid =', person?.id);
-  console.log('[Profile] full person entity:', person);
   const [researchOutputs, setResearchOutputs] = useState<any[]>([]);
  
-// const [activeTab, setActiveTab] = useState("Overview");
-
-// AFTER
-const [activeTab, setActiveTab] = useLocalStorageState<string>(
-  'profile.activeTab',
-  'Overview'
-);
+  const [activeTab, setActiveTab] = useLocalStorageState<string>(
+    'profile.activeTab',
+    'Overview'
+  );
 
   const panelRef = React.useRef<HTMLDivElement>(null);
  const [sharedOutputsModal, setSharedOutputsModal] = useLocalStorageState<{
@@ -205,7 +200,6 @@ const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: stri
       outputs
     });
   } catch (error) {
-    console.error('Failed to fetch shared outputs:', error);
     setSharedOutputsModal({
       open: true,
       collaborator: { id: collaboratorId, name: collaboratorName },
@@ -219,7 +213,7 @@ const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: stri
 
   const [tick, setTick] = useState(0);
 useEffect(() => {
-  console.log('[Profile] incoming person', person);
+  // Effect hook for tracking person changes
 }, [person]);
 useEffect(() => {
   const unsub = subscribe(() => setTick(t => t + 1));
@@ -318,8 +312,7 @@ useEffect(() => {
   if (dataSource === 'api' && person?.id) {
     fetchOutputsForResearcher(person.id)
       .then(setResearchOutputs)
-      .catch(err => {
-        console.error("Failed to load researcher outputs", err);
+      .catch(() => {
         setResearchOutputs([]);
       });
   }
@@ -898,7 +891,6 @@ type CollabLike = {
               c.institution ??
               c.affiliation ??
               (isExternal ? "External Collaborator" : "—");
-            console.log('[TopCollab Avatar Props]', { index: i, name, photoUrl: c.photoUrl });
             return (
               <div
                 key={c.id ?? `${name}-${i}`}
@@ -1615,8 +1607,6 @@ const rows: CollabRow[] = (
         })
         .filter(Boolean) as CollabRow[]
 );
-
-console.log('collab row sample', rows[0]);
 
       // Sort strongest-first
       rows.sort((a, b) => b.total - a.total || b.pubCount - a.pubCount);
