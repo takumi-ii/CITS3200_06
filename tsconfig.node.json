@@ -1,0 +1,20 @@
+{
+  /**
+   * TypeScript Configuration for Build Tools (Node.js)
+   * 
+   * This configuration applies to Node.js scripts like vite.config.ts.
+   * Separate from main tsconfig.json to use different compiler options.
+   * 
+   * @see https://www.typescriptlang.org/tsconfig
+   */
+  "compilerOptions": {
+    /* Build Tool Specific */
+    "composite": true,                            // Enable project references feature
+    "skipLibCheck": true,                         // Skip type checking of .d.ts files
+    "module": "ESNext",                           // Use latest ES module syntax
+    "moduleResolution": "bundler",                // Use Vite's module resolution
+    "allowSyntheticDefaultImports": true          // Allow default imports from modules without default exports
+  },
+  "include": ["vite.config.ts"]                   // Only include build tool config files
+}
+

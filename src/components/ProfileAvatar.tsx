@@ -80,7 +80,6 @@ const handleImageError = () => {
 };
 
 const handleImageLoad = () => {
-  console.log('[ProfileAvatar] image loaded', { name, srcToUse });
   setHasLoaded(true);
   setImageError(false);
 };
@@ -96,18 +95,11 @@ return (
   >
     {srcToUse && !imageError ? (
       <>
-        {console.log('[ProfileAvatar] rendering <img>', { name, srcToUse })}
         <img
           src={srcToUse}
           alt={`${name || 'User'} profile picture`}
-          onError={(e) => {
-            console.warn('[ProfileAvatar] image error', { name, srcToUse });
-            handleImageError();
-          }}
-          onLoad={(e) => {
-            console.log('[ProfileAvatar] image loaded', { name, srcToUse });
-            handleImageLoad();
-          }}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
           className="absolute inset-0 w-full h-full object-cover object-center select-none"
           style={{
             objectFit: 'cover',
@@ -123,12 +115,9 @@ return (
         />
       </>
     ) : (
-      <>
-        {console.log('[ProfileAvatar] rendering initials', { name })}
-        <span className="text-blue-600 font-semibold">
-          {getInitials(name)}
-        </span>
-      </>
+      <span className="text-blue-600 font-semibold">
+        {getInitials(name)}
+      </span>
     )}
   </div>
 );

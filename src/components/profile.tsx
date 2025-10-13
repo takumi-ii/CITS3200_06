@@ -6,9 +6,11 @@ import { getAllCollaboratorsFor,getTopCollaboratorsFor } from "../data/collabUti
 import { mockAwards,mockGrants, mockResearchOutcomes, mockResearchers, mockProjects } from "../data/mockData";
 import { getOutcomesForResearcher,getAllOutcomes, subscribe } from '../data/api';
 import { preloadProfile, getGrantsFor, getAwardsFor,getAllResearchers } from '../data/api';
-import { Info,GraduationCap,Book,Users} from "lucide-react";
+import { Info,GraduationCap,Book,Users, Maximize2, Minimize2,Link2 } from "lucide-react";
 import ProfileAvatar from './ProfileAvatar';
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { fetchOutputsForResearcher } from "../data/api";
+import SafeHtmlRenderer from './SafeHtmlRenderer';
 
 
 interface ProfileProps {
@@ -23,6 +25,20 @@ interface ProfileProps {
   canGoBack?: boolean; 
   navOffset?: number; // NEW                                                            // NEW
 }
+
+
+// helper to resolve researcher object by ID from the API or mock data
+const resolveResearcher = (id?: string): Researcher | null => {
+  if (!id) return null;
+  // for mock mode
+  const found = mockResearchers.find(r => r.id === id);
+  if (found) return found;
+
+  // for API mode (if you cached researchers)
+  const apiList = getAllResearchers?.() ?? [];
+  const apiFound = apiList.find((r: any) => r.id === id || r.uuid === id);
+  return apiFound || null;
+};
 
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
@@ -78,15 +94,12 @@ const displayAffiliation = (r: any) =>
 
 
 export default function Profile({ open, onClose, person ,dataSource,setProfileOpen,setSelectedResearcher,pushProfile,popProfile,canGoBack,navOffset = 0,}: ProfileProps) {
-  console.log('[Profile] rid =', person?.id);
+  const [researchOutputs, setResearchOutputs] = useState<any[]>([]);
  
-// const [activeTab, setActiveTab] = useState("Overview");
-
-// AFTER
-const [activeTab, setActiveTab] = useLocalStorageState<string>(
-  'profile.activeTab',
-  'Overview'
-);
+  const [activeTab, setActiveTab] = useLocalStorageState<string>(
+    'profile.activeTab',
+    'Overview'
+  );
 
   const panelRef = React.useRef<HTMLDivElement>(null);
  const [sharedOutputsModal, setSharedOutputsModal] = useLocalStorageState<{
@@ -98,6 +111,14 @@ const [activeTab, setActiveTab] = useLocalStorageState<string>(
   { open: false, collaborator: null, outputs: [] }
 );
 
+  // Filter state for shared outputs modal
+  const [sharedFilterQuery, setSharedFilterQuery] = useState("");
+  const [sharedDebouncedQuery, setSharedDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSharedDebouncedQuery(sharedFilterQuery.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [sharedFilterQuery]);
+
   const [loadingSharedOutputs, setLoadingSharedOutputs] = useState(false);
  const [isMobile, setIsMobile] = useState(false);
 useEffect(() => {
@@ -107,6 +128,19 @@ useEffect(() => {
   mq.addEventListener("change", update);
   return () => mq.removeEventListener("change", update);
 }, []);
+
+// Biography expand/collapse
+const BIO_WORD_LIMIT = 250;
+const [bioExpanded, setBioExpanded] = useState(false);
+const bioText = person?.bio ?? "";
+const bioWords = useMemo(() => (bioText ? bioText.trim().split(/\s+/) : []), [bioText]);
+const bioTooLong = bioWords.length > BIO_WORD_LIMIT;
+const bioExcerpt = bioTooLong ? bioWords.slice(0, BIO_WORD_LIMIT).join(" ") + '…' : bioText;
+
+// reset expansion when switching person
+useEffect(() => {
+  setBioExpanded(false);
+}, [person?.id]);
 
 useEffect(() => {
   if (open) {
@@ -141,15 +175,17 @@ useEffect(() => {
   prevPersonId.current = currId;
 }, [open, person?.id]);                  // ✅ depend on id, not the whole object
 
-const navigateToResearcher = (full: Researcher) => {
-  if (pushProfile) {
-    pushProfile(full);
-  } else {
-    // backward-compat behaviour
-    setSelectedResearcher?.(full);
-    setProfileOpen?.(true);
-  }
-};
+  const navigateToResearcher = (full: Researcher) => {
+    // reset any transient UI state when navigating to a new profile
+    resetTransientState();
+    if (pushProfile) {
+      pushProfile(full);
+    } else {
+      // backward-compat behaviour
+      setSelectedResearcher?.(full);
+      setProfileOpen?.(true);
+    }
+  };
 
 const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: string) => {
   if (!person?.id || dataSource !== 'api') return;
@@ -164,7 +200,6 @@ const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: stri
       outputs
     });
   } catch (error) {
-    console.error('Failed to fetch shared outputs:', error);
     setSharedOutputsModal({
       open: true,
       collaborator: { id: collaboratorId, name: collaboratorName },
@@ -178,13 +213,50 @@ const fetchSharedOutputs = async (collaboratorId: string, collaboratorName: stri
 
   const [tick, setTick] = useState(0);
 useEffect(() => {
-  console.log('[Profile] incoming person', person);
+  // Effect hook for tracking person changes
 }, [person]);
 useEffect(() => {
   const unsub = subscribe(() => setTick(t => t + 1));
   return () => unsub();
 }, []);
 const [collabs, setCollabs] = useState<any[]>([]);
+// per-output abstract expanded state
+const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolean>>({});
+
+const toggleAbstract = (id: string) => {
+  setExpandedAbstracts(prev => ({ ...prev, [id]: !prev[id] }));
+};
+
+// Reset transient UI state (called when closing profile, switching person, or navigating)
+const resetTransientState = () => {
+  try {
+    setExpandedAbstracts({});
+  } catch (e) {}
+  try {
+    setSearchQuery("");
+    setDebouncedQuery("");
+  } catch (e) {}
+  try {
+    setSharedFilterQuery("");
+    setSharedDebouncedQuery("");
+  } catch (e) {}
+  try {
+    // close shared outputs modal and clear its contents
+    setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+  } catch (e) {}
+};
+
+// Search for research outputs
+const [searchQuery, setSearchQuery] = useState("");
+const [debouncedQuery, setDebouncedQuery] = useState("");
+useEffect(() => {
+  const t = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 250);
+  return () => clearTimeout(t);
+}, [searchQuery]);
+
+const onSearchChange = (v: string) => {
+  setSearchQuery(v);
+};
 
 useEffect(() => {
   if (!person?.id) { setCollabs([]); return; }
@@ -233,6 +305,19 @@ const awards = useMemo(
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+
+
+
+useEffect(() => {
+  if (dataSource === 'api' && person?.id) {
+    fetchOutputsForResearcher(person.id)
+      .then(setResearchOutputs)
+      .catch(() => {
+        setResearchOutputs([]);
+      });
+  }
+}, [person?.id, dataSource]);
+
   // --- Forward backdrop scroll to panel ---
 const touchY = React.useRef<number | null>(null);
 
@@ -257,29 +342,25 @@ const handleBackdropTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
 
 
   if (!open) return null;
-  const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 3).map(c => {
+  const topCollabs = getTopCollaboratorsFor("suzan-perfect", collabIdx, 5).map(c => {
   const r = mockResearchers.find(r => r.id === c.collaboratorId);
   return { ...r, ...c }; // merge collaborator info + counts
 });
 
 // inside Profile component
-const resolveResearcher = (rid?: string) => {
-  if (!rid) return null;
-  if (dataSource === 'api') {
-    const all = getAllResearchers();                 // live store snapshot
-    return all.find((r: any) => r.id === rid || r.uuid === rid) || null;
-  }
-  // mock path
-  return mockResearchers.find(r => r.id === rid) || null;
-};
 
+// close helper (reset transient UI state then call outer onClose)
+const closeProfile = () => {
+  resetTransientState();
+  onClose();
+};
 
 return createPortal(
   <>
    {/* Backdrop — desktop only */}
 {/* Backdrop for the PROFILE modal (works on all viewports) */}
 <div
-  onClick={onClose}
+  onClick={closeProfile}
   onWheel={handleBackdropWheel}
   onTouchStart={handleBackdropTouchStart}
   onTouchMove={handleBackdropTouchMove}
@@ -315,11 +396,10 @@ return createPortal(
     borderRadius: 14,
     boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
     zIndex: 8100,
-    overflowY: "auto",
     display: "flex",
     flexDirection: "column",
     maxHeight: '100vh',
-    overflowY: 'auto',
+    overflowY: "auto",
     overscrollBehavior: 'contain', // don't bubble to page
     ["--nav-offset" as any]: `${navOffset}px`,  // ✅ add this
   }}
@@ -363,7 +443,10 @@ return createPortal(
   </div>
 
   <button
-    onClick={onClose}
+    onClick={() => {
+  closeProfile();
+  setActiveTab("Overview");
+}}
     aria-label="Close profile"
     style={{
       border: "1px solid #e5e7eb",
@@ -481,15 +564,41 @@ return createPortal(
     >
   
 
-<div className="flex items-center gap-2 py-2 border-b border-gray-100">
+<div className="flex items-center justify-between gap-2 py-2 border-b border-gray-100">
   <span className="font-semibold text-gray-800">Biography:</span>
-  
+  {bioTooLong ? (
+    <button
+      onClick={() => setBioExpanded(x => !x)}
+      aria-expanded={bioExpanded}
+      aria-label={bioExpanded ? 'Collapse biography' : 'Expand biography'}
+      style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center' }}
+    >
+  {bioExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+    </button>
+  ) : null}
 </div>
 
 
       <div style={{ height: 1, background: "#f1f5f9", marginBottom: 12 }} /> {/* thin divider */}
-      <div style={{ color: person?.bio ? "#374151" : "#9ca3af" }}>
-        {person?.bio || "Empty"}
+      <div style={{ color: person?.bio ? "#374151" : "#9ca3af", display: 'block' }}>
+        {bioTooLong && !bioExpanded ? (
+          <>
+            <SafeHtmlRenderer 
+              content={bioExcerpt}
+            />
+            <button
+              onClick={() => setBioExpanded(true)}
+              aria-label="Read more biography"
+              style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', marginLeft: 6, padding: 0 }}
+            >
+              Read more
+            </button>
+          </>
+        ) : (
+          <SafeHtmlRenderer 
+            content={bioText || "Empty"}
+          />
+        )}
       </div>
     </div>
     {/* Expertise card */}
@@ -514,10 +623,10 @@ return createPortal(
 
  
 
-{(person?.fingerprints?.length || person?.expertise?.length) ? (
+{(safeArray((person as any)?.fingerprints).length || safeArray((person as any)?.expertise).length) ? (
   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
     {/* 🔹 Fingerprint concepts first */}
-    {(person.fingerprints || [])
+  {safeArray((person as any)?.fingerprints)
       .filter((fp: any) => fp.conceptName && fp.conceptName.length <= 50)
       .sort((a: any, b: any) => (a.rank ?? 9999) - (b.rank ?? 9999))
       .map((fp: any) => (
@@ -539,9 +648,9 @@ return createPortal(
       ))}
 
     {/* 🔹 Existing expertise tags */}
-    {(person.expertise || [])
-      .filter((tag: string) => tag && tag.length <= 50)
-      .map((tag: string) => (
+  {safeArray((person as any)?.expertise)
+      .filter((tag: any) => tag && (tag as string).length <= 50)
+      .map((tag: any) => (
         <span
           key={`exp-${tag}`}
           style={{
@@ -625,11 +734,14 @@ return createPortal(
         padding: "4px 10px",
         fontSize: 12,
         fontWeight: 500,
-        color: pub.url ? "#2563eb" : "#9ca3af",
+        color: "#6b7280", // default grey
         textDecoration: "none",
         cursor: pub.url ? "pointer" : "default",
-        whiteSpace: "nowrap"
+        whiteSpace: "nowrap",
+        transition: "color 0.12s ease"
       }}
+      onMouseEnter={(e) => { if (pub.url) (e.currentTarget.style.color = '#2563eb'); }}
+      onMouseLeave={(e) => { if (pub.url) (e.currentTarget.style.color = '#6b7280'); }}
     >
       View
     </a>
@@ -710,20 +822,28 @@ type CollabLike = {
   photoUrl?: string;
 };
 
-const collabsList = dataSource === "api"
-  ? collabs.map((c: any) => ({
-      id: c.collaboratorId,
-      name: c.name,
-      title: c.title,
-      email: c.email,
-      institution: c.institution,
-      department: c.department,
-      affiliation: c.affiliation,
-      photoUrl: c.photo_url,
-      total: c.total,
-      
-    }))
-  : (person?.id
+  const collabsList = dataSource === "api"
+  ? collabs.map((c: any) => {
+      const id =
+        c.collaboratorId ||
+        c.collaborator_uuid ||
+        c.id ||
+        c.uuid ||
+        null;
+
+      return {
+        id,
+        name: c.name,
+        title: c.title,
+        email: c.email,
+        institution: c.institution,
+        department: c.department,
+        affiliation: c.affiliation,
+        photoUrl: c.photo_url,
+        total: c.total,
+      };
+    })
+      : (person?.id
       ? getTopCollaboratorsFor(person.id, collabIdx, 5).map(c => {
           const r = mockResearchers.find(r => r.id === c.collaboratorId);
           return {
@@ -771,17 +891,40 @@ const collabsList = dataSource === "api"
               c.institution ??
               c.affiliation ??
               (isExternal ? "External Collaborator" : "—");
-            console.log('[TopCollab Avatar Props]', { index: i, name, photoUrl: c.photoUrl });
             return (
               <div
                 key={c.id ?? `${name}-${i}`}
-                onClick={() => {
-  const full = resolveResearcher(c.id /* or r.id */);
+               onClick={() => {
+  const id = c.id;
+  const name = c.name ?? 'Unknown';
+
+  // Try existing resolver first (works in mock / cached API)
+  const full = resolveResearcher(id);
+
   if (full) {
     if (dataSource === 'api') preloadProfile(full.id);
     navigateToResearcher(full);
+    return;
   }
+
+ if (dataSource === 'api' && id) {
+  // Try to load a full object to match Results list behavior
+  fetch(`/api/researchers/${id}`)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then((full) => {
+      // optional: preload grants/awards/outcomes by id
+      preloadProfile(full.id);
+      navigateToResearcher(full);
+    })
+    .catch(() => {
+      // last-resort fallback so the UI still opens
+      preloadProfile(id);
+      navigateToResearcher({ id, name } as Researcher);
+    });
+}
+
 }}
+
 
                 style={{
                   flex: "0 0 auto",
@@ -848,16 +991,16 @@ const collabsList = dataSource === "api"
     fetchSharedOutputs(c.id!, name);
   }}
   style={{
-    color: "#4338ca",
+    color: "#6b7280",
     fontSize: 12,
     fontWeight: 600,
     marginTop: 6,
     cursor: "pointer",
-    textDecoration: "underline",
-    textDecorationStyle: "dotted"
+    textDecoration: "none",
+    transition: "color 0.12s ease",
   }}
-  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
-  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
+  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#2563eb'; (e.currentTarget as HTMLElement).style.textDecoration = 'underline solid'; }}
+  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#6b7280'; (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
 >
   {c.total} shared collaboration{c.total !== 1 ? 's' : ''}
 </div>
@@ -880,6 +1023,9 @@ const collabsList = dataSource === "api"
 )}
 {/* RESEARCH OUTPUTS CONTENT ONLY */}
 {activeTab === "Research Outputs" && (
+
+
+
   <div style={{ marginTop: 16 }}>
     {(() => {
       // --- helpers ----------------------------------------------------------
@@ -911,16 +1057,25 @@ const collabsList = dataSource === "api"
 
       // --- compute outputs once --------------------------------------------
       // MOCK path: keep your existing publicationIds -> mockResearchOutcomes
-      // API path: derive from the already-loaded store outcomes by author match
+      // API path: derive from the already-fetched `researchOutputs` state by author match
       let outputs: any[] = [];
 
       if (isApi) {
-        // IMPORTANT: import getAllOutcomes from ../data/api at the top of Profile.tsx
-        //   import { getAllOutcomes, subscribe } from '../data/api';
-        const all = getAllOutcomes();
-        outputs = all
-          .filter(o => authoredBy(o, person))
-          .sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+        // Use the `researchOutputs` state (populated via fetchOutputsForResearcher)
+        // `researchOutputs` is a component state defined near the top of this file.
+        outputs = (researchOutputs || [])
+          .map((o: any) => ({
+            id: o.id ?? o.uuid,
+            title: o.title ?? o.name ?? 'Untitled',
+            journal: o.journal ?? o.publisher ?? '',
+            year: typeof o.year === 'number' ? o.year : (o.year ? Number(o.year) : undefined),
+            url: o.url ?? null,
+            authors: Array.isArray(o.authors) ? o.authors : [],
+            // include any remaining fields the UI expects
+            ...o,
+          }))
+          .filter(() => true)
+          .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
       } else {
         // IMPORTANT: import mockResearchOutcomes from ../data/mockData
         //   import { mockResearchOutcomes } from '../data/mockData';
@@ -930,29 +1085,50 @@ const collabsList = dataSource === "api"
           .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
       }
 
+      // apply search filter
+      const filteredOutputs = debouncedQuery
+        ? outputs.filter(o => {
+            const t = (o.title || "").toString().toLowerCase();
+            const a = (o.abstract || "").toString().toLowerCase();
+            return t.includes(debouncedQuery) || a.includes(debouncedQuery);
+          })
+        : outputs;
+
       return (
         <>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>Research Outputs</div>
-            <div style={{ color: "#6b7280", fontSize: 13 }}>({outputs.length})</div>
-          </div>
+              {/* Header */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  <div style={{ fontWeight: 600, fontSize: 16 }}>Research Outputs</div>
+                  <div style={{ color: "#6b7280", fontSize: 13 }}>({filteredOutputs.length})</div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    type="search"
+                    placeholder="Search title or abstract"
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+                  />
+                </div>
+              </div>
 
           {/* Empty state */}
-          {!outputs.length && (
+          {!filteredOutputs.length && (
             <div style={{ color: "#9ca3af" }}>No research outputs for this researcher.</div>
           )}
 
           {/* List */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            {outputs.map(o => (
+            {filteredOutputs.map(o => (
               <div
                 key={o.id}
                 style={{
                   background: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
-                  padding: 8
+                  padding: 8,
+                  position: 'relative' // allow absolute-positioned View link
                 }}
               >
                 {/* Title (link) */}
@@ -966,40 +1142,37 @@ const collabsList = dataSource === "api"
                   )}
                 </div>
 
-                {/* View Paper button */}
+                {/* View Paper (small top-right link) */}
                 {o.url && (
-                  <div style={{ marginTop: 8 }}>
-                    <a
-                      href={o.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        backgroundColor: "#1C2E5B",
-                        color: "white",
-                        textDecoration: "none",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        border: "1px solid #1C2E5B",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#0f1a3a";
-                        e.currentTarget.style.borderColor = "#0f1a3a";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#1C2E5B";
-                        e.currentTarget.style.borderColor = "#1C2E5B";
-                      }}
-                    >
-                      <Book className="w-4 h-4" />
-                      View Paper
-                    </a>
-                  </div>
+                  <a
+                    href={o.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      padding: "4px 10px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#6b7280", // default grey
+                      textDecoration: "none",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "color 0.12s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                     
+                      borderRadius: 6,
+                     
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#2563eb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+                  >
+                    <Link2 className="w-4 h-4" />
+                    View
+                  </a>
                 )}
 
                 {/* Meta row: year • journal/type • badges */}
@@ -1030,14 +1203,43 @@ const collabsList = dataSource === "api"
                   </div>
                 )}
 
-                {/* Abstract (collapsible) */}
+                {/* Abstract (2-line clamp + expand) */}
                 {typeof o.abstract === "string" && o.abstract.trim().length > 0 && (
-                  <details style={{ marginTop: 8 }}>
-                    <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>Show abstract</summary>
-                    <div style={{ color: "#374151", fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap" }}>
-                      {o.abstract}
+                  <div style={{ marginTop: 8 }}>
+                    <SafeHtmlRenderer
+                      content={o.abstract}
+                      style={{
+                        color: "#374151",
+                        fontSize: 14,
+                        marginTop: 6,
+                        display: '-webkit-box',
+                        WebkitLineClamp: expandedAbstracts[o.id] ? 'none' : 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    />
+
+                    <div style={{ marginTop: 6 }}>
+                      {!expandedAbstracts[o.id] ? (
+                        <button
+                          onClick={() => toggleAbstract(o.id)}
+                          aria-label={`Read more abstract for ${o.title || 'publication'}`}
+                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0 }}
+                        >
+                          Read more
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => toggleAbstract(o.id)}
+                          aria-label={`Hide abstract for ${o.title || 'publication'}`}
+                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0 }}
+                        >
+                          Hide
+                        </button>
+                      )}
                     </div>
-                  </details>
+                  </div>
                 )}
 
                 {/* Keywords */}
@@ -1063,7 +1265,10 @@ const collabsList = dataSource === "api"
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: "#0b2a4a" }}>Funding</div>
                     {o.grantFundingText && (
-                      <div style={{ color: "#374151", fontSize: 13, marginTop: 4 }}>{o.grantFundingText}</div>
+                      <SafeHtmlRenderer 
+                        content={o.grantFundingText}
+                        style={{ color: "#374151", fontSize: 13, marginTop: 4 }}
+                      />
                     )}
                     {!!o.grantFundingDetails?.length && (
                       <ul style={{ margin: "6px 0 0 16px", color: "#374151", fontSize: 13 }}>
@@ -1337,9 +1542,10 @@ const collabsList = dataSource === "api"
 
                   {/* Description (optional) */}
                   {a.description && (
-                    <div style={{ color: "#374151", fontSize: 13, marginTop: 6 }}>
-                      {a.description}
-                    </div>
+                    <SafeHtmlRenderer 
+                      content={a.description}
+                      style={{ color: "#374151", fontSize: 13, marginTop: 6 }}
+                    />
                   )}
                 </div>
               );
@@ -1360,51 +1566,93 @@ const collabsList = dataSource === "api"
       if (!person?.id) return null;
 
      // Build rows from API when dataSource === 'api'; otherwise use mock index
-const rows: CollabRow[] = (dataSource === "api"
-  ? (collabs || []).map((c: any): CollabRow => ({
-      id: c.collaboratorId,
-      name: c.name ?? c.collaboratorId,
-      email: c.email ?? undefined,
-      title: c.title ?? undefined,
-      total: c.total ?? c.pubCount ?? 0,
-      pubCount: c.pubCount ?? c.total ?? 0,
-      grantCount: c.grantCount ?? 0,
-      photoUrl: c.photo_url,              // ✅ API → camelCase
-    }))
-  : getAllCollaboratorsFor(person.id, collabIdx)
-      .map(c => {
-        const r = findResearcher(c.collaboratorId);
-        return r && ({
-          id: r.id,
-          name: r.name,
-          email: r.email,
-          title: r.title,
-          institution: r.institution,
-          department: r.department,
-          total: c.total,
-          pubCount: c.pubCount,
-          grantCount: c.grantCount,
-          photoUrl: r.photoUrl,           // ✅ use r.photoUrl (not c.photoUrl)
-        } as CollabRow);
+const rows: CollabRow[] = (
+  dataSource === "api"
+    ? (collabs || []).map((c: any): CollabRow => {
+        const id =
+          c.collaboratorId ??
+          c.collaborator_uuid ??
+          c.id ??
+          c.uuid ??
+          "";
+
+        return {
+          id,
+          name: c.name ?? id,
+          email: c.email ?? undefined,
+          title: c.title ?? undefined,
+          institution: c.institution ?? undefined,
+          department: c.department ?? undefined,
+          total: c.total ?? c.pubCount ?? 0,
+          pubCount: c.pubCount ?? c.total ?? 0,
+          grantCount: c.grantCount ?? 0,
+          photoUrl: c.photo_url ?? c.photoUrl,
+        };
       })
-      .filter(Boolean) as CollabRow[]
+    : getAllCollaboratorsFor(person!.id, collabIdx)
+        .map(c => {
+          const r = findResearcher(c.collaboratorId);
+          return r && ({
+            id: r.id,
+            name: r.name,
+            email: r.email,
+            title: r.title,
+            institution: r.institution,
+            department: r.department,
+            total: c.total,
+            pubCount: c.pubCount,
+            grantCount: c.grantCount,
+            photoUrl: r.photoUrl,
+          } as CollabRow);
+        })
+        .filter(Boolean) as CollabRow[]
 );
-console.log('collab row sample', rows[0]);
 
       // Sort strongest-first
       rows.sort((a, b) => b.total - a.total || b.pubCount - a.pubCount);
 
+      // Apply search filter
+      const filteredRows = debouncedQuery
+        ? rows.filter(r => {
+            const name = (r.name || "").toString().toLowerCase();
+            const email = (r.email || "").toString().toLowerCase();
+            const title = (r.title || "").toString().toLowerCase();
+            const institution = (r.institution || "").toString().toLowerCase();
+            const department = (r.department || "").toString().toLowerCase();
+            return name.includes(debouncedQuery) || 
+                   email.includes(debouncedQuery) || 
+                   title.includes(debouncedQuery) || 
+                   institution.includes(debouncedQuery) || 
+                   department.includes(debouncedQuery);
+          })
+        : rows;
+
       return (
         <>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>All collaborators</div>
-            <div style={{ color: "#6b7280", fontSize: 13 }}>({rows.length})</div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>All collaborators</div>
+              <div style={{ color: "#6b7280", fontSize: 13 }}>({filteredRows.length})</div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <input
+                type="search"
+                placeholder="Search collaborators by name, email, title, or institution"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+              />
+            </div>
           </div>
 
           {/* Empty state */}
-          {!rows.length && (
-            <div style={{ color: "#9ca3af" }}>No collaborators found for this researcher.</div>
+          {!filteredRows.length && (
+            <div style={{ color: "#9ca3af" }}>
+              {rows.length === 0 
+                ? "No collaborators found for this researcher." 
+                : "No collaborators match your search criteria."}
+            </div>
           )}
 
           {/* Grid */}
@@ -1415,18 +1663,42 @@ console.log('collab row sample', rows[0]);
               gap: 12
             }}
           >
-            {rows.map(r => {
+            {filteredRows.map(r => {
               const isExternal = r.title === "External Collaborator";
               return (
               <div
                 key={r.id}
-                  onClick={() => {
-  const full = resolveResearcher(r.id /* or r.id */);
+               onClick={() => {
+  const id = r.id;
+  const name = r.name ?? 'Unknown';
+
+  // Try existing resolver first (works in mock / cached API)
+  const full = resolveResearcher(id);
+
   if (full) {
     if (dataSource === 'api') preloadProfile(full.id);
     navigateToResearcher(full);
+    return;
   }
+
+ if (dataSource === 'api' && id) {
+  // Try to load a full object to match Results list behavior
+  fetch(`/api/researchers/${id}`)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then((full) => {
+      // optional: preload grants/awards/outcomes by id
+      preloadProfile(full.id);
+      navigateToResearcher(full);
+    })
+    .catch(() => {
+      // last-resort fallback so the UI still opens
+      preloadProfile(id);
+      navigateToResearcher({ id, name } as Researcher);
+    });
+}
+
 }}
+
 
             style={{
     background: isExternal ? "#f8fafc" : "#fff",
@@ -1478,16 +1750,16 @@ console.log('collab row sample', rows[0]);
                       fetchSharedOutputs(r.id, r.name || r.id);
                     }}
                     style={{ 
-                      color: "#4338ca", 
+                      color: "#6b7280", 
                       fontSize: 12, 
                       fontWeight: 600, 
                       marginTop: 6,
                       cursor: "pointer",
-                      textDecoration: "underline",
-                      textDecorationStyle: "dotted"
+                      textDecoration: "none",
+                      transition: "color 0.12s ease",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline solid")}
-                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "underline dotted")}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#2563eb'; (e.currentTarget as HTMLElement).style.textDecoration = 'underline solid'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#6b7280'; (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
                   >
                     {r.total} shared collaboration{r.total !== 1 ? 's' : ''}
                     {/* <span style={{ color: "#6b7280", fontWeight: 500 }}>
@@ -1522,82 +1794,66 @@ console.log('collab row sample', rows[0]);
     {sharedOutputsModal.open && createPortal(
       <>
         {/* Backdrop */}
-  <div
-  onClick={
-    isMobile
-      ? undefined // 🚫 don't close modal on mobile
-      : () => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })
-  }
-  className="shared-modal-backdrop"
-  style={{
-    position: "fixed",
-    inset: 0,
-    background: isMobile ? "transparent" : "rgba(0,0,0,0.5)", // ✅ still dark on desktop
-    zIndex: 8200,
-    pointerEvents: isMobile ? "none" : "auto", // ✅ allow header taps through on mobile
-  }}
-  aria-hidden="true"
-/>
-
+        <div
+          onClick={isMobile ? undefined : () => {
+            // reset shared modal transient state
+            setSharedFilterQuery("");
+            setSharedDebouncedQuery("");
+            setExpandedAbstracts({});
+            setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+          }}
+          className="shared-modal-backdrop"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: isMobile ? "transparent" : "rgba(0,0,0,0.5)",
+            zIndex: 8200,
+            pointerEvents: isMobile ? "none" : "auto",
+          }}
+          aria-hidden="true"
+        />
 
         {/* Modal Panel */}
-<div
-  role="dialog"
-  aria-modal="true"
-  className="shared-modal-panel"
-  style={{
-    position: "fixed",
-    top: isMobile ? "var(--nav-offset, 0px)" : "50%",
-    left: isMobile ? 0 : "50%",
-    transform: isMobile ? "none" : "translate(-50%, -50%)",
-    width: isMobile ? "100vw" : "70vw",
-    height: isMobile ? "calc(100svh - var(--nav-offset, 0px))" : "auto",
-    maxHeight: isMobile ? "none" : "80vh",
-    background: "#fff",
-    borderRadius: isMobile ? 0 : 14,
-    boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
-    zIndex: 8300 ,
-    overflowY: "auto",
-    WebkitOverflowScrolling: "touch",
-    display: "flex",
-    flexDirection: "column",
-    ["--nav-offset" as any]: `${navOffset}px`, // important for mobile
-  }}
->
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="shared-modal-panel"
+          style={{
+            position: "fixed",
+            top: isMobile ? "var(--nav-offset, 0px)" : "50%",
+            left: isMobile ? 0 : "50%",
+            transform: isMobile ? "none" : "translate(-50%, -50%)",
+            width: isMobile ? "100vw" : "70vw",
+            height: isMobile ? "calc(100svh - var(--nav-offset, 0px))" : "auto",
+            maxHeight: isMobile ? "none" : "80vh",
+            background: "#fff",
+            borderRadius: isMobile ? 0 : 14,
+            boxShadow: "0 22px 70px rgba(0,0,0,0.35)",
+            zIndex: 8300,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            display: "flex",
+            flexDirection: "column",
+            ["--nav-offset" as any]: `${navOffset}px`,
+          }}
+        >
 
           {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 20px",
-              borderBottom: "1px solid #eee",
-              background: "#f8fafc",
-              position: "sticky",
-              top: 0,
-              zIndex: 1
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #eee", background: "#f8fafc", position: "sticky", top: 0, zIndex: 60 }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 18, color: "#0b2a4a" }}>
-                Shared Research Outputs
-              </div>
-              <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>
-                Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}
-              </div>
+              <div style={{ fontWeight: 600, fontSize: 18, color: "#0b2a4a" }}>Shared Research Outputs</div>
+              <div style={{ color: "#6b7280", fontSize: 14, marginTop: 4 }}>Collaborations between {person?.name} and {sharedOutputsModal.collaborator?.name}</div>
             </div>
             <button
-              onClick={() => setSharedOutputsModal({ open: false, collaborator: null, outputs: [] })}
-              aria-label="Close modal"
-              style={{
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                padding: "8px 12px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 14
+              onClick={() => {
+                setSharedFilterQuery("");
+                setSharedDebouncedQuery("");
+                setExpandedAbstracts({});
+                setSharedOutputsModal({ open: false, collaborator: null, outputs: [] });
+               
               }}
+              aria-label="Close modal"
+              style={{ border: "1px solid #e5e7eb", background: "#fff", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
               onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
               onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
             >
@@ -1608,129 +1864,147 @@ console.log('collab row sample', rows[0]);
           {/* Body */}
           <div style={{ padding: 20 }}>
             {loadingSharedOutputs ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
-                Loading shared research outputs...
-              </div>
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>Loading shared research outputs...</div>
             ) : sharedOutputsModal.outputs.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af" }}>
-                No shared research outputs found.
-              </div>
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af" }}>No shared research outputs found.</div>
             ) : (
               <>
-                <div style={{ marginBottom: 16, color: "#374151", fontSize: 14 }}>
-                  Found <strong>{sharedOutputsModal.outputs.length}</strong> shared research output{sharedOutputsModal.outputs.length !== 1 ? 's' : ''}
-                </div>
+                {/* compute filtered list and render (includes the search input so the count appears immediately under it) */}
+                {(() => {
+                  const total = sharedOutputsModal.outputs.length;
+                  const q = sharedDebouncedQuery;
+                  const filtered = q
+                    ? sharedOutputsModal.outputs.filter((output: any) => {
+                        const title = (output.title || "").toString().toLowerCase();
+                        const journal = (output.journal || output.publisher || "").toString().toLowerCase();
+                        const authors = (Array.isArray(output.authors) ? output.authors.join(' ') : (output.authors || '')).toString().toLowerCase();
+                        const abstract = (output.abstract || "").toString().toLowerCase();
+                        return title.includes(q) || journal.includes(q) || authors.includes(q) || abstract.includes(q);
+                      })
+                    : sharedOutputsModal.outputs;
 
-                {/* List of shared outputs */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-                  {sharedOutputsModal.outputs.map((output: any) => (
-                    <div
-                      key={output.uuid}
-                      style={{
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: 16
-                      }}
-                    >
-                      {/* Title */}
-                      <div style={{ fontWeight: 600, color: "#0b2a4a", fontSize: 16, marginBottom: 8 }}>
-                        {output.url ? (
-                          <a
-                            href={output.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: "inherit", textDecoration: "none" }}
-                          >
-                            {output.title}
-                          </a>
-                        ) : (
-                          output.title
-                        )}
+                  return (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                        <div style={{ width: '100%' }}>
+                          <input
+                            type="search"
+                            placeholder={`Filter shared outputs (title, journal, author, abstract)`}
+                            value={sharedFilterQuery}
+                            onChange={(e) => setSharedFilterQuery(e.target.value)}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+                          />
+                        </div>
+
+                        <div style={{ color: '#4b5563', fontSize: 12, fontWeight: 400, opacity: 0.95 }}>
+                          Showing {filtered.length} out of {total}
+                        </div>
                       </div>
 
-                      {/* View Paper button */}
-                      {output.url && (
-                        <div style={{ marginBottom: 8 }}>
-                          <a
-                            href={output.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "6px 12px",
-                              backgroundColor: "#1C2E5B",
-                              color: "white",
-                              textDecoration: "none",
-                              borderRadius: 6,
-                              fontSize: 13,
-                              fontWeight: 500,
-                              border: "1px solid #1C2E5B",
-                              transition: "all 0.2s ease"
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#0f1a3a";
-                              e.currentTarget.style.borderColor = "#0f1a3a";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = "#1C2E5B";
-                              e.currentTarget.style.borderColor = "#1C2E5B";
-                            }}
-                          >
-                            <Book className="w-4 h-4" />
-                            View Paper
-                          </a>
-                        </div>
-                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+                        {filtered.map((output: any) => (
+                          <div key={output.uuid || output.id} style={{ position: 'relative', background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, paddingRight: 140 }}>
+                            {/* Title */}
+                            <div style={{ fontWeight: 600, color: "#0b2a4a", fontSize: 16, marginBottom: 8, paddingRight: 120, overflowWrap: 'break-word', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              {output.url ? (
+                                <a href={output.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none", display: 'inline-block' }}>{output.title}</a>
+                              ) : <span style={{ display: 'inline-block' }}>{output.title}</span>}
+                            </div>
 
-                      {/* Meta row: year, journal */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>
-                        {output.year && <span>({output.year})</span>}
-                        {output.journal && (
-                          <>
-                            {output.year && <span>·</span>}
-                            <span>{output.journal}</span>
-                          </>
-                        )}
-                        {output.publisher && (
-                          <>
-                            <span>·</span>
-                            <span>{output.publisher}</span>
-                          </>
-                        )}
-                        {output.citations !== null && output.citations !== undefined && (
-                          <>
-                            <span>·</span>
-                            <span style={{ color: "#059669", fontWeight: 500 }}>
-                              {output.citations} citation{output.citations !== 1 ? 's' : ''}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                            {/* View Paper button (top-right) */}
+                            {output.url && (
+                              <a
+                                href={output.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  position: 'absolute',
+                                  top: 12,
+                                  right: 12,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '6px 10px',
+                                  backgroundColor: '#fff',
+                                  color: '#6b7280',
+                                  textDecoration: 'none',
+                                  borderRadius: 6,
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  border: '1px solid #e5e7eb',
+                                  zIndex: 40 // keep it below the sticky header so the header/close button remains on top
+                                }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+                              >
+                                <Book className="w-4 h-4" />
+                                View Paper
+                              </a>
+                            )}
 
-                      {/* Authors */}
-                      {output.authors && output.authors.length > 0 && (
-                        <div style={{ color: "#374151", fontSize: 13, marginBottom: 8 }}>
-                          <strong>Authors:</strong> {output.authors.join(", ")}
-                        </div>
-                      )}
+                            {/* Meta row */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 14, marginBottom: 8 }}>
+                              {output.year && <span>({output.year})</span>}
+                              {output.journal && (<><span>{output.year ? '·' : ''}</span><span>{output.journal}</span></>)}
+                              {output.publisher && (<><span>·</span><span>{output.publisher}</span></>)}
+                              {output.citations !== null && output.citations !== undefined && (<><span>·</span><span style={{ color: "#6b7280", fontWeight: 400 }}>{output.citations} citation{output.citations !== 1 ? 's' : ''}</span></>)}
+                            </div>
 
-                      {/* Abstract (collapsible) */}
-                      {output.abstract && (
-                        <details style={{ marginTop: 8 }}>
-                          <summary style={{ cursor: "pointer", color: "#2563eb", fontSize: 13 }}>
-                            Show abstract
-                          </summary>
-                          <div style={{ color: "#374151", fontSize: 13, marginTop: 8, whiteSpace: "pre-wrap" }}>
-                            {output.abstract?.replace(/<[^>]*>/g, '')}
+                            {/* Authors */}
+                            {output.authors && output.authors.length > 0 && (<div style={{ color: "#374151", fontSize: 13, marginBottom: 8 }}><strong>Authors:</strong> {Array.isArray(output.authors) ? output.authors.join(', ') : output.authors}</div>)}
+
+                            {/* Abstract: 2-line clamp + toggle (uses expandedAbstracts state) */}
+                            {output.abstract && (() => {
+                              const key = output.uuid || output.id;
+                              const isExpanded = !!(key && expandedAbstracts[key]);
+                              return (
+                                <div style={{ marginTop: 8 }}>
+                                  <SafeHtmlRenderer
+                                    content={output.abstract}
+                                    style={{
+                                      color: "#374151",
+                                      fontSize: 13,
+                                      marginTop: 6,
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: isExpanded ? 'none' : 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}
+                                  />
+
+                                  <div style={{ marginTop: 6 }}>
+                                    {key ? (
+                                      !isExpanded ? (
+                                        <button
+                                          onClick={() => toggleAbstract(key)}
+                                          aria-label={`Show more abstract for ${output.title || 'output'}`}
+                                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0, fontSize: 13 }}
+                                        >
+                                          Show more
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => toggleAbstract(key)}
+                                          aria-label={`Hide abstract for ${output.title || 'output'}`}
+                                          style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0, fontSize: 13 }}
+                                        >
+                                          Hide
+                                        </button>
+                                      )
+                                    ) : (
+                                      <div style={{ color: '#6b7280', fontSize: 12 }}> {output.abstract?.slice(0, 200)}{(output.abstract || '').length > 200 ? '…' : ''}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
-                        </details>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>

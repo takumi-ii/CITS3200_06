@@ -1,0 +1,41 @@
+{
+  /**
+   * TypeScript Configuration for Application Code
+   * 
+   * This configuration applies to all source files in the src/ directory.
+   * It enables strict type checking and modern ES2020 features.
+   * 
+   * @see https://www.typescriptlang.org/tsconfig
+   */
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "ES2020",                           // Output modern JavaScript (ES2020)
+    "useDefineForClassFields": true,              // Use ES2022 class field semantics
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],     // Include type definitions for ES2020 and DOM
+    "module": "ESNext",                           // Use the latest ES module syntax
+    "skipLibCheck": true,                         // Skip type checking of .d.ts files (faster builds)
+
+    /* Bundler Mode (Vite-specific) */
+    "moduleResolution": "bundler",                // Use Vite's module resolution algorithm
+    "allowImportingTsExtensions": true,           // Allow importing .ts/.tsx files directly
+    "resolveJsonModule": true,                    // Allow importing JSON files as modules
+    "isolatedModules": true,                      // Ensure each file can be transpiled independently
+    "noEmit": true,                               // Don't output .js files (Vite handles bundling)
+    "jsx": "react-jsx",                           // Use React 17+ JSX transform (no need to import React)
+
+    /* Type Checking (Strict Mode) */
+    "strict": true,                               // Enable all strict type checking options
+    "noUnusedLocals": true,                       // Error on unused local variables
+    "noUnusedParameters": true,                   // Error on unused function parameters
+    "noFallthroughCasesInSwitch": true,           // Error on fallthrough cases in switch statements
+
+    /* Path Mapping */
+    "baseUrl": ".",                               // Base directory for resolving non-relative module names
+    "paths": {
+      "@/*": ["./src/*"]                          // Alias @/ to src/ (e.g., import from '@/components/...')
+    }
+  },
+  "include": ["src"],                             // Include all files in src/ directory
+  "references": [{ "path": "./tsconfig.node.json" }]  // Reference build tool config
+}
+

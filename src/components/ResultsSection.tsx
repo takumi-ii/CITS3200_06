@@ -9,8 +9,9 @@ import { MapPin, Calendar, BookOpen, Users, Award, ExternalLink, User, Book, Arr
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import ProfileAvatar from './ProfileAvatar';
 import { mockResearchers,mockResearchOutcomes } from '../data/mockData';
-import { getAllOutcomes,getAllResearchers,subscribe} from '../data/api';
+import { getAllOutcomes,getAllResearchers,subscribe, API_PREFIX} from '../data/api';
 import PageNavigation from './ui/PageNavigation';
+import SafeHtmlRenderer from './SafeHtmlRenderer';
 
 
 
@@ -32,7 +33,8 @@ export default function ResultsSection({ searchQuery, filters, setProfileOpen, s
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useLocalStorageState<'researchers'|'outcomes'>('results.activeTab', 'researchers');
 const [currentPage, setCurrentPage] = useLocalStorageState<number>('results.page', 1);
-const [sortBy, setSortBy] = useLocalStorageState<'default'|'recent-publications'|'position-rank'>('results.sortBy', 'default');
+const [researcherSortBy, setResearcherSortBy] = useLocalStorageState<'default'|'recent-publications'|'position-rank'>('results.researcherSortBy', 'default');
+const [outcomeSortBy, setOutcomeSortBy] = useLocalStorageState<'recent'|'cited'|'alphabetical'|'journal'|'oldest'>('results.outcomeSortBy', 'recent');
 
   const PER_PAGE = 6; // how many results per page (researchers/outcomes)
 
@@ -44,24 +46,22 @@ useEffect(() => {
   } else {
     didMount.current = true;
   }
-}, [sortBy]);
+}, [researcherSortBy, outcomeSortBy]);
+
+// Also reset page to 1 when the search query or tag filters change (after initial mount)
+useEffect(() => {
+  if (didMount.current) {
+    setCurrentPage(1);
+  }
+}, [searchQuery, filters.tags]);
 
   // Live data from central store (no fetching here)
 const [researchers, setResearchers] = useState<any[]>(getAllResearchers());
 const [outcomes, setOutcomes] = useState<any[]>(getAllOutcomes());
 
-// 🔎 Debug counts
-console.log(
-  "ResultsSection initial store snapshot:",
-  "researchers:", researchers.length,
-  "outcomes:", outcomes.length
-);
-
-
 const handleStoreChange = React.useCallback(() => {
   const r = getAllResearchers();
   const o = getAllOutcomes();
-  console.log('ResultsSection store updated:', r.length, o.length);
   setResearchers(r);
   setOutcomes(o);
 }, []);
@@ -72,10 +72,11 @@ useEffect(() => {
 }, [handleStoreChange]);
   // Choose live data if available; otherwise use mocks (only when no active search)
 const q = (searchQuery || '').toLowerCase();
+const [rItems, setRItems] = useState<any[]>([]);
+const [rTotal, setRTotal] = useState(0);
+const [oItems, setOItems] = useState<any[]>([]);
+const [oTotal, setOTotal] = useState(0);
 
-// base arrays: real store data or mocks, depending on dataSource
-const sourceResearchers = dataSource === 'mock' ? mockResearchers : researchers;
-const sourceOutcomes    = dataSource === 'mock' ? mockResearchOutcomes : outcomes;
 
 // Sorting functions
 const sortResearchers = (researchers: any[], sortOption: string) => {
@@ -195,48 +196,84 @@ const sortResearchers = (researchers: any[], sortOption: string) => {
   }
 };
 
-// --- Filter, group (promote/no_show), and sort ---
-const visibleResearchers = sourceResearchers.filter((researcher: any) => {
-  const labels: string[] = Array.isArray(researcher.labels) ? researcher.labels : [];
+// Researchers are now fetched from an API endpoint. The client drives q/tags/sort/page.
+// Results are stored in rItems and rTotal (server-side pagination + promote/exclude handled server-side).
+useEffect(() => {
+  // If using local/mock data source, just populate from the mock set
+  if (dataSource !== 'api') {
+    const mockFiltered = mockResearchers || [];
+    setRItems(mockFiltered);
+    setRTotal(mockFiltered.length);
+    return;
+  }
 
-  // 🔹 Drop any researcher with the no_show label or explicit flag
-  if (researcher.noShow === true || labels.includes("no_show")) return false;
+  const ac = new AbortController();
+  const params = new URLSearchParams({
+    q: searchQuery || "",
+    tags: (filters.tags || []).join(","),
+    sort: researcherSortBy,
+    page: String(currentPage),
+    per_page: String(PER_PAGE),
+    promote_first: "true",
+    exclude_no_show: "true",
+  });
 
-  const matchesQuery =
-    !q ||
-    (researcher.name || "").toLowerCase().includes(q) ||
-    (researcher.expertise || []).some((exp: string) =>
-      (exp || "").toLowerCase().includes(q)
-    );
+  fetch(API_PREFIX + `/api/researchers?${params.toString()}`, { signal: ac.signal })
+    .then(r => {
+      if (!r.ok) throw new Error('Network response was not ok');
+      return r.json();
+    })
+    .then(({ items, total }) => {
+      setRItems(items || []);
+      setRTotal(total || 0);
+    })
+    .catch((err) => {
+      if (err.name === 'AbortError') return;
+    });
 
-  const matchesTags =
-    (filters.tags?.length ?? 0) === 0 ||
-    filters.tags.some((tag) =>
-      (researcher.expertise || []).some((exp: string) =>
-        (exp || "").toLowerCase().includes((tag || "").toLowerCase())
-      )
-    );
+  return () => ac.abort();
+}, [searchQuery, filters.tags, filters.yearRange, researcherSortBy, currentPage, dataSource]);
 
-  return matchesQuery && matchesTags;
+// Use server-provided items as the filtered/paginated researchers list
+const filteredResearchers = rItems;
+
+  const sourceOutcomes = (outcomes && outcomes.length) ? outcomes : mockResearchOutcomes;
+
+  // If using API, fetch outcomes for the list view (server handles filtering/pagination)
+  useEffect(() => {
+    if (dataSource !== 'api') {
+      const fallback = sourceOutcomes || [];
+      setOItems(fallback);
+      setOTotal(fallback.length);
+      return;
+    }
+
+    const ac = new AbortController();
+   const params = new URLSearchParams({
+  q: searchQuery || "",
+  tags: (filters.tags || []).join(","),
+  page: String(currentPage),
+  per_page: String(PER_PAGE),
+  year_min: String(filters.yearRange[0]),
+  year_max: String(filters.yearRange[1]),
+  sort: outcomeSortBy,
 });
 
-// 🔹 Split promoted vs non-promoted
-const promoted = visibleResearchers.filter((r) => {
-  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
-  return labels.includes("promote") || r.primaryLabel === "promote";
-});
+    fetch(API_PREFIX + `/api/researchOutcomes?${params.toString()}`, { signal: ac.signal })
+      .then(r => {
+        if (!r.ok) throw new Error('Network response was not ok');
+        return r.json();
+      })
+      .then(({ items, total }) => {
+        setOItems(items || []);
+        setOTotal(total || 0);
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+      });
 
-const nonPromoted = visibleResearchers.filter((r) => {
-  const labels: string[] = Array.isArray(r.labels) ? r.labels : [];
-  return !labels.includes("promote") && r.primaryLabel !== "promote";
-});
-
-// 🔹 Sort each subset using your existing sort logic
-const sortedPromoted = sortResearchers(promoted, sortBy);
-const sortedNonPromoted = sortResearchers(nonPromoted, sortBy);
-
-// 🔹 Combine promoted first
-const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
+    return () => ac.abort();
+ }, [searchQuery, filters.tags, filters.yearRange, currentPage, dataSource, outcomeSortBy]);
 
   const filteredOutcomes = sourceOutcomes.filter((outcome: any) => {
     const title = (outcome.title || outcome.name || '') as string;
@@ -266,8 +303,64 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
     return matchesQuery && matchesTags && matchesYear;
   });
 
-  const totalPagesResearchers = Math.max(1, Math.ceil(filteredResearchers.length / PER_PAGE));
-  const totalPagesOutcomes  = Math.max(1, Math.ceil(filteredOutcomes.length / PER_PAGE));
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  const endIndex = startIndex + PER_PAGE;
+  
+  // Sort research outcomes when not using API
+  const sortOutcomes = (outcomes: any[], sortOption: 'recent'|'cited'|'alphabetical'|'journal'|'oldest') => {
+    return [...outcomes].sort((a, b) => {
+      switch (sortOption) {
+        case 'recent':
+          // Most recent first (null years last)
+          const aYear = a.year || 0;
+          const bYear = b.year || 0;
+          if (aYear === 0 && bYear === 0) return 0;
+          if (aYear === 0) return 1;
+          if (bYear === 0) return -1;
+          return bYear - aYear;
+          
+        case 'cited':
+          // Most cited first
+          const aCitations = a.citations || 0;
+          const bCitations = b.citations || 0;
+          if (aCitations !== bCitations) return bCitations - aCitations;
+          // Tiebreaker: most recent
+          return (b.year || 0) - (a.year || 0);
+          
+        case 'alphabetical':
+          // Alphabetical by title
+          const aTitle = (a.title || a.name || '').toLowerCase();
+          const bTitle = (b.title || b.name || '').toLowerCase();
+          return aTitle.localeCompare(bTitle);
+          
+        case 'journal':
+          // By journal name, then by title
+          const aJournal = (a.journal || '').toLowerCase();
+          const bJournal = (b.journal || '').toLowerCase();
+          if (aJournal !== bJournal) return aJournal.localeCompare(bJournal);
+          const aTitle2 = (a.title || a.name || '').toLowerCase();
+          const bTitle2 = (b.title || b.name || '').toLowerCase();
+          return aTitle2.localeCompare(bTitle2);
+          
+        case 'oldest':
+          // Oldest first (null years last)
+          const aYearOld = a.year || 0;
+          const bYearOld = b.year || 0;
+          if (aYearOld === 0 && bYearOld === 0) return 0;
+          if (aYearOld === 0) return 1;
+          if (bYearOld === 0) return -1;
+          return aYearOld - bYearOld;
+          
+        default:
+          return 0;
+      }
+    });
+  };
+  
+  const sortedOutcomes = dataSource === 'api' ? oItems : sortOutcomes(filteredOutcomes, outcomeSortBy);
+
+  const totalPagesResearchers = Math.max(1, Math.ceil(rTotal / PER_PAGE));
+  const totalPagesOutcomes  = Math.max(1, Math.ceil((dataSource === 'api' ? oTotal : sortedOutcomes.length) / PER_PAGE));
   const activeTotalPages = activeTab === 'researchers' ? totalPagesResearchers : totalPagesOutcomes;
 
   const HEADER_OFFSET = 300;
@@ -278,28 +371,23 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
     window.scrollTo({ top: y, behavior: 'smooth' });
   };
 
-  const startIndex = (currentPage - 1) * PER_PAGE;
-  const endIndex = startIndex + PER_PAGE;
-  const paginatedOutcomes = filteredOutcomes.slice(startIndex, endIndex);
-  const paginatedResearchers  = filteredResearchers.slice(startIndex, endIndex);
-
-
-  
+  const paginatedOutcomes = dataSource === 'api' ? oItems : sortedOutcomes.slice(startIndex, endIndex);
+  // rItems is already server-paginated for the requested page when dataSource==='api'
+  const paginatedResearchers  = rItems;
 
   return (
     <div className="flex-1 min-w-0">
-     
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
-     <TabsTrigger value="researchers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
-  <Users className="w-4 h-4" />
-  Researchers ({filteredResearchers.length})
-</TabsTrigger>
-<TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
-  <BookOpen className="w-4 h-4" />
-  Research Outcomes ({filteredOutcomes.length})
-</TabsTrigger>
+         <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-xl p-1">
+         <TabsTrigger value="researchers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
+      <Users className="w-4 h-4" />
+      Researchers ({dataSource === 'api' ? rTotal : filteredResearchers.length})
+    </TabsTrigger>
+    <TabsTrigger value="outcomes" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg">
+      <BookOpen className="w-4 h-4" />
+      Research Outcomes ({dataSource === 'api' ? oTotal : sortedOutcomes.length})
+    </TabsTrigger>
 
 
 
@@ -310,73 +398,10 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
           <h3 className="text-xl font-medium text-gray-500">
             Search Results
           </h3>
-          <div className="flex items-center gap-2">
- 
-
-{/* MOBILE: round icon-only button */}
-<div className="md:hidden">
-  <Select value={sortBy} onValueChange={setSortBy}>
-    <SelectTrigger
-      aria-label="Sort"
-      className="
-        h-10 w-10 p-0 rounded-full
-        flex items-center justify-center
-        border border-gray-300 bg-white
-        hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
-        transition
-        /* hide SelectValue text + default chevron only on this trigger */
-        [&>span]:sr-only                 /* the SelectValue span */
-        [&>svg:last-child]:hidden        /* Radix chevron is appended last */
-      "
-    >
-      <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
-
-      <SelectValue placeholder="Sort" />
-    </SelectTrigger>
-
-    <SelectContent className="border border-gray-200 shadow-md">
-      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
-        Default (Current Staff First)
-      </SelectItem>
-      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
-        Recent Publications
-      </SelectItem>
-      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
-        Position Rank
-      </SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-
-{/* DESKTOP: standard text dropdown */}
-<div className="hidden md:flex items-center gap-2">
-  <ArrowUpDown className="w-4 h-4 text-gray-600" />
-  <Select value={sortBy} onValueChange={setSortBy}>
-    <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
-      <SelectValue placeholder="Sort options..." />
-    </SelectTrigger>
-
-    <SelectContent className="border border-gray-200 shadow-md">
-      <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
-        Default (Current Staff First)
-      </SelectItem>
-      <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
-        Recent Publications
-      </SelectItem>
-      <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
-        Position Rank
-      </SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-
-
-</div>
-
         </div>
        <p className="text-gray-600">
   <p className="text-gray-600">
-  Found {filteredResearchers.length} researchers and {filteredOutcomes.length} research outcomes
+  Found {dataSource === 'api' ? rTotal : filteredResearchers.length} researchers and {dataSource === 'api' ? oTotal : sortedOutcomes.length} research outcomes
 </p>
 
 </p>
@@ -385,6 +410,64 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
         <div ref={resultsTopRef} />
 
         <TabsContent value="researchers" className="space-y-6">
+          {/* Researcher Sorting Dropdown */}
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {/* MOBILE: round icon-only button */}
+            <div className="md:hidden">
+              <Select value={researcherSortBy} onValueChange={setResearcherSortBy}>
+                <SelectTrigger
+                  aria-label="Sort Researchers"
+                  className="
+                    h-10 w-10 p-0 rounded-full
+                    flex items-center justify-center
+                    border border-gray-300 bg-white
+                    hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
+                    transition
+                    [&>span]:sr-only
+                    [&>svg:last-child]:hidden
+                  "
+                >
+                  <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Default (Current Staff First)
+                  </SelectItem>
+                  <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Recent Publications
+                  </SelectItem>
+                  <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Position Rank
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* DESKTOP: standard text dropdown */}
+            <div className="hidden md:flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-gray-600" />
+              <Select value={researcherSortBy} onValueChange={setResearcherSortBy}>
+                <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
+                  <SelectValue placeholder="Sort researchers..." />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="default" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Default (Current Staff First)
+                  </SelectItem>
+                  <SelectItem value="recent-publications" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Recent Publications
+                  </SelectItem>
+                  <SelectItem value="position-rank" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Position Rank
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {paginatedResearchers.map((researcher: any) => (
             <Card key={researcher.uuid || researcher.id} className="card-cohesive">
               <CardContent className="p-6">
@@ -412,7 +495,6 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 <Button
   size="sm"
   onClick={() => {
-    console.log('[ResultsSection] selecting', researcher);
     setSelectedResearcher(researcher);
     setProfileOpen(true);
   }}
@@ -436,9 +518,10 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
                     {researcher.bio && (
   <div className="mb-3">
-    <p className="text-gray-700 bioClamp3">
-      {researcher.bio}
-    </p>
+    <SafeHtmlRenderer 
+      content={researcher.bio}
+      className="text-gray-700 bioClamp3"
+    />
     <button
       className="mt-1 text-sm  text-gray-400 hover:underline"
       onClick={() => {
@@ -483,44 +566,47 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
 
 
 
-                    {(researcher.publicationsCount || researcher.grantsCount || researcher.collaboratorsCount) && (
-    <div className="grid grid-cols-3 gap-2 md:gap-4 text-[11px] md:text-sm text-gray-600 mb-3">
-  {typeof researcher.publicationsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.publicationsCount}</span>
-      <span>Publications</span>
-    </div>
-  )}
+                    <div className="grid grid-cols-3 gap-2 md:gap-4 text-[11px] md:text-sm text-gray-600 mb-3">
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.publicationsCount === 'number' ? researcher.publicationsCount : 0}</span>
+    <span>Publications</span>
+  </div>
 
-  {typeof researcher.grantsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <Award className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.grantsCount}</span>
-      <span>Grants</span>
-    </div>
-  )}
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <Award className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.grantsCount === 'number' ? researcher.grantsCount : 0}</span>
+    <span>Grants</span>
+  </div>
 
-  {typeof researcher.collaboratorsCount === 'number' && (
-    <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
-      <Users className="w-3 h-3 md:w-4 md:h-4" />
-      <span className="tabular-nums">{researcher.collaboratorsCount}</span>
-      <span>Collaborations</span>
-    </div>
-  )}
+  <div className="flex items-center gap-[3px] md:gap-1.5 whitespace-nowrap">
+    <Users className="w-3 h-3 md:w-4 md:h-4" />
+    <span className="tabular-nums">{typeof researcher.collaboratorsCount === 'number' ? researcher.collaboratorsCount : 0}</span>
+    <span>Collaborations</span>
+  </div>
 </div>
 
-)}
 
-
-                    {Array.isArray(researcher.recentPublications) && (
+                    {Array.isArray(researcher.recentPublications) && researcher.recentPublications.length > 0 && (
                       <div className="border-t pt-3">
                         <h5 className="font-medium text-gray-800 mb-2">Recent Publications</h5>
-                        {researcher.recentPublications.map((pub: any, idx: number) => (
+                        {researcher.recentPublications.slice(0, 2).map((pub: any, idx: number) => (
                           <div key={idx} className="text-sm text-gray-600 mb-1">
                             <span className="font-medium">{pub.title}</span> {pub.year && `(${pub.year})`} {pub.journal && `- ${pub.journal}`}
                           </div>
                         ))}
+                        {researcher.recentPublications.length > 2 && (
+                          <button
+                            className="mt-1 text-sm text-gray-500 hover:underline"
+                            onClick={() => {
+                              // open profile modal to show full publication list
+                              setSelectedResearcher(researcher);
+                              setProfileOpen(true);
+                            }}
+                          >
+                            and {researcher.recentPublications.length - 2} more
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -531,6 +617,76 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
         </TabsContent>
 
         <TabsContent value="outcomes" className="space-y-6">
+          {/* Research Outcomes Sorting Dropdown */}
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {/* MOBILE: round icon-only button */}
+            <div className="md:hidden">
+              <Select value={outcomeSortBy} onValueChange={setOutcomeSortBy}>
+                <SelectTrigger
+                  aria-label="Sort Research Outcomes"
+                  className="
+                    h-10 w-10 p-0 rounded-full
+                    flex items-center justify-center
+                    border border-gray-300 bg-white
+                    hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300
+                    transition
+                    [&>span]:sr-only
+                    [&>svg:last-child]:hidden
+                  "
+                >
+                  <ArrowUpDown className="w-4 h-4 text-gray-700" strokeWidth={2.5} />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="recent" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Recent
+                  </SelectItem>
+                  <SelectItem value="cited" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Cited
+                  </SelectItem>
+                  <SelectItem value="alphabetical" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Alphabetical
+                  </SelectItem>
+                  <SelectItem value="journal" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Journal Name
+                  </SelectItem>
+                  <SelectItem value="oldest" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Oldest First
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* DESKTOP: standard text dropdown */}
+            <div className="hidden md:flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-gray-600" />
+              <Select value={outcomeSortBy} onValueChange={setOutcomeSortBy}>
+                <SelectTrigger className="w-56 border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-1 focus:ring-gray-300 rounded-md text-sm bg-white transition">
+                  <SelectValue placeholder="Sort research outcomes..." />
+                </SelectTrigger>
+
+                <SelectContent className="border border-gray-200 shadow-md">
+                  <SelectItem value="recent" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Recent
+                  </SelectItem>
+                  <SelectItem value="cited" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Most Cited
+                  </SelectItem>
+                  <SelectItem value="alphabetical" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Alphabetical
+                  </SelectItem>
+                  <SelectItem value="journal" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Journal Name
+                  </SelectItem>
+                  <SelectItem value="oldest" className="hover:bg-gray-50 focus:bg-gray-50">
+                    Oldest First
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {paginatedOutcomes.map((outcome: any) => (
             <Card key={outcome.uuid || outcome.id} className="card-cohesive">
               <CardContent className="p-6">
@@ -546,9 +702,9 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
                       {outcome.citations && <span>{outcome.citations} citations</span>}
                     </div>
                   </div>
-                  {outcome.url && (
+                  {outcome.link_to_paper && (
                     <a
-  href={outcome.url}
+  href={outcome.link_to_paper}
   target="_blank"
   rel="noreferrer"
   className="
@@ -570,7 +726,10 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
                 </div>
 
                 {outcome.abstract && (
-                  <p className="text-gray-700 mb-3">{outcome.abstract}</p>
+                  <SafeHtmlRenderer 
+                    content={outcome.abstract}
+                    className="text-gray-700 mb-3"
+                  />
                 )}
 
                 {Array.isArray(outcome.authors) && (
@@ -590,7 +749,10 @@ const filteredResearchers = [...sortedPromoted, ...sortedNonPromoted];
                 {outcome.grantFunding && (
                   <div className="mb-3">
                     <span className="text-sm font-medium text-gray-700">Funding: </span>
-                    <span className="text-sm text-gray-600">{outcome.grantFunding}</span>
+                    <SafeHtmlRenderer 
+                      content={outcome.grantFunding}
+                      className="text-sm text-gray-600"
+                    />
                   </div>
                 )}
 
