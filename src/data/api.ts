@@ -162,7 +162,7 @@ async function safeJson<T = any>(res: Response): Promise<T | null> {
 async function apiResearchers(): Promise<any[]> {
   const res = await fetch(API_PREFIX + '/api/researchers');
   const j: any = await safeJson(res);
-  const arr = toArr(j?.researchers);
+  const arr = toArr(j?.items);
   
   // Normalize fields to ensure consistency across different API versions
   return arr.map((r: any) => ({
@@ -181,7 +181,7 @@ async function apiResearchers(): Promise<any[]> {
 async function apiOutcomes(): Promise<any[]> {
   const res = await fetch(API_PREFIX + '/api/researchOutcomes');
   const j: any = await safeJson(res);
-  const arr = toArr(j?.outcomes);
+  const arr = toArr(j?.items);
   
   // Normalize fields across different API response formats
   return arr.map((o: any) => ({
